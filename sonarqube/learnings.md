@@ -59,3 +59,28 @@ Append new, genuinely-useful items; don't duplicate.
 - **Waiting on a long build is what inflates cost**: every wakeup/poll turn re-reads the full cached
   context. Prefer fewer, longer wakeups (or one Monitor) over frequent polling while a 5–10 min
   build runs.
+- **MISTAKE made 2026-06: armed a build Monitor but then kept manually `Read`-ing `build.log`
+  anyway.** Each manual Read is a full turn that re-reads the whole cached context (~50K+ each), and
+  these dominated the run: fix-phase total was ~1,059K tokens, almost entirely cache-read from
+  ~10 needless log peeks during a ~4-min build (find phase, by contrast, was only ~263K). Rule:
+  **once a Monitor is armed for the build, STOP — output a one-line status and end the turn; do not
+  Read the log, do not re-grep it.** The Monitor event (and the background-task completion
+  notification) will wake you. Polling it yourself is the single biggest avoidable cost.
+- The stop-hook ("uncommitted changes") will fire while you're correctly waiting on the build. That
+  is expected — do NOT commit before the build verifies. Just check the build result and proceed.
+
+## Per-rule fix datapoints
+
+- `java:S5361` again, smooth: `textContent.replaceAll(" ", "&nbsp;")` → `.replace(" ", "&nbsp;")`
+  (office-importer, 2026-06). When converting, check BOTH args: first arg must have no regex
+  metacharacters AND the replacement arg must have no `$`/`\` (regex-replacement specials). Both
+  plain here → trivially safe.
+- For a mechanical rule like S5361 you can skip the `Explore` subagent: reading ~15 lines of ONE
+  candidate inline kept the find phase cheap (~263K). The subagent matters when you must reject
+  several candidates; for a one-snippet pick, inline `Read` with offset/limit is fine.
+
+## Fast small-module build targets (prefer over legacy-oldcore's ~6.5 min)
+
+- `xwiki-platform-office-importer` builds (clean install, skipTests, checkstyle+Spoon) in ~4 min.
+  When the chosen issue's component path lets you pick the module, favor a small leaf module over
+  oldcore/legacy-oldcore to shorten the build-wait (which is the cost bottleneck — see above).
