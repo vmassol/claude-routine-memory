@@ -33,6 +33,16 @@ Merge & trim — keep this compact; don't just append.
   pattern, no `$`/`\` in the replacement) over the line range, then `s/.replaceAll(/.replace(/` on
   just those lines. Leaving the rest of the file's issues unfixed is fine — the PR count is what was
   asked for.
+- **Whole-file mode ("fix ALL S5361 in this file"):** don't trust Sonar's per-issue line numbers —
+  they come from the last scanned revision and drift from your working copy. Instead operate on the
+  file directly: regex every `.replaceAll("PAT","REP")`, and for each decide by PAT, not by line:
+  (a) `\uXXXX` or a plain literal (no `\`, no metachar) → keep PAT, just rename to `.replace`;
+  (b) escaped single metachar like `"\\*"`/`"\\["` → rename AND rewrite PAT to its literal (`"*"`/`"["`);
+  (c) anything with real regex semantics → SKIP. The count of OPEN S5361 in the file should equal the
+  number you converted (e.g. 245 converted == 245 open) — a clean cross-check.
+- **A backreference pattern like `replaceAll("\\1", …)` is NOT S5361** (it's genuine regex; Sonar
+  won't flag it) — leave it. Bonus: `\1` with no capture group throws at runtime, so flag it as a
+  latent bug rather than "fixing" it mechanically.
 - For mechanical S5361, inline `Read` (offset/limit) of ONE candidate region is cheaper than an
   Explore subagent. Use the subagent only when you must read & reject several candidates.
 
