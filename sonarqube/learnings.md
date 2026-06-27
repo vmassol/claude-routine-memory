@@ -22,10 +22,18 @@ Merge & trim — keep this compact; don't just append.
   java:S2093 ~18 (try-with-resources — OK).
 - Component key = `projectKey:path`; strip the prefix and read locally at
   `/home/user/xwiki-platform/<path>`. Never fetch file contents over a remote API.
-- **Prefer a file with a SINGLE issue of the rule.** If a file has the same rule on adjacent lines
-  (e.g. AbstractQueryFilter L109+L110), the "one PR per issue" rule makes a half-fix look sloppy and
-  the accept-step ambiguous — pick a single-issue file instead.
-- For mechanical S5361, inline `Read` (offset/limit, ~15 lines) of ONE candidate is cheaper than an
+- **One-PR-per-issue mode:** prefer a file with a SINGLE issue of the rule — a half-fix of an
+  adjacent-lines file (e.g. AbstractQueryFilter L109+L110) looks sloppy and makes the accept-step
+  ambiguous.
+- **Batch mode (when told to fix N at once, e.g. "fix 50 S5361 in one PR"):** the opposite — find
+  the file with the MOST issues of the rule and fix a contiguous run of N lines in it. S5361 clusters
+  hard: a 200-issue pull spanned only 16 files, with `Util.noaccents()` alone holding 183 nearly
+  identical `replaceAll("\uXXXX","X")` lines. Fixing 50 contiguous lines there = one module build +
+  one trivial scripted edit. Verify safety in bulk with a tiny Python check (no regex metachar in the
+  pattern, no `$`/`\` in the replacement) over the line range, then `s/.replaceAll(/.replace(/` on
+  just those lines. Leaving the rest of the file's issues unfixed is fine — the PR count is what was
+  asked for.
+- For mechanical S5361, inline `Read` (offset/limit) of ONE candidate region is cheaper than an
   Explore subagent. Use the subagent only when you must read & reject several candidates.
 
 ## GitHub: `gh` is NOT available — use the GitHub MCP tools
@@ -47,6 +55,10 @@ Merge & trim — keep this compact; don't just append.
 - Run the build in the background (full output to a file, NO `| tail` — tail buffers and breaks
   incremental grep/Monitor). The background-task **completion notification wakes you** with the exit
   code.
+- **Do NOT double-background.** Pass the bare `mvn …` command to the run-in-background tool — do NOT
+  also wrap it in `nohup … &`. Doing both makes the tracked task capture only the launcher (returns
+  exit 0 instantly) while the real build runs detached and unwatched; you then mistake "launcher done"
+  for "build done". One layer of backgrounding only.
 
 ## Cost control (waiting on the build dominates the bill)
 
@@ -72,4 +84,13 @@ Merge & trim — keep this compact; don't just append.
 - Push with `git push -u origin <branch>`. Include the SonarCloud issue link in the PR body.
 - After the PR: comment + accept the issue —
   `add_comment` then `do_transition` with `transition=accept` → status RESOLVED, resolution WONTFIX.
+- **Bulk-accepting many issues:** each curl is ~1.2s, so 50 issues × (comment+transition) blows the
+  2-min foreground Bash timeout. Run the accept loop as a **background** task (it wakes you on
+  completion). After it returns, confirm with one `issues/search?issues=<comma-keys>` and check all
+  are RESOLVED.
+- **Token-cost report (when asked):** dedupe transcript by `message.id`, bucket by two boundary
+  timestamps — the fix Edit and the `create_pull_request` call — summing input/output/cache_read/
+  cache_write per phase. Phase 3 ("post") is necessarily a mid-phase snapshot since you're still in it.
+- Creating the PR auto-subscribes the session to PR webhook activity; XWiki CI is Jenkins and reports
+  later, so `get_status` is `pending`/`total_count:0` right after creation — not a failure.
 - Security issues: keep the PR/commit description cryptic (public logs).
