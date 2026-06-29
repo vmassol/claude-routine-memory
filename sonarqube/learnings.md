@@ -7,23 +7,25 @@ Merge & trim — keep this compact; don't just append.
 
 - Get the rule distribution cheaply first (no issue bodies), restricting to the mechanical allowlist:
   `.../api/issues/search?...&issueStatuses=OPEN&severities=BLOCKER,CRITICAL&rules=java:S5361,java:S1481,java:S1854,java:S2093,java:S2147&facets=rules&ps=1`
-- **`java:S5361` (replaceAll → replace) is the best mechanical target.** Convert
-  `.replaceAll(pat, rep)` → `.replace(lit, rep)` when the pattern denotes a plain literal and the
-  replacement has no regex-replacement specials:
-  - First arg must reduce to a literal: either no regex metachars (`. * + ? [ ] ( ) { } | \ ^ $`),
-    OR an escaped metachar that is just one literal char — `"\\+"`→`"+"`, `"\\/"`→`"/"`,
-    `"\\."`→`"."`. Rewrite the pattern to its literal meaning when you change the method name.
-  - Replacement arg must have no `$` or `\` (special only in `replaceAll`'s replacement). A `.` in
-    the replacement is fine. `String.replace(CharSequence,CharSequence)` also replaces ALL → identical.
-  - Char classes (`[Æ...]`), `\s+`, backreferences, `;jsessionid=.*?...` are genuine regex —
-    Sonar does NOT flag them; leave them. A file can have both flagged literals and unflagged regex
-    on different lines (e.g. `XWiki.java`: only the literal `"-"` flagged, the `noaccents` char-class
-    table untouched). Fix exactly the reported lines, not every `replaceAll` in the file.
-- **Counts shift fast as prior PRs land.** 2026-06: S5361 down to ~19 open BLOCKER/CRITICAL (was
-  ~315 earlier in the month). Always re-query, never trust a stale count. Other 2026-06 BLOCKER/CRIT:
+- **`java:S2093` (try-with-resources) is the current prime clean target.** S5361/S1481/S1854/S2147
+  are now EXHAUSTED (0 open BLOCKER/CRIT as of 2026-06-29). For S2093, convert a manual
+  `Resource r = new ...(); try { ... } [catch ...] finally { r.close()/IOUtils.closeQuietly(r) }`
+  into `try (Resource r = new ...()) { ... } [catch ...]` — drop the finally. **Only pick the clean
+  shape:** the resource is declared on the line(s) immediately before `try`, used only inside, and
+  the finally does nothing but close it. SKIP (messier, find another) when: the finally also does
+  non-resource cleanup (e.g. `removeAttribute`); the resource is created mid-body (e.g. a
+  `StringWriter` deep in the try); or the variable is used after the block. Behavior is preserved;
+  the only nuance is a close-time exception now propagates instead of being swallowed by
+  `closeQuietly` — acceptable and exactly what Sonar wants.
+- **`java:S5361` (replaceAll → replace)** — kept for reference / the batch override. Convert when the
+  first arg reduces to a literal (no regex metachars `. * + ? [ ] ( ) { } | \ ^ $`, OR an escaped
+  metachar that is one literal char: `"\\+"`→`"+"`, `"\\."`→`"."`) AND the replacement has no `$`/`\`
+  (specials only in `replaceAll`'s replacement). Char classes, `\s+`, backrefs, `;jsessionid=.*?` are
+  genuine regex — Sonar does NOT flag them; fix only the reported lines, not every `replaceAll`.
+- **Counts shift fast as prior PRs land — always re-query.** 2026-06-29 open BLOCKER/CRIT:
   javascript:S3504 ~1800, java:S3776 ~229 (avoid: complexity), java:S3252 ~135 (avoid: API),
   java:S1192 ~129 (constant — usually OK), java:S1186 ~107 (avoid: empty methods),
-  java:S2093 ~18 (try-with-resources — OK).
+  java:S2093 ~18 (try-with-resources — OK), java:S1948 ~46, java:S115 ~19 (naming — risky).
 - Component key = `projectKey:path`; strip prefix, read locally at `/home/user/xwiki-platform/<path>`.
   Never fetch file contents over a remote API.
 - **One-PR-per-issue mode:** prefer a file with a SINGLE issue of the rule (clean accept-step).
@@ -65,6 +67,10 @@ Merge & trim — keep this compact; don't just append.
 - Run the build in the **background**, full output to a file (NO `| tail` — it breaks incremental
   grep). The completion notification wakes you with the exit code. **One layer of backgrounding only**
   — pass the bare `mvn …` to the run-in-background tool; do NOT also wrap in `nohup … &`.
+- **Don't add your own `> build.log` redirect to a backgrounded mvn.** The run-in-background tool
+  already captures stdout to its own `tasks/<id>.output` file; a `>` redirect leaves that file nearly
+  empty, so grepping it for `BUILD SUCCESS` finds nothing and looks like a failure. Either grep the
+  file you redirected to, or (simpler) drop the redirect and grep the tool's `.output` file.
 
 ## Cost control (the build wait dominates the bill)
 
