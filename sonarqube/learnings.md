@@ -7,19 +7,30 @@ Merge & trim — keep this compact; don't just append.
 
 - Get the rule distribution cheaply first (no issue bodies), restricting to the mechanical allowlist:
   `.../api/issues/search?...&issueStatuses=OPEN&severities=BLOCKER,CRITICAL&rules=java:S5361,java:S1481,java:S1854,java:S2093,java:S2147&facets=rules&ps=1`
-- **`java:S2093` (try-with-resources) is the current prime clean target** (~16 open BLOCKER/CRIT as
-  of 2026-06-30; ~17 the day before — drains slowly). S5361/S1481/S1854/S2147 are EXHAUSTED. For
-  S2093, convert a manual
-  `Resource r = new ...(); try { ... } [catch ...] finally { r.close()/IOUtils.closeQuietly(r) }`
-  into `try (Resource r = new ...()) { ... } [catch ...]` — drop the finally. **Only pick the clean
-  shape:** the resource is declared on the line(s) immediately before `try`, used only inside, and
-  the finally does nothing but close it. SKIP (messier, find another) when: the finally also does
-  non-resource cleanup (e.g. `removeAttribute`); the resource is created mid-body (e.g. a
-  `StringWriter` deep in the try); or the variable is used after the block. Behavior is preserved;
-  the only nuance is a close-time exception now propagates instead of being swallowed by
-  `closeQuietly` — acceptable and exactly what Sonar wants. Done so far: `XarPackage.read(InputStream)`
-  (2026-06-30). Many S2093 files hold ONE issue (good for one-PR-per-issue) — prefer a single-issue
-  file in a SMALL LEAF module (e.g. xar-model builds in <1 min) over a clean shape buried in oldcore.
+- **`java:S2093` (try-with-resources) is the current prime target** (all CRITICAL, ~11 open as of
+  2026-06-30 after this run's batch of 5; drains slowly). S5361/S1481/S1854/S2147 are EXHAUSTED.
+  Convert `Resource r = new ...(); try { ... } [catch] finally { r.close()/IOUtils.closeQuietly(r) }`
+  → `try (Resource r = new ...()) { ... } [catch] }` — drop the finally.
+- **CRITICAL caveat: ~half the S2093 hits are NOT real resource closes.** Sonar fires on any
+  try/finally it *thinks* could be try-with-resources, including push/pop and state-restoration
+  patterns that are NOT `AutoCloseable` and CANNOT be cleanly converted. SKIP these: `boolean pushed`
+  + `renderingContext.pop()`; `scriptContext.removeAttribute/setWriter`; `xcontext.setWikiReference`;
+  semaphore acquire/release; a `DataInputStream` wrapper whose finally does `stream.reset()` (closing
+  it would close the caller's stream); a resource created mid-body (StringWriter/ZipOutputStream)
+  whose finally doesn't close it. Verify the finally actually CLOSES an AutoCloseable declared just
+  before `try`. In one 16-issue pull only ~5 were convertible.
+- **Compile-safety check before converting:** the implicit `close()` throws `IOException`. If the
+  surrounding catch only catches a *narrower* type (e.g. `FileNotFoundException`) and the method does
+  NOT declare `throws IOException`, the converted code won't compile. Either the method already
+  declares/catches `IOException` (fine), or add a `catch (IOException)` that wraps it sensibly (did
+  this for `XWikiConfig(String)` — wrapped as config FORMATERROR). Check throws clause + catch types.
+- **Removing `IOUtils.closeQuietly` may orphan the `IOUtils` import** → checkstyle failure. `grep -n
+  IOUtils <file>` first; if it was the only use, delete the import line too.
+- Done: `XarPackage.read` (2026-06-30); batch of 5 on 2026-06-30 — `Packager`, `XWikiExecutor`,
+  `Importer`, `XWikiConfig`, `ZipExplorerPlugin`. S2093 issues are each in a DIFFERENT module (no
+  single-module cluster), so a 5-fix PR needs a multi-module reactor build (~8-9 min: oldcore ~5 min
+  cold + packager-plugin ~2.5 min + 3 leaf modules <20s each). Feed the triage subagent ALL candidate
+  file:line pairs in ONE message (forgot 7 the first time and had to do a 2nd round).
 - **`java:S5361` (replaceAll → replace)** — kept for reference / the batch override. Convert when the
   first arg reduces to a literal (no regex metachars `. * + ? [ ] ( ) { } | \ ^ $`, OR an escaped
   metachar that is one literal char: `"\\+"`→`"+"`, `"\\."`→`"."`) AND the replacement has no `$`/`\`
