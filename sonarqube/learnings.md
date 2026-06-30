@@ -7,8 +7,9 @@ Merge & trim — keep this compact; don't just append.
 
 - Get the rule distribution cheaply first (no issue bodies), restricting to the mechanical allowlist:
   `.../api/issues/search?...&issueStatuses=OPEN&severities=BLOCKER,CRITICAL&rules=java:S5361,java:S1481,java:S1854,java:S2093,java:S2147&facets=rules&ps=1`
-- **`java:S2093` (try-with-resources) is the current prime clean target.** S5361/S1481/S1854/S2147
-  are now EXHAUSTED (0 open BLOCKER/CRIT as of 2026-06-29). For S2093, convert a manual
+- **`java:S2093` (try-with-resources) is the current prime clean target** (~16 open BLOCKER/CRIT as
+  of 2026-06-30; ~17 the day before — drains slowly). S5361/S1481/S1854/S2147 are EXHAUSTED. For
+  S2093, convert a manual
   `Resource r = new ...(); try { ... } [catch ...] finally { r.close()/IOUtils.closeQuietly(r) }`
   into `try (Resource r = new ...()) { ... } [catch ...]` — drop the finally. **Only pick the clean
   shape:** the resource is declared on the line(s) immediately before `try`, used only inside, and
@@ -16,7 +17,9 @@ Merge & trim — keep this compact; don't just append.
   non-resource cleanup (e.g. `removeAttribute`); the resource is created mid-body (e.g. a
   `StringWriter` deep in the try); or the variable is used after the block. Behavior is preserved;
   the only nuance is a close-time exception now propagates instead of being swallowed by
-  `closeQuietly` — acceptable and exactly what Sonar wants.
+  `closeQuietly` — acceptable and exactly what Sonar wants. Done so far: `XarPackage.read(InputStream)`
+  (2026-06-30). Many S2093 files hold ONE issue (good for one-PR-per-issue) — prefer a single-issue
+  file in a SMALL LEAF module (e.g. xar-model builds in <1 min) over a clean shape buried in oldcore.
 - **`java:S5361` (replaceAll → replace)** — kept for reference / the batch override. Convert when the
   first arg reduces to a literal (no regex metachars `. * + ? [ ] ( ) { } | \ ^ $`, OR an escaped
   metachar that is one literal char: `"\\+"`→`"+"`, `"\\."`→`"."`) AND the replacement has no `$`/`\`
@@ -102,6 +105,11 @@ Merge & trim — keep this compact; don't just append.
   (This routine's override email differs from the git userEmail context — use the override.)
 - Push with `git push -u origin <branch>`. Include the SonarCloud issue link(s) in the PR body.
 - Security issues: keep PR/commit description cryptic (public logs).
+- **Recording learnings (memory repo, pushed to `main`):** the routine's xwiki-platform fix lives on
+  a feature branch but learnings go to `main`. Do NOT edit learnings.md on the feature branch then
+  `git stash`/`checkout main`/`stash pop` — main has diverged, the pop conflicts, and a careless
+  `add`+`commit` will bake `<<<<<<<` markers into the commit. Instead: `git checkout main &&
+  git pull origin main` FIRST, then edit learnings.md directly on the freshly-pulled main and commit.
 
 ## Token-cost report (when asked)
 
