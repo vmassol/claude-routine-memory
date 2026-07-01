@@ -7,10 +7,24 @@ Merge & trim — keep this compact; don't just append.
 
 - Get the rule distribution cheaply first (no issue bodies), restricting to the mechanical allowlist:
   `.../api/issues/search?...&issueStatuses=OPEN&severities=BLOCKER,CRITICAL&rules=java:S5361,java:S1481,java:S1854,java:S2093,java:S2147&facets=rules&ps=1`
-- **`java:S2093` (try-with-resources) is the current prime target** (all CRITICAL, ~11 open as of
-  2026-06-30 after this run's batch of 5; drains slowly). S5361/S1481/S1854/S2147 are EXHAUSTED.
-  Convert `Resource r = new ...(); try { ... } [catch] finally { r.close()/IOUtils.closeQuietly(r) }`
-  → `try (Resource r = new ...()) { ... } [catch] }` — drop the finally.
+- **`java:S2093` (try-with-resources) clean fixes are now EXHAUSTED (2026-07-01).** All the genuinely
+  convertible ones were fixed in prior runs; the 11 still-open (all CRITICAL) are the residue and are
+  ALL non-convertible (verified 0/11: `pop()`, `setWikiReference()`, cache `put()`,
+  `removeAttribute()`, semaphore release, `stream.reset()`, resource created mid-body). S5361/S1481/
+  S1854/S2147 are also EXHAUSTED (0). **So don't force S2093** — Vincent's "fix 5 S2093" override is
+  conditional on convertible ones existing; when none do, pivot to another rule and fix ONE (skill:
+  "if a fix is hard, drop it and pick another"). Re-check S2093 counts each run in case new ones land.
+  Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
+  finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
+- **Good fallback single-fix rules when the allowlist is drained** (2026-07-01 open BLOCKER/CRIT):
+  `java:S2119` (~1, "reuse this Random") — CLEAN: extract `new Random()/new SecureRandom()` to a
+  `private static final` field; SecureRandom is thread-safe so a shared static instance is safe (did
+  `PasswordClass.randomSalt`). AVOID: `java:S2447` (~10, null from Boolean method) — in XWiki *script
+  services* returning null is a deliberate "check getLastError()" pattern; changing to false alters
+  behavior — skip script services. `java:S1214` (~8, constants-in-interface) = cross-module refactor,
+  skip. `java:S1113` (~2, override finalize) = needs Cleaner/PhantomRef refactor, skip. `java:S5845`
+  (~2, assert dissimilar types) in tests can be subtle — runtime type may differ from the declared
+  generic (erasure), so the assertion is actually correct; verify before "fixing".
 - **CRITICAL caveat: ~half the S2093 hits are NOT real resource closes.** Sonar fires on any
   try/finally it *thinks* could be try-with-resources, including push/pop and state-restoration
   patterns that are NOT `AutoCloseable` and CANNOT be cleanly converted. SKIP these: `boolean pushed`
@@ -26,8 +40,9 @@ Merge & trim — keep this compact; don't just append.
   this for `XWikiConfig(String)` — wrapped as config FORMATERROR). Check throws clause + catch types.
 - **Removing `IOUtils.closeQuietly` may orphan the `IOUtils` import** → checkstyle failure. `grep -n
   IOUtils <file>` first; if it was the only use, delete the import line too.
-- Done: `XarPackage.read` (2026-06-30); batch of 5 on 2026-06-30 — `Packager`, `XWikiExecutor`,
-  `Importer`, `XWikiConfig`, `ZipExplorerPlugin`. S2093 issues are each in a DIFFERENT module (no
+- Done: `XarPackage.read` (2026-06-30); batch of 5 S2093 on 2026-06-30 — `Packager`, `XWikiExecutor`,
+  `Importer`, `XWikiConfig`, `ZipExplorerPlugin`; `PasswordClass` S2119 (2026-07-01, oldcore, PR
+  #5706). S2093 issues are each in a DIFFERENT module (no
   single-module cluster), so a 5-fix PR needs a multi-module reactor build (~8-9 min: oldcore ~5 min
   cold + packager-plugin ~2.5 min + 3 leaf modules <20s each). Feed the triage subagent ALL candidate
   file:line pairs in ONE message (forgot 7 the first time and had to do a 2nd round).
