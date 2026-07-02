@@ -16,15 +16,31 @@ Merge & trim — keep this compact; don't just append.
   "if a fix is hard, drop it and pick another"). Re-check S2093 counts each run in case new ones land.
   Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
   finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
-- **Good fallback single-fix rules when the allowlist is drained** (2026-07-01 open BLOCKER/CRIT):
+- **Good fallback single-fix rules when the allowlist is drained** (checked 2026-07-01/02):
   `java:S2119` (~1, "reuse this Random") — CLEAN: extract `new Random()/new SecureRandom()` to a
   `private static final` field; SecureRandom is thread-safe so a shared static instance is safe (did
-  `PasswordClass.randomSalt`). AVOID: `java:S2447` (~10, null from Boolean method) — in XWiki *script
-  services* returning null is a deliberate "check getLastError()" pattern; changing to false alters
-  behavior — skip script services. `java:S1214` (~8, constants-in-interface) = cross-module refactor,
-  skip. `java:S1113` (~2, override finalize) = needs Cleaner/PhantomRef refactor, skip. `java:S5845`
-  (~2, assert dissimilar types) in tests can be subtle — runtime type may differ from the declared
-  generic (erasure), so the assertion is actually correct; verify before "fixing".
+  `PasswordClass.randomSalt`). `java:S1143`+`java:S1163` (a `finally` block throws, masking/replacing
+  whatever the `try` already threw) — CLEAN: they always fire in PAIRS on the SAME line (same defect,
+  two rules); fix once, link+accept both issue keys in the same PR. Fix pattern: replace the
+  `throw new XyzException(...)` in the `finally`'s inner catch with `LOGGER.warn("Failed to close
+  ...: {}", ExceptionUtils.getRootCauseMessage(e))` — this exact pattern already exists elsewhere in
+  oldcore (`XWikiAttachment#getContentInputStream`), so grep for a sibling example before inventing
+  one. Needs a `LOGGER` field (usually already present) and the `commons-lang3`
+  `org.apache.commons.lang3.exception.ExceptionUtils` import (add it if missing). AVOID:
+  `java:S2447` (~10, null from Boolean method) — in XWiki *script services* returning null is a
+  deliberate "check getLastError()" pattern; changing to false alters behavior — skip script
+  services. `java:S1214` (~8, constants-in-interface) = cross-module refactor, skip. `java:S1113`
+  (~2, override finalize) = needs Cleaner/PhantomRef refactor, skip. `java:S5845` (~2, assert
+  dissimilar types) in tests can be subtle — runtime type may differ from the declared generic
+  (erasure), so the assertion is actually correct; verify before "fixing". `java:S1215` ("remove
+  this System.gc() call") — check the enclosing method isn't a deliberately-exposed public API (e.g.
+  `XWiki#gc()` is called from Velocity as `$xwiki.gc()`); removing the actual call there breaks the
+  API contract even though Sonar flags the call itself — skip these. `java:S2696` (static field
+  written from an instance method) — often a lazy-init/memoization pattern (e.g. a
+  `private static Map` populated on first call); a correct fix needs synchronization or a static
+  initializer, not a one-liner — skip unless you're willing to do that refactor. `java:S2157`
+  (class should implement `Cloneable`/add `clone()`) — non-trivial to do correctly, skip for
+  quick fixes.
 - **CRITICAL caveat: ~half the S2093 hits are NOT real resource closes.** Sonar fires on any
   try/finally it *thinks* could be try-with-resources, including push/pop and state-restoration
   patterns that are NOT `AutoCloseable` and CANNOT be cleanly converted. SKIP these: `boolean pushed`
@@ -42,7 +58,9 @@ Merge & trim — keep this compact; don't just append.
   IOUtils <file>` first; if it was the only use, delete the import line too.
 - Done: `XarPackage.read` (2026-06-30); batch of 5 S2093 on 2026-06-30 — `Packager`, `XWikiExecutor`,
   `Importer`, `XWikiConfig`, `ZipExplorerPlugin`; `PasswordClass` S2119 (2026-07-01, oldcore, PR
-  #5706). S2093 issues are each in a DIFFERENT module (no
+  #5706); `XarPackage#write` S1143+S1163 (2026-07-02, xar-model, PR #5713). S2093 still 11/11
+  non-convertible as of 2026-07-02 (unchanged) — re-verify count each run but don't re-triage the
+  same 11. S2093 issues are each in a DIFFERENT module (no
   single-module cluster), so a 5-fix PR needs a multi-module reactor build (~8-9 min: oldcore ~5 min
   cold + packager-plugin ~2.5 min + 3 leaf modules <20s each). Feed the triage subagent ALL candidate
   file:line pairs in ONE message (forgot 7 the first time and had to do a 2nd round).
@@ -140,11 +158,15 @@ Merge & trim — keep this compact; don't just append.
 ## Token-cost report (when asked)
 
 - Parse the transcript jsonl at `/root/.claude/projects/<id>.jsonl`. Dedupe assistant turns by
-  `message.id`; sum input/output/cache_read/cache_write per phase.
+  `message.id` — but **keep the LAST record per id, not the first**: streamed assistant messages are
+  logged multiple times under the same `message.id` as content accumulates, and the tool_use block
+  (e.g. the PR-creation call) often only appears in a later partial, not the first one. Deduping to
+  the first-seen record silently drops it and boundary detection finds nothing. Sort the deduped
+  entries by timestamp before scanning for boundaries.
 - **Find phase boundaries by tool_use NAME, not string-match on content.** Matching the literal
   string `"create_pull_request"` in message content gives a FALSE early boundary (the name appears in
   early schema-loading text). Iterate `content[]` blocks, take `type=="tool_use"` and match
-  `b["name"]=="mcp__github__create_pull_request"` (post boundary) and the Write/Bash of the fix
+  `b["name"]=="mcp__github__create_pull_request"` (post boundary) and the Edit of the target file
   (find→fix boundary). Verify boundary timestamps are monotonic before trusting them.
 - Buckets: (1) find = up to the first fix edit; (2) fix = edit + build + commit + push; (3) post = PR
   + label + accept + report (necessarily a mid-phase snapshot). Cache-read dwarfs everything;
