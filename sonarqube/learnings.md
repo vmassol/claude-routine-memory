@@ -24,7 +24,10 @@ Merge & trim — keep this compact; don't just append.
   two rules); fix once, link+accept both issue keys in the same PR. **This rule recurs — a fresh
   pair keeps appearing after prior ones are fixed, so it's a reliable fallback.** Fix pattern: replace
   the `throw new XyzException(...)` in the `finally`'s inner catch with `logger.warn("Failed to close
-  ...: {}", ExceptionUtils.getRootCauseMessage(e))`. Grep the SAME module for a sibling that already
+  ...: [{}]", ExceptionUtils.getRootCauseMessage(e))`. **XWiki logging convention: wrap EVERY
+  parameter placeholder in square brackets `[{}]`, never a bare `{}`** (so value boundaries / empty
+  values show in the log). Don't blindly copy a sibling's exact string — some existing lines omit the
+  brackets on a trailing message; follow the `[{}]` convention regardless. Grep the SAME module for a sibling that already
   does this before inventing one (`XWikiAttachment#getContentInputStream` in oldcore;
   `WikiReader`/`AbstractReader` in xar filter-stream). Needs a logger field: if none exists and the
   class is an XWiki `@Component`, add `@Inject private Logger logger;` (org.slf4j.Logger) — NOT a
