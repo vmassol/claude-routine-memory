@@ -21,12 +21,16 @@ Merge & trim — keep this compact; don't just append.
   `private static final` field; SecureRandom is thread-safe so a shared static instance is safe (did
   `PasswordClass.randomSalt`). `java:S1143`+`java:S1163` (a `finally` block throws, masking/replacing
   whatever the `try` already threw) — CLEAN: they always fire in PAIRS on the SAME line (same defect,
-  two rules); fix once, link+accept both issue keys in the same PR. Fix pattern: replace the
-  `throw new XyzException(...)` in the `finally`'s inner catch with `LOGGER.warn("Failed to close
-  ...: {}", ExceptionUtils.getRootCauseMessage(e))` — this exact pattern already exists elsewhere in
-  oldcore (`XWikiAttachment#getContentInputStream`), so grep for a sibling example before inventing
-  one. Needs a `LOGGER` field (usually already present) and the `commons-lang3`
-  `org.apache.commons.lang3.exception.ExceptionUtils` import (add it if missing). AVOID:
+  two rules); fix once, link+accept both issue keys in the same PR. **This rule recurs — a fresh
+  pair keeps appearing after prior ones are fixed, so it's a reliable fallback.** Fix pattern: replace
+  the `throw new XyzException(...)` in the `finally`'s inner catch with `logger.warn("Failed to close
+  ...: {}", ExceptionUtils.getRootCauseMessage(e))`. Grep the SAME module for a sibling that already
+  does this before inventing one (`XWikiAttachment#getContentInputStream` in oldcore;
+  `WikiReader`/`AbstractReader` in xar filter-stream). Needs a logger field: if none exists and the
+  class is an XWiki `@Component`, add `@Inject private Logger logger;` (org.slf4j.Logger) — NOT a
+  static LOGGER — matching the component idiom; also add the `commons-lang3`
+  `org.apache.commons.lang3.exception.ExceptionUtils` import. Mind checkstyle import ordering
+  (java/javax, then org.* alphabetical: slf4j sits between apache and xwiki). AVOID:
   `java:S2447` (~10, null from Boolean method) — in XWiki *script services* returning null is a
   deliberate "check getLastError()" pattern; changing to false alters behavior — skip script
   services. `java:S1214` (~8, constants-in-interface) = cross-module refactor, skip. `java:S1113`
@@ -58,8 +62,10 @@ Merge & trim — keep this compact; don't just append.
   IOUtils <file>` first; if it was the only use, delete the import line too.
 - Done: `XarPackage.read` (2026-06-30); batch of 5 S2093 on 2026-06-30 — `Packager`, `XWikiExecutor`,
   `Importer`, `XWikiConfig`, `ZipExplorerPlugin`; `PasswordClass` S2119 (2026-07-01, oldcore, PR
-  #5706); `XarPackage#write` S1143+S1163 (2026-07-02, xar-model, PR #5713). S2093 still 11/11
-  non-convertible as of 2026-07-02 (unchanged) — re-verify count each run but don't re-triage the
+  #5706); `XarPackage#write` S1143+S1163 (2026-07-02, xar-model, PR #5713);
+  `XARInputFilterStream` S1143+S1163 (2026-07-03, xwiki-platform-filter-stream-xar, PR #5750 — a
+  FRESH pair, confirming the rule regenerates). S2093 still 11/11
+  non-convertible as of 2026-07-03 (unchanged) — re-verify count each run but don't re-triage the
   same 11. S2093 issues are each in a DIFFERENT module (no
   single-module cluster), so a 5-fix PR needs a multi-module reactor build (~8-9 min: oldcore ~5 min
   cold + packager-plugin ~2.5 min + 3 leaf modules <20s each). Feed the triage subagent ALL candidate
@@ -129,6 +135,9 @@ Merge & trim — keep this compact; don't just append.
   already wakes you. If you want a fallback, use 1200s+.
 - The stop-hook ("uncommitted changes") fires while you correctly wait on the build — expected, do
   NOT commit before the build verifies.
+- **A container restart can kill the background build mid-run** (seen 2026-07-03). The working-copy
+  edits PERSIST (uncommitted), so don't re-do the fix — just check `git status`/`git diff`, confirm
+  the branch is still checked out, and re-launch the same `mvn` build. Don't panic-commit unverified.
 
 ## GitHub: `gh` is NOT available — use the GitHub MCP tools
 
