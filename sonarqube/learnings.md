@@ -16,13 +16,25 @@ Merge & trim — keep this compact; don't just append.
   "if a fix is hard, drop it and pick another"). Re-check S2093 counts each run in case new ones land.
   Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
   finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
-- **Good fallback single-fix rules when the allowlist is drained** (checked 2026-07-01/02):
-  `java:S2119` (~1, "reuse this Random") — CLEAN: extract `new Random()/new SecureRandom()` to a
-  `private static final` field; SecureRandom is thread-safe so a shared static instance is safe (did
-  `PasswordClass.randomSalt`). `java:S1143`+`java:S1163` (a `finally` block throws, masking/replacing
-  whatever the `try` already threw) — CLEAN: they always fire in PAIRS on the SAME line (same defect,
-  two rules); fix once, link+accept both issue keys in the same PR. **This rule recurs — a fresh
-  pair keeps appearing after prior ones are fixed, so it's a reliable fallback.** Fix pattern: replace
+- **`java:S1192` (define a constant for a duplicated literal) is now the go-to clean fallback
+  (2026-07-04).** ~128 open BLOCKER/CRITICAL; clean, single-file. Fix: add `private static final
+  String NAME = "literal";` and replace every occurrence in that ONE file. Get the duplicate
+  locations from the issue's `flows[].locations[].textRange`, but VERIFY line numbers by grepping the
+  literal (they drift). Match the class's existing constant style (javadoc + naming). **Caveat that
+  almost fooled the triage: a class-level `@SuppressWarnings` may list `checkstyle:MultipleStringLiterals`
+  — that suppresses only the *checkstyle* duplicate-literal check, NOT Sonar's `java:S1192`, so the
+  Sonar issue is still legitimately OPEN and fixable (don't skip it as "suppressed").** Also skip the
+  second S1192 that often sits on the SAME lines for a different literal (e.g. a format string) —
+  fix only the reported literal. Did `DatabaseKeywordSearchSource` `"keywords"` (rest-server, PR
+  #5762, 2026-07-04).
+- **Prior clean fallbacks are now DRAINED (all 0 as of 2026-07-04):** `java:S2119` (reuse Random),
+  `java:S1143`+`java:S1163` (finally throws). They may regenerate — re-query counts each run — but
+  don't assume they're available. Historical CLEAN patterns kept for when they reappear:
+  `java:S2119` — extract `new Random()/new SecureRandom()` to a `private static final` field
+  (SecureRandom is thread-safe, shared static is safe; did `PasswordClass.randomSalt`).
+  `java:S1143`+`java:S1163` (a `finally` block throws, masking whatever the `try` threw) — always
+  fire in PAIRS on the SAME line (same defect, two rules); fix once, link+accept both keys in one PR.
+  Fix pattern: replace
   the `throw new XyzException(...)` in the `finally`'s inner catch with `logger.warn("Failed to close
   ...: [{}]", ExceptionUtils.getRootCauseMessage(e))`. **XWiki logging convention: wrap EVERY
   parameter placeholder in square brackets `[{}]`, never a bare `{}`** (so value boundaries / empty
@@ -67,8 +79,9 @@ Merge & trim — keep this compact; don't just append.
   `Importer`, `XWikiConfig`, `ZipExplorerPlugin`; `PasswordClass` S2119 (2026-07-01, oldcore, PR
   #5706); `XarPackage#write` S1143+S1163 (2026-07-02, xar-model, PR #5713);
   `XARInputFilterStream` S1143+S1163 (2026-07-03, xwiki-platform-filter-stream-xar, PR #5750 — a
-  FRESH pair, confirming the rule regenerates). S2093 still 11/11
-  non-convertible as of 2026-07-03 (unchanged) — re-verify count each run but don't re-triage the
+  FRESH pair, confirming the rule regenerates); `DatabaseKeywordSearchSource` S1192 `"keywords"`
+  (2026-07-04, rest-server, PR #5762). S2093 still 11/11
+  non-convertible as of 2026-07-04 (unchanged) — re-verify count each run but don't re-triage the
   same 11. S2093 issues are each in a DIFFERENT module (no
   single-module cluster), so a 5-fix PR needs a multi-module reactor build (~8-9 min: oldcore ~5 min
   cold + packager-plugin ~2.5 min + 3 leaf modules <20s each). Feed the triage subagent ALL candidate
@@ -112,7 +125,9 @@ Merge & trim — keep this compact; don't just append.
   modules (oldcore + legacy-oldcore + query-manager + feed-api + notifications-notifiers-default)
   built in ONE ~8-min wait. **`-Plegacy` is required** to include `*-legacy-oldcore`.
 - Accept all issues in one loop (each issue: add_comment + do_transition accept). 19×2 curls ≈ 45s
-  (OK in foreground). For 50+ run it as a **background** task. Confirm after with one
+  (OK in foreground). For 50+ run it as a **background** task. **The `do_transition` response does NOT
+  reliably contain an `issues` key — don't `json.load(...)['issues']` on it (KeyError). The
+  transition still applied; confirm separately** with one
   `issues/search?issues=<comma-keys>` → all RESOLVED/WONTFIX.
 
 ## Building / verifying
