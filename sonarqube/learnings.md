@@ -16,17 +16,36 @@ Merge & trim — keep this compact; don't just append.
   "if a fix is hard, drop it and pick another"). Re-check S2093 counts each run in case new ones land.
   Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
   finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
-- **`java:S1192` (define a constant for a duplicated literal) is now the go-to clean fallback
-  (2026-07-04).** ~128 open BLOCKER/CRITICAL; clean, single-file. Fix: add `private static final
-  String NAME = "literal";` and replace every occurrence in that ONE file. Get the duplicate
-  locations from the issue's `flows[].locations[].textRange`, but VERIFY line numbers by grepping the
-  literal (they drift). Match the class's existing constant style (javadoc + naming). **Caveat that
-  almost fooled the triage: a class-level `@SuppressWarnings` may list `checkstyle:MultipleStringLiterals`
-  — that suppresses only the *checkstyle* duplicate-literal check, NOT Sonar's `java:S1192`, so the
-  Sonar issue is still legitimately OPEN and fixable (don't skip it as "suppressed").** Also skip the
-  second S1192 that often sits on the SAME lines for a different literal (e.g. a format string) —
-  fix only the reported literal. Did `DatabaseKeywordSearchSource` `"keywords"` (rest-server, PR
-  #5762, 2026-07-04).
+- **`java:S1192` (define a constant for a duplicated literal) is the go-to clean fallback
+  (2026-07-05).** ~127 open BLOCKER/CRITICAL, **98 of them in oldcore** — so Vincent's "fix 20-50 in
+  one PR" override is easily met within oldcore ALONE (one single-module build ~5 min; pick a few
+  files and fix ALL their S1192). Fix: add `private static final String NAME = "literal";` and
+  replace every occurrence in that ONE file. VERIFY by grepping the quote-bounded literal
+  (`grep -oF '"admin"'`) — line numbers drift, and quote-bounding avoids substring hits (`"admin"`
+  never matches `"administrator"`, `"login"` never matches `"loginerror"`, `"delete"` never matches
+  `"undelete"`); `content.count(literal)` must == Sonar's stated N. Match the class's constant style;
+  consecutive `private static final String` decls with NO blank line between them are fine (see
+  TextAreaClass/NumberClass) — no per-field blank line or javadoc needed for private constants.
+  **THE forward-reference / declaration-order gotcha (the crux of batch S1192):** Java forbids
+  referencing a static field by simple name *before* its textual declaration in a static-field
+  initializer — even for compile-time String constants (would be an "illegal forward reference"
+  compile error). But checkstyle DeclarationOrder wants public static fields before private ones, so
+  you can't dump the private constants at the very top above the public fields. Insert the constant
+  block AFTER the public fields but BEFORE the first (private) field that uses it (e.g. right
+  before/after `LOGGER`). If a literal ALSO appears in a *public* static-field initializer sitting
+  above your block, DON'T replace those occurrences — leaving ≤2 literal copies still resolves the
+  issue (rule fires at ≥3). (Did exactly this for `"XWiki"` in XWikiRightServiceImpl: converted 3 of
+  5, left the 2 in public fields.) The **"use already-defined constant" S1192 variant is frequently
+  UNFIXABLE** for the same reason: the existing constant is declared *after* the public field that
+  duplicates it (XWikiGroupServiceImpl: `CLASS_SUFFIX_XWIKIGROUPS`/`DEFAULT_MEMBER_SPACE` at lines
+  73/103 but the dup is the public `GROUPCLASS_REFERENCE` at line 66) → skip it.
+  **Script order matters:** do the literal→constant replacements FIRST (on original content,
+  asserting each count), THEN insert the constant block — otherwise the replace pass rewrites your own
+  new declarations into `ADMIN = ADMIN`. Other caveats: a class-level `@SuppressWarnings("checkstyle:
+  MultipleStringLiterals")` suppresses only the *checkstyle* check, NOT Sonar's S1192 — still fixable;
+  skip a second S1192 on the SAME line for a different literal (fix only the reported one). Did
+  `DatabaseKeywordSearchSource` `"keywords"` (rest-server, PR #5762); 22-literal batch across
+  XWikiRightServiceImpl/XWikiHibernateStore/XWikiAuthServiceImpl (oldcore, PR #5763, 2026-07-05).
 - **Prior clean fallbacks are now DRAINED (all 0 as of 2026-07-04):** `java:S2119` (reuse Random),
   `java:S1143`+`java:S1163` (finally throws). They may regenerate — re-query counts each run — but
   don't assume they're available. Historical CLEAN patterns kept for when they reappear:
@@ -60,14 +79,10 @@ Merge & trim — keep this compact; don't just append.
   initializer, not a one-liner — skip unless you're willing to do that refactor. `java:S2157`
   (class should implement `Cloneable`/add `clone()`) — non-trivial to do correctly, skip for
   quick fixes.
-- **CRITICAL caveat: ~half the S2093 hits are NOT real resource closes.** Sonar fires on any
-  try/finally it *thinks* could be try-with-resources, including push/pop and state-restoration
-  patterns that are NOT `AutoCloseable` and CANNOT be cleanly converted. SKIP these: `boolean pushed`
-  + `renderingContext.pop()`; `scriptContext.removeAttribute/setWriter`; `xcontext.setWikiReference`;
-  semaphore acquire/release; a `DataInputStream` wrapper whose finally does `stream.reset()` (closing
-  it would close the caller's stream); a resource created mid-body (StringWriter/ZipOutputStream)
-  whose finally doesn't close it. Verify the finally actually CLOSES an AutoCloseable declared just
-  before `try`. In one 16-issue pull only ~5 were convertible.
+- **S2093 (when it regenerates): ~half the hits are NOT real resource closes** — Sonar fires on any
+  try/finally it *thinks* could be try-with-resources (push/pop, `stream.reset()`, semaphore
+  release, resource created mid-body, state restoration) that is NOT `AutoCloseable`. Verify the
+  finally actually CLOSES an AutoCloseable declared just before `try` before converting.
 - **Compile-safety check before converting:** the implicit `close()` throws `IOException`. If the
   surrounding catch only catches a *narrower* type (e.g. `FileNotFoundException`) and the method does
   NOT declare `throws IOException`, the converted code won't compile. Either the method already
