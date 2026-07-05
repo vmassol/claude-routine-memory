@@ -23,14 +23,29 @@ Merge & trim — keep this compact; don't just append.
   replace every occurrence in that ONE file. VERIFY by grepping the quote-bounded literal
   (`grep -oF '"admin"'`) — line numbers drift, and quote-bounding avoids substring hits (`"admin"`
   never matches `"administrator"`, `"login"` never matches `"loginerror"`, `"delete"` never matches
-  `"undelete"`); `content.count(literal)` must == Sonar's stated N. Match the class's constant style;
+  `"undelete"`). **`content.count(literal)` must == Sonar's stated N; if grep count > N (staleness, or
+  an occurrence Sonar ignores like a comment/embedded substring), DON'T fix that literal — DROP it and
+  pick another** (2026-07-05: XWikiDocument `"reference"` grep 5 vs N 3, `"inline"` 5 vs 4,
+  `"document"` 8 vs 6; SaveAction `"previousVersion"` 4 vs 3; XWikiServletURLFactory `"UTF-8"` 5 vs 3 —
+  all dropped). Aim for ~25 clean-matching literals so the 20-50 override still clears after drops.
+  Match the class's constant style;
   consecutive `private static final String` decls with NO blank line between them are fine (see
   TextAreaClass/NumberClass) — no per-field blank line or javadoc needed for private constants.
-  **THE forward-reference / declaration-order gotcha (the crux of batch S1192):** Java forbids
-  referencing a static field by simple name *before* its textual declaration in a static-field
-  initializer — even for compile-time String constants (would be an "illegal forward reference"
-  compile error). But checkstyle DeclarationOrder wants public static fields before private ones, so
-  you can't dump the private constants at the very top above the public fields. Insert the constant
+  **Insertion / formatting (script gotcha):** anchor the constant block to an EXISTING private
+  static-final field/group and insert right after it — this sidesteps the ordering question entirely
+  (and note XWiki checkstyle does NOT strictly enforce public-before-private field order: XWikiDocument
+  has private LOGGER/`TM_*` sitting *above* its public `CKEY_*` fields and passes). Two mechanical nits
+  when you splice `anchor + block`: (1) leave a blank line between the anchor field and your first
+  constant; (2) if the anchor was followed by a blank line, you now have a DOUBLE blank line (triple
+  `\n`) — collapse it. Verify post-edit: count `\n\n\n` before vs after (should stay equal). 24-literal
+  batch across 6 oldcore files (XWikiPreferencesDocumentInitializer/Package/XWikiDocument/
+  ExportURLFactory/XWikiContext/Utils) built clean in ONE ~5-min oldcore build (PR #5771, 2026-07-05).
+  **THE forward-reference / declaration-order gotcha (still real when a literal is used in a
+  static-field initializer):** Java forbids referencing a static field by simple name *before* its
+  textual declaration in a static-field initializer (an "illegal forward reference" compile error).
+  When the literal is only used in *method bodies* (the common case), declaration order is irrelevant —
+  insert anywhere among existing private constants. When checkstyle DeclarationOrder DOES bite (public
+  before private) in a given class, insert the constant
   block AFTER the public fields but BEFORE the first (private) field that uses it (e.g. right
   before/after `LOGGER`). If a literal ALSO appears in a *public* static-field initializer sitting
   above your block, DON'T replace those occurrences — leaving ≤2 literal copies still resolves the
