@@ -79,9 +79,16 @@ Merge & trim — keep this compact; don't just append.
   `validkey`), don't make a local private constant; add/reuse a **public** constant on the owning
   class (`XWikiUsersDocumentInitializer` for user-class fields — grep its `add*Field("...")` calls to
   identify which of your literals are its properties) and reference it. Before extracting a literal,
-  ask "is this an entity property name that already has a home class?" — if so, put the constant there
-  (public) and import it. Watch the 120-char line limit after swapping a short local name for a
-  `LongClassName.FIELD` reference — wrap the call.
+  ask "is this an entity property name that already has a home class?" — if so, REUSE the existing
+  public constant if one exists (e.g. `XWikiUser.ACTIVE_PROPERTY`/`EMAIL_CHECKED_PROPERTY` already
+  hold user-property names) rather than creating a duplicate; only add a new public constant when
+  none exists, in the owning class (`XWikiUsersDocumentInitializer`). Watch the 120-char line limit
+  after swapping a short local name for a `LongClassName.FIELD` reference — wrap the call.
+  (3) **Any newly public API needs an `@since` javadoc tag** or a reviewer will flag it (tmortagne,
+  PR #5780) — including a field you merely widened from private to public. Format = the reactor
+  `project.version` with `-SNAPSHOT`→`RC1` (grep `pom.xml` `<version>`, e.g. `18.6.0-SNAPSHOT` →
+  `@since 18.6.0RC1`; confirm the style by grepping recent `@since 18.` tags). Place it as the last
+  javadoc line after a blank ` *` separator line. Add it PROACTIVELY when making a constant public.
 - **Prior clean fallbacks are now DRAINED (all 0 as of 2026-07-04):** `java:S2119` (reuse Random),
   `java:S1143`+`java:S1163` (finally throws). They may regenerate — re-query counts each run — but
   don't assume they're available. Historical CLEAN patterns kept for when they reappear:
