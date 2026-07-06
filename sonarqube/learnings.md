@@ -17,29 +17,38 @@ Merge & trim — keep this compact; don't just append.
   Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
   finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
 - **`java:S1192` (define a constant for a duplicated literal) is the go-to clean fallback
-  (2026-07-05).** ~127 open BLOCKER/CRITICAL, **98 of them in oldcore** — so Vincent's "fix 20-50 in
-  one PR" override is easily met within oldcore ALONE (one single-module build ~5 min; pick a few
-  files and fix ALL their S1192). Fix: add `private static final String NAME = "literal";` and
-  replace every occurrence in that ONE file. VERIFY by grepping the quote-bounded literal
-  (`grep -oF '"admin"'`) — line numbers drift, and quote-bounding avoids substring hits (`"admin"`
+  (still ~81 open BLOCKER/CRITICAL as of 2026-07-06, most in oldcore).** Vincent's "fix 20-50 in
+  one PR" override is easily met within oldcore ALONE (one single-module build ~6 min). **Best
+  source: a single file with MANY S1192 in one place** — `XWiki.java` had 19 (largest cluster);
+  fixing its ~15 clean literals + a dozen single-literal oldcore files got 27 in one PR (#5779,
+  2026-07-06). Query `&rules=java:S1192&ps=100`, group by `component`, pick the fattest oldcore
+  files. Fix: add `private static final String NAME = "literal";` and replace every occurrence in
+  that ONE file. VERIFY by counting the quote-bounded literal
+  (`content.count('"admin"')`) — line numbers drift, and quote-bounding avoids substring hits (`"admin"`
   never matches `"administrator"`, `"login"` never matches `"loginerror"`, `"delete"` never matches
-  `"undelete"`). **`content.count(literal)` must == Sonar's stated N; if grep count > N (staleness, or
-  an occurrence Sonar ignores like a comment/embedded substring), DON'T fix that literal — DROP it and
+  `"undelete"`). **`content.count(literal)` must == Sonar's stated N; if it differs (grep > N from
+  staleness/comment; or grep == 0 because the literal is a concatenation fragment Sonar counts but
+  isn't a standalone `"..."` token — e.g. `"groovy_missingrights"` grep=0), DON'T fix that literal — DROP it and
   pick another** (2026-07-05: XWikiDocument `"reference"` grep 5 vs N 3, `"inline"` 5 vs 4,
   `"document"` 8 vs 6; SaveAction `"previousVersion"` 4 vs 3; XWikiServletURLFactory `"UTF-8"` 5 vs 3 —
   all dropped). Aim for ~25 clean-matching literals so the 20-50 override still clears after drops.
   Match the class's constant style;
   consecutive `private static final String` decls with NO blank line between them are fine (see
   TextAreaClass/NumberClass) — no per-field blank line or javadoc needed for private constants.
-  **Insertion / formatting (script gotcha):** anchor the constant block to an EXISTING private
-  static-final field/group and insert right after it — this sidesteps the ordering question entirely
-  (and note XWiki checkstyle does NOT strictly enforce public-before-private field order: XWikiDocument
-  has private LOGGER/`TM_*` sitting *above* its public `CKEY_*` fields and passes). Two mechanical nits
-  when you splice `anchor + block`: (1) leave a blank line between the anchor field and your first
-  constant; (2) if the anchor was followed by a blank line, you now have a DOUBLE blank line (triple
-  `\n`) — collapse it. Verify post-edit: count `\n\n\n` before vs after (should stay equal). 24-literal
-  batch across 6 oldcore files (XWikiPreferencesDocumentInitializer/Package/XWikiDocument/
-  ExportURLFactory/XWikiContext/Utils) built clean in ONE ~5-min oldcore build (PR #5771, 2026-07-05).
+  **Insertion / formatting (script gotcha):** two clean strategies, both build-verified:
+  (a) if the class HAS an existing private static-final field, anchor to it and insert right after
+  (blank line between anchor and first constant; if the anchor was followed by a blank line you now
+  have a triple `\n` — collapse it; verify `\n\n\n` count unchanged);
+  (b) if the class has NO existing constant, insert the new `private static final String` as the
+  FIRST member right after the class-body opening brace (find the first `{` at/after the class-decl
+  line — this correctly handles multi-line `implements X, Y` declarations) with a trailing blank
+  line. XWiki checkstyle does NOT enforce public-before-private field order — a private constant
+  inserted ABOVE existing public constants (XWikiServletRequest, 2026-07-06) built fine, as does
+  XWikiDocument's private LOGGER sitting above public `CKEY_*`. 24-literal
+  batch across 6 oldcore files built clean in ONE ~5-min oldcore build (PR #5771, 2026-07-05);
+  27-literal batch across 12 oldcore files (XWiki + 11 others, mixing both strategies) in ONE
+  ~6-min build (PR #5779, 2026-07-06) — the count==N check dropped 3 XWiki.java literals
+  (`default` 4≠3, `backlinks` 4≠3, `groovy_missingrights` grep=0) cleanly before any build.
   **THE forward-reference / declaration-order gotcha (still real when a literal is used in a
   static-field initializer):** Java forbids referencing a static field by simple name *before* its
   textual declaration in a static-field initializer (an "illegal forward reference" compile error).
