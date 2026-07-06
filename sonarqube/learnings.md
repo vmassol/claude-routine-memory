@@ -74,7 +74,10 @@ Merge & trim — keep this compact; don't just append.
   (1) A literal used ONLY in a log-message concatenation (`LOGGER.x(PREFIX + var + " ...")`) — do NOT
   introduce a `PREFIX` constant; instead convert the call to slf4j parameterized syntax
   `LOGGER.x("Prefix [{}] ...", var)` (bracket the placeholder, XWiki convention). This eliminates the
-  duplicate literal entirely (no constant needed) AND is what reviewers want. (2) If a literal is a
+  duplicate literal entirely (no constant needed) AND is what reviewers want. BUT if the resulting
+  parameterized message string ends up duplicated across ≥2 calls (e.g. two auth flows both logging
+  `"User [{}] is authentified"`), extract ONE constant for the WHOLE message — a reviewer (vmassol,
+  PR #5781) will flag even a 2× duplicate that's below Sonar's own ≥3 threshold. (2) If a literal is a
   **domain property/field name** (e.g. an `XWiki.XWikiUsers` class property — `email`/`password`/
   `validkey`), don't make a local private constant; add/reuse a **public** constant on the owning
   class (`XWikiUsersDocumentInitializer` for user-class fields — grep its `add*Field("...")` calls to
@@ -82,7 +85,9 @@ Merge & trim — keep this compact; don't just append.
   ask "is this an entity property name that already has a home class?" — if so, REUSE the existing
   public constant if one exists (e.g. `XWikiUser.ACTIVE_PROPERTY`/`EMAIL_CHECKED_PROPERTY` already
   hold user-property names) rather than creating a duplicate; only add a new public constant when
-  none exists, in the owning class (`XWikiUsersDocumentInitializer`). Watch the 120-char line limit
+  none exists, in the owning class (`XWikiUsersDocumentInitializer`). The `"XWiki"` system-space
+  literal already has a home: reuse `com.xpn.xwiki.XWiki.SYSTEM_SPACE` (`= "XWiki"`) instead of a
+  local constant (tmortagne, PR #5781). Watch the 120-char line limit
   after swapping a short local name for a `LongClassName.FIELD` reference — wrap the call.
   (3) **Any newly public API needs an `@since` javadoc tag** or a reviewer will flag it (tmortagne,
   PR #5780) — including a field you merely widened from private to public. Format = the reactor
