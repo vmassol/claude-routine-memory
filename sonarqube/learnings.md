@@ -70,6 +70,18 @@ Merge & trim — keep this compact; don't just append.
   skip a second S1192 on the SAME line for a different literal (fix only the reported one). Did
   `DatabaseKeywordSearchSource` `"keywords"` (rest-server, PR #5762); 22-literal batch across
   XWikiRightServiceImpl/XWikiHibernateStore/XWikiAuthServiceImpl (oldcore, PR #5763, 2026-07-05).
+  **Reviewer preferences on S1192 (tmortagne, PR #5779 — apply pre-emptively to avoid review churn):**
+  (1) A literal used ONLY in a log-message concatenation (`LOGGER.x(PREFIX + var + " ...")`) — do NOT
+  introduce a `PREFIX` constant; instead convert the call to slf4j parameterized syntax
+  `LOGGER.x("Prefix [{}] ...", var)` (bracket the placeholder, XWiki convention). This eliminates the
+  duplicate literal entirely (no constant needed) AND is what reviewers want. (2) If a literal is a
+  **domain property/field name** (e.g. an `XWiki.XWikiUsers` class property — `email`/`password`/
+  `validkey`), don't make a local private constant; add/reuse a **public** constant on the owning
+  class (`XWikiUsersDocumentInitializer` for user-class fields — grep its `add*Field("...")` calls to
+  identify which of your literals are its properties) and reference it. Before extracting a literal,
+  ask "is this an entity property name that already has a home class?" — if so, put the constant there
+  (public) and import it. Watch the 120-char line limit after swapping a short local name for a
+  `LongClassName.FIELD` reference — wrap the call.
 - **Prior clean fallbacks are now DRAINED (all 0 as of 2026-07-04):** `java:S2119` (reuse Random),
   `java:S1143`+`java:S1163` (finally throws). They may regenerate — re-query counts each run — but
   don't assume they're available. Historical CLEAN patterns kept for when they reappear:
