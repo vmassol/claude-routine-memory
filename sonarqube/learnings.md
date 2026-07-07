@@ -121,6 +121,18 @@ Merge & trim — keep this compact; don't just append.
   `project.version` with `-SNAPSHOT`→`RC1` (grep `pom.xml` `<version>`, e.g. `18.6.0-SNAPSHOT` →
   `@since 18.6.0RC1`; confirm the style by grepping recent `@since 18.` tags). Place it as the last
   javadoc line after a blank ` *` separator line. Add it PROACTIVELY when making a constant public.
+- **Legacy files rich in S1192 are often EXCLUDED from Checkstyle** (file-level `<excludes>` in the
+  module pom's `maven-checkstyle-plugin` `default` execution) — that exclusion is *why* the duplicate
+  literals accumulated (Checkstyle's `MultipleStringLiterals` never ran on them). Sonar scans them
+  regardless, so the S1192 fix is fine. **But a reviewer may ask you to "update the excludes
+  accordingly" (i.e. un-exclude the file now that literals are fixed) — do NOT attempt it in an
+  S1192 PR.** Un-excluding enables the FULL ruleset, surfacing massive pre-existing debt (2026-07-07,
+  PR #5787: FeedPlugin alone = 264 violations — MissingJavadoc, complexity, DeclarationOrder,
+  EmptyCatchBlock, plus more `MultipleStringLiterals` at Checkstyle's stricter ≥2 threshold that Sonar's
+  ≥3 S1192 never flags). Reply with the concrete numbers explaining it's a separate large cleanup per
+  file; keep `<excludes>` as-is. (To test: remove the file from `<excludes>` and run the normal
+  `install` build — NOT `mvn checkstyle:check` from CLI, which uses the default sun_checks config, not
+  XWiki's, and falsely passes.)
 - **Prior clean fallbacks are now DRAINED (all 0 as of 2026-07-04):** `java:S2119` (reuse Random),
   `java:S1143`+`java:S1163` (finally throws). They may regenerate — re-query counts each run — but
   don't assume they're available. Historical CLEAN patterns kept for when they reappear:
