@@ -17,21 +17,30 @@ Merge & trim — keep this compact; don't just append.
   Conversion pattern (for when convertible ones reappear): `Resource r = new ...(); try { ... } [catch]
   finally { r.close()/IOUtils.closeQuietly(r) }` → `try (Resource r = new ...()) { ... } [catch] }`.
 - **`java:S1192` (define a constant for a duplicated literal) is the go-to clean fallback
-  (still ~81 open BLOCKER/CRITICAL as of 2026-07-06, most in oldcore).** Vincent's "fix 20-50 in
-  one PR" override is easily met within oldcore ALONE (one single-module build ~6 min). **Best
-  source: a single file with MANY S1192 in one place** — `XWiki.java` had 19 (largest cluster);
-  fixing its ~15 clean literals + a dozen single-literal oldcore files got 27 in one PR (#5779,
-  2026-07-06). Query `&rules=java:S1192&ps=100`, group by `component`, pick the fattest oldcore
-  files. Fix: add `private static final String NAME = "literal";` and replace every occurrence in
-  that ONE file. VERIFY by counting the quote-bounded literal
+  (~54 open BLOCKER/CRITICAL as of 2026-07-07, dropping fast as PRs land — down from ~81 on 07-06).**
+  The fat oldcore single-file clusters (XWiki.java etc.) are now largely DRAINED, so Vincent's "fix
+  20-50 in one PR" override now means **combining several files across a few SMALL leaf modules** in
+  one reactor build (no longer oldcore-only). Query `&rules=java:S1192&ps=500`, group by `component`,
+  pick the fattest files and prefer small leaf modules (cheap build). Good clusters found 2026-07-07
+  (PR #5787, 21 fixed): `MimeTypesUtil` 9 (mailsender), `FeedPlugin` 6 (feed-api), `SchedulerPlugin` 4
+  + `SchedulerPluginApi` 2 (scheduler-api) — 3 small modules, ~5-min reactor build. Fix: add
+  `private static final String NAME = "literal";` and replace every occurrence in that ONE file.
+  VERIFY by counting the quote-bounded literal
   (`content.count('"admin"')`) — line numbers drift, and quote-bounding avoids substring hits (`"admin"`
   never matches `"administrator"`, `"login"` never matches `"loginerror"`, `"delete"` never matches
-  `"undelete"`). **`content.count(literal)` must == Sonar's stated N; if it differs (grep > N from
-  staleness/comment; or grep == 0 because the literal is a concatenation fragment Sonar counts but
-  isn't a standalone `"..."` token — e.g. `"groovy_missingrights"` grep=0), DON'T fix that literal — DROP it and
-  pick another** (2026-07-05: XWikiDocument `"reference"` grep 5 vs N 3, `"inline"` 5 vs 4,
-  `"document"` 8 vs 6; SaveAction `"previousVersion"` 4 vs 3; XWikiServletURLFactory `"UTF-8"` 5 vs 3 —
-  all dropped). Aim for ~25 clean-matching literals so the 20-50 override still clears after drops.
+  `"undelete"`). **When quote-bounded grep != Sonar's stated N, DIAGNOSE before dropping — the excess
+  is often FIXABLE:** grep the occurrences with line numbers and classify.
+  (a) **Excess is in COMMENTS/javadoc** (whole-token in prose, e.g. `status "Paused"`,
+  `$xcontext.get("error")` inside a `* #error(...)` javadoc line) → SAFE and fixable: replace only on
+  non-comment lines (skip lines whose `lstrip` starts with `*`/`//`/`/*`) and assert the
+  CODE-occurrence count == N. Did exactly this 2026-07-07: SchedulerPlugin `"Paused"`/`"Normal"` grep
+  4 vs N 3 (1 javadoc each), SchedulerPluginApi `"error"` grep 11 vs N 9 (2 javadoc) — all fixed.
+  (b) **Excess/shortfall is a substring/fragment mismatch** (grep==0 because Sonar counts a
+  concatenation fragment that isn't a standalone `"..."` token, e.g. `"groovy_missingrights"` grep=0;
+  or grep>N because your token is a substring of a longer literal Sonar doesn't count) → NOT fixable,
+  DROP it (2026-07-05: XWikiDocument `"reference"`/`"inline"`/`"document"`, SaveAction
+  `"previousVersion"`, XWikiServletURLFactory `"UTF-8"`). So: comment-inflation = skip-comments-and-fix;
+  fragment mismatch = drop. Aim for a bit more than the target so 20-50 still clears after any drops.
   Match the class's constant style;
   consecutive `private static final String` decls with NO blank line between them are fine (see
   TextAreaClass/NumberClass) — no per-field blank line or javadoc needed for private constants.
@@ -52,8 +61,13 @@ Merge & trim — keep this compact; don't just append.
   **THE forward-reference / declaration-order gotcha (still real when a literal is used in a
   static-field initializer):** Java forbids referencing a static field by simple name *before* its
   textual declaration in a static-field initializer (an "illegal forward reference" compile error).
-  When the literal is only used in *method bodies* (the common case), declaration order is irrelevant —
-  insert anywhere among existing private constants. When checkstyle DeclarationOrder DOES bite (public
+  This bites STATIC ARRAY/collection initializers too: in `MimeTypesUtil` (2026-07-07) the literals
+  live inside `protected static final String[][] MIME_TYPES = { {CONST, "bin"}, ... }`, so the 9 new
+  constants MUST be declared textually BEFORE `MIME_TYPES` — inserted them right after the class-opening
+  brace (private constants sitting ABOVE the `protected` array; checkstyle accepted private-before-protected,
+  consistent with its not enforcing public-before-private). When the literal is only used in *method
+  bodies* (the common case), declaration order is irrelevant — insert anywhere among existing private
+  constants. When checkstyle DeclarationOrder DOES bite (public
   before private) in a given class, insert the constant
   block AFTER the public fields but BEFORE the first (private) field that uses it (e.g. right
   before/after `LOGGER`). If a literal ALSO appears in a *public* static-field initializer sitting
@@ -69,7 +83,9 @@ Merge & trim — keep this compact; don't just append.
   MultipleStringLiterals")` suppresses only the *checkstyle* check, NOT Sonar's S1192 — still fixable;
   skip a second S1192 on the SAME line for a different literal (fix only the reported one). Did
   `DatabaseKeywordSearchSource` `"keywords"` (rest-server, PR #5762); 22-literal batch across
-  XWikiRightServiceImpl/XWikiHibernateStore/XWikiAuthServiceImpl (oldcore, PR #5763, 2026-07-05).
+  XWikiRightServiceImpl/XWikiHibernateStore/XWikiAuthServiceImpl (oldcore, PR #5763, 2026-07-05);
+  21-literal batch MimeTypesUtil+FeedPlugin+SchedulerPlugin+SchedulerPluginApi (3 leaf modules,
+  PR #5787, 2026-07-07 — all-local-private-constants, no cross-class changes).
   **Reviewer preferences on S1192 (tmortagne, PR #5779 — apply pre-emptively to avoid review churn):**
   (1) A literal used ONLY in a log-message concatenation (`LOGGER.x(PREFIX + var + " ...")`) — do NOT
   introduce a `PREFIX` constant; instead convert the call to slf4j parameterized syntax
@@ -89,6 +105,17 @@ Merge & trim — keep this compact; don't just append.
   literal already has a home: reuse `com.xpn.xwiki.XWiki.SYSTEM_SPACE` (`= "XWiki"`) instead of a
   local constant (tmortagne, PR #5781). Watch the 120-char line limit
   after swapping a short local name for a `LongClassName.FIELD` reference — wrap the call.
+  **BUT do NOT force owning-class-reuse in two cases (2026-07-07): (i) the owning constant is `private`
+  in an `internal` package** — making it public just to reuse it exposes internal API (worse than a
+  local constant), and **(ii) the qualified reference blows the 120-char limit** — e.g.
+  `SchedulerJobClassDocumentInitializer.FIELD_JOBNAME` (+41 chars over `"jobName"`) pushed 14 lines to
+  ~148 chars, needing mass wrapping. In both cases a LOCAL `private static final` constant is the
+  cleaner call — and note the class often ALREADY has a local constant despite the initializer's
+  existing one (SchedulerPlugin has local `XWIKI_JOB_CLASS` even though the initializer exposes
+  `XWIKI_JOB_CLASSREFERENCE`), so local private constants are an accepted pattern. Local names are also
+  usually SHORTER than the quoted literal (`JOB_NAME` < `"jobName"`, `STATUS` < `"status"`), so lines
+  shrink and never overflow. (Also: pre-existing >120-char lines, e.g. HQL/SQL strings, are tolerated
+  by the build — only worry about a line YOUR edit lengthens.)
   (3) **Any newly public API needs an `@since` javadoc tag** or a reviewer will flag it (tmortagne,
   PR #5780) — including a field you merely widened from private to public. Format = the reactor
   `project.version` with `-SNAPSHOT`→`RC1` (grep `pom.xml` `<version>`, e.g. `18.6.0-SNAPSHOT` →
@@ -154,10 +181,9 @@ Merge & trim — keep this compact; don't just append.
   metachar that is one literal char: `"\\+"`→`"+"`, `"\\."`→`"."`) AND the replacement has no `$`/`\`
   (specials only in `replaceAll`'s replacement). Char classes, `\s+`, backrefs, `;jsessionid=.*?` are
   genuine regex — Sonar does NOT flag them; fix only the reported lines, not every `replaceAll`.
-- **Counts shift fast as prior PRs land — always re-query.** 2026-06-29 open BLOCKER/CRIT:
-  javascript:S3504 ~1800, java:S3776 ~229 (avoid: complexity), java:S3252 ~135 (avoid: API),
-  java:S1192 ~129 (constant — usually OK), java:S1186 ~107 (avoid: empty methods),
-  java:S2093 ~18 (try-with-resources — OK), java:S1948 ~46, java:S115 ~19 (naming — risky).
+- **Counts shift fast as prior PRs land — always re-query.** Rough denylist by rule: java:S3776
+  (complexity), java:S3252 (API), java:S1186 (empty methods), java:S115 (naming) — avoid. java:S1192
+  (constant) is the reliable OK fallback.
 - Component key = `projectKey:path`; strip prefix, read locally at `/home/user/xwiki-platform/<path>`.
   Never fetch file contents over a remote API.
 - **One-PR-per-issue mode:** prefer a file with a SINGLE issue of the rule (clean accept-step).
