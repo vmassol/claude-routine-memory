@@ -24,10 +24,12 @@ learn something, merge it into the right section and trim — don't append dated
 
 ## java:S1192 — define a constant for a duplicated literal (the go-to)
 
-The most reliable clean fix, and the target for Vincent's "fix 20-50 in one PR" override. As oldcore's
-fat single-file clusters drain, hitting 20-50 usually means combining several files across a few SMALL
-leaf modules in one reactor build (cheaper than oldcore). Query `&rules=java:S1192&ps=500`, group by
-`component`, pick the fattest files in small modules.
+The most reliable clean fix, and the target for Vincent's "fix 20-50 in one PR" override. Query
+`&rules=java:S1192&ps=500`, group by `component`/module. Two ways to hit 20-50: (a) combine several
+files across a few SMALL leaf modules in one reactor build (cheapest per-file); or (b) when the rule's
+TOTAL open pool is small (e.g. ~33) but one module already holds ≥20 (oldcore often does — 15-ish files
+of 1-6 dups each), fix that ONE module for a single-module build — simpler, and it alone clears the
+target. Note oldcore fixes span heterogeneous files (1-6 dups each), not one fat file.
 
 **Fix mechanic:** add `private static final String NAME = "literal";` and replace EVERY occurrence in
 that ONE file. The rule fires at ≥3 occurrences, so leaving ≤2 copies also resolves it.
@@ -41,12 +43,19 @@ dropping**:
   `lstrip` starts with `*` / `//` / `/*`) and assert the CODE-occurrence count == N.
 - **Substring/fragment mismatch** (grep==0 because Sonar counts a concatenation fragment that isn't a
   standalone `"..."` token; or grep>N because your token is a substring of a longer literal Sonar
-  doesn't count) → NOT fixable, DROP that literal. Aim for a few more than the target so the batch
-  still clears after drops.
+  doesn't count) → NOT fixable, DROP that literal.
+- **STALE issue** (the literal is absent from the file entirely — grep==0 everywhere, not just a
+  drifted line): already fixed on master but not yet rescanned by Sonar. DROP it; you can't fix what
+  isn't there. Always confirm each literal actually exists at ~N occurrences BEFORE planning edits.
+
+Aim for a few more than the target so the batch still clears after these drops.
 
 **Scripting the edits (per-line Python, not sed):** replace on original content asserting each count,
 THEN insert the constant block — if you insert first, the replace pass rewrites your own new
-declarations (`ADMIN = ADMIN`). Delete the helper script before committing.
+declarations (`ADMIN = ADMIN`). Delete the helper script before committing. After the batch, run
+`git diff | grep '^+' | awk '{if(length>120)print}'` — a constant NAME longer than the quoted literal
+(especially a fully-qualified `XWiki.SYSTEM_SPACE` swapped for `"XWiki"`) can push a line past
+checkstyle's 120-char limit; rewrap those lines before building, or the build fails.
 
 **Where to declare the constant:**
 - **Forward-reference gotcha:** Java forbids referencing a static field by simple name *before* its
@@ -60,8 +69,14 @@ declarations (`ADMIN = ADMIN`). Delete the helper script before committing.
   first private field that uses it (e.g. near `LOGGER`).
 - Consecutive `private static final String` decls with no blank line between them are fine; private
   constants need no javadoc.
-- The **"use already-defined constant" variant is often UNFIXABLE**: the existing constant is
-  frequently declared *after* the public field that duplicates it → forward-reference; skip it.
+- The **"use already-defined constant" variant** is FIXABLE when the named constant is declared
+  *before* the duplicating line — common winners: method-body usages (constant near the class top) and
+  a public constant used a few lines below its decl (`SYSTEM_SPACE`, `DEFAULT_ENCODING`,
+  `DEFAULT_VALUE`, `EMAIL_CHECKED_PROPERTY`). UNFIXABLE only when the constant sits *after* the line —
+  typically a static field initializer near the top referencing a constant declared lower (forward
+  reference); skip those. Also DROP when the value match is COINCIDENTAL and the semantics differ (a
+  `DefaultPluginName="package"` constant vs. an XML root-element literal `"package"`) — reuse there is
+  misleading and draws reviewer pushback.
 
 **Reviewer preferences (apply pre-emptively to avoid churn):**
 1. A literal used ONLY in a log-message concatenation (`LOGGER.x(PREFIX + var + " ...")`) — do NOT
