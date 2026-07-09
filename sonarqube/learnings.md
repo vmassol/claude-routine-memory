@@ -12,6 +12,14 @@ learn something, merge it into the right section and trim — don't append dated
   re-query, never assume a rule still has convertible issues.** If a rule's remaining issues are all
   the non-convertible residue, pivot to another rule (skill rule: "if a fix is hard, drop it and pick
   another"). `java:S1192` is the reliable perennial fallback (see below).
+- **The BLOCKER/CRITICAL mechanical pool is frequently exhausted** — S1192 tiny (see feasibility
+  check), S2093 often ALL residue. When it is, drop the severity filter: there is a deep MAJOR-severity
+  clean pool for single-issue fixes. Reliable MAJOR winners (re-query counts): `java:S1155`
+  (`size()>0`/`==0` → `!isEmpty()`/`isEmpty()`), `java:S1068`/`java:S1481`/`java:S1854` (unused
+  field/var, dead store), `java:S2864` (iterate `entrySet()` not `keySet()`), `java:S1858` (pointless
+  `toString()` on a String), `java:S1612` (lambda → method reference), `java:S1488` (inline
+  return-of-temp), `java:S1125` (redundant boolean literal). Starting BLOCKER/CRITICAL is the skill's
+  guidance but is not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
 - **Denylist — skip these** (bad ROI / risky / not one-liners): `java:S3776` (cognitive complexity),
   `java:S3252`/`java:S1845` (API/backward-compat), `java:S1186` (empty methods), `java:S115` (naming),
   `java:S2447` (null from Boolean method — in XWiki *script services* null is a deliberate
@@ -25,7 +33,10 @@ learn something, merge it into the right section and trim — don't append dated
 ## java:S1192 — define a constant for a duplicated literal (the go-to)
 
 The most reliable clean fix, and the target for Vincent's "fix 20-50 in one PR" override. Query
-`&rules=java:S1192&ps=500`, group by `component`/module. Two ways to hit 20-50: (a) combine several
+`&rules=java:S1192&ps=500`, group by `component`/module. **Feasibility check FIRST:** the S1192 OPEN
+pool fluctuates and is sometimes small (seen as low as 13 total project-wide). If it holds < 20, the
+20-50 batch is IMPOSSIBLE — do NOT pick S1192; fall back to a single clean issue of another rule
+(the base skill's default). Don't do a sub-20 S1192 batch to "sort of" satisfy the override. Two ways to hit 20-50: (a) combine several
 files across a few SMALL leaf modules in one reactor build (cheapest per-file); or (b) when the rule's
 TOTAL open pool is small (e.g. ~33) but one module already holds ≥20 (oldcore often does — 15-ish files
 of 1-6 dups each), fix that ONE module for a single-module build — simpler, and it alone clears the
