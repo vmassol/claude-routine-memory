@@ -35,8 +35,9 @@ learn something, merge it into the right section and trim — don't append dated
 The most reliable clean fix, and the target for Vincent's "fix 20-50 in one PR" override. Query
 `&rules=java:S1192&ps=500`, group by `component`/module. **Feasibility check FIRST:** the S1192 OPEN
 pool fluctuates and is sometimes small (seen as low as 13 total project-wide). If it holds < 20, the
-20-50 batch is IMPOSSIBLE — do NOT pick S1192; fall back to a single clean issue of another rule
-(the base skill's default). Don't do a sub-20 S1192 batch to "sort of" satisfy the override. Two ways to hit 20-50: (a) combine several
+20-50 batch is IMPOSSIBLE — do NOT pick S1192; instead batch a MIX of the pure-simplification rules
+in one module (see that section) — the easiest way to satisfy the 20-50 override. Don't do a sub-20
+S1192 batch to "sort of" satisfy it. If you DO have enough S1192, two ways to hit 20-50: (a) combine several
 files across a few SMALL leaf modules in one reactor build (cheapest per-file); or (b) when the rule's
 TOTAL open pool is small (e.g. ~33) but one module already holds ≥20 (oldcore often does — 15-ish files
 of 1-6 dups each), fix that ONE module for a single-module build — simpler, and it alone clears the
@@ -124,6 +125,25 @@ not XWiki's, and falsely passes.)
 only the *checkstyle* check, NOT Sonar's S1192 — still fixable. Skip a second S1192 on the SAME line
 for a different literal (fix only the reported one).
 
+## Pure-simplification rules — the best batch fodder (no dataflow check)
+
+`java:S1125` (`x == true`/`== false` → `x`/`!x`), `java:S1488` (inline an immediately-returned local),
+`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; re-add `String k = entry.getKey();` when the key is
+still used — `Map`/`Map.Entry` are already usable since the map type is in scope), `java:S1858` (drop
+`toString()` on a value that is already a `String` — TRUST the rule, it only fires on String receivers,
+so don't waste time hunting the field's declaration to confirm the type), `java:S1612`
+(`x -> obj.foo(x)` → `obj::foo`; works in `assertThrows(..., obj::method)` and for generic functional
+interfaces, e.g. `query -> query.getResultList()` → `NativeQuery::getResultList`). These are
+behaviour-preserving with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
+`java:S1068` (must confirm the var/field is truly unused and its RHS has no side effect). For a large
+batch, prefer the simplification rules; oldcore alone routinely holds 40-90 of them, so ONE
+single-module build (no cross-module reactor) clears a 20-50 mix in one PR.
+
+**`Edit` replace_all indentation gotcha:** the SAME pattern (e.g. `if (x == true) {`) recurs at
+DIFFERENT nesting depths in one file; a single `replace_all` matches only the exact indentation you
+typed and SILENTLY leaves the others. After any batch replace, grep for the residual pattern
+(`git diff --name-only | xargs grep -n '== true\|== false'`) and fix stragglers with more context.
+
 ## Other clean rules (verify they still have convertible issues — re-query each run)
 
 - **`java:S2093` (try-with-resources):** convert `Resource r = new ...(); try { ... } finally {
@@ -167,8 +187,9 @@ for a different literal (fix only the reported one).
   -Dxwiki.surefire.captureconsole.skip=true -DskipTests`. Maven sorts by dependency order; missing
   transitive deps resolve from the remote snapshot repo (`-Psnapshot`). `-Plegacy` is required to
   include `*-legacy-oldcore`.
-- Accept all issues in one loop (per issue: `add_comment` + `do_transition` accept). For 50+ run it as
-  a background task. **The `do_transition` response does NOT reliably contain an `issues` key** — don't
+- Accept all issues in one loop (per issue: `add_comment` + `do_transition` accept). Each issue is 2
+  curls ≈ 1.4s, so 43 already blows a 2-min foreground timeout — run the accept loop as a background
+  task for 20+ issues. **The `do_transition` response does NOT reliably contain an `issues` key** — don't
   `json.load(...)['issues']` (KeyError); the transition still applied. Confirm separately with one
   `issues/search?issues=<comma-keys>` → all ACCEPTED/RESOLVED.
 
