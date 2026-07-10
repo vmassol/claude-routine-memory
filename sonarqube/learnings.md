@@ -128,8 +128,9 @@ for a different literal (fix only the reported one).
 ## Pure-simplification rules — the best batch fodder (no dataflow check)
 
 `java:S1125` (`x == true`/`== false` → `x`/`!x`), `java:S1488` (inline an immediately-returned local),
-`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; re-add `String k = entry.getKey();` when the key is
-still used — `Map`/`Map.Entry` are already usable since the map type is in scope), `java:S1858` (drop
+`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; but if the KEY is NOT used in the loop body, prefer
+`map.values().forEach(v -> ...)` — reviewers flag an `entrySet()` whose key is unused; `Map.Entry` is
+usable without extra import since the map type is in scope), `java:S1858` (drop
 `toString()` on a value that is already a `String` — TRUST the rule, it only fires on String receivers,
 so don't waste time hunting the field's declaration to confirm the type), `java:S1612`
 (`x -> obj.foo(x)` → `obj::foo`; works in `assertThrows(..., obj::method)` and for generic functional
