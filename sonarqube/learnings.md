@@ -134,7 +134,11 @@ usable without extra import since the map type is in scope), `java:S1858` (drop
 `toString()` on a value that is already a `String` — TRUST the rule, it only fires on String receivers,
 so don't waste time hunting the field's declaration to confirm the type), `java:S1612`
 (`x -> obj.foo(x)` → `obj::foo`; works in `assertThrows(..., obj::method)` and for generic functional
-interfaces, e.g. `query -> query.getResultList()` → `NativeQuery::getResultList`). These are
+interfaces, e.g. `query -> query.getResultList()` → `NativeQuery::getResultList`. Also fires on: a
+block-body single-statement lambda `() -> { obj.foo(); }` → `obj::foo`; a constructor call
+`s -> new Foo(s)` → `Foo::new`; an `instanceof` test `x -> x instanceof Foo` → `Foo.class::isInstance`;
+and a qualified super call `() -> Outer.super.foo()` → `Outer.super::foo`. Test files with repeated
+`assertThrows(..., () -> obj.method())` are a rich, safe cluster). These are
 behaviour-preserving with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
 `java:S1068` (must confirm the var/field is truly unused and its RHS has no side effect). For a large
 batch, prefer the simplification rules; oldcore alone routinely holds 40-90 of them, so ONE
