@@ -8,6 +8,8 @@ learn something, merge it into the right section and trim — don't append dated
 
 - Get the rule distribution cheaply FIRST (no issue bodies), restricted to a mechanical allowlist:
   `.../api/issues/search?...&issueStatuses=OPEN&severities=BLOCKER,CRITICAL&rules=java:S1192,java:S5361,java:S2093,java:S1481,java:S1854,java:S2147&facets=rules&ps=1`
+  The `rules` facet IGNORES the `rules=` filter and returns the WHOLE project rule distribution — one
+  call to see the entire landscape; for an exact per-rule count read the response `total`, not a facet.
 - **Counts shift every run as PRs land, and clean rules get EXHAUSTED then slowly REGENERATE — always
   re-query, never assume a rule still has convertible issues.** If a rule's remaining issues are all
   the non-convertible residue, pivot to another rule (skill rule: "if a fix is hard, drop it and pick
@@ -143,7 +145,7 @@ block-body `() -> { obj.foo(); }`, constructor `s -> new Foo(s)` → `Foo::new`,
 → `Foo.class::isInstance`, qualified super `() -> Outer.super.foo()` → `Outer.super::foo`; overloaded
 targets and `assertThrows(..., obj::method)` clusters in tests are fine). These are behaviour-preserving
 with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
-`java:S1068` (must confirm the var/field is truly unused and its RHS has no side effect). For a large
+`java:S1068` (own dedicated section below — a deeper pool and great batch fodder). For a large
 batch, prefer the simplification rules. Oldcore OFTEN holds 40-90 of them (one single-module build
 clears a 20-50 mix), but density is NOT guaranteed — some runs the pool is spread thin across many
 small leaf modules with oldcore near-zero. **Thin-pool fallback:** query the mix of simplification
@@ -184,6 +186,34 @@ fails; process each file's edits mapping over ORIGINAL indices so a deletion doe
   declaration/expression statement and is REQUIRED (Sonar won't flag those). In an anonymous-class field
   init the flagged one is the INNER method-body `};` (redundant); the OUTER field-terminator `};` is NOT
   flagged — distinguish by indentation / exact line number, so line-number-keyed editing is safe.
+
+## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
+
+The most reliable batch source once the simplification/syntax pools are drained: ~100+ open
+project-wide, often ~45 in oldcore ALONE (one dense module = a whole 20-50 batch in ONE build), and
+untouched by the simplification/syntax cleanup PRs so rarely off-limits. Needs light dataflow
+judgement per site, so delegate the reading to ONE Explore subagent that returns a precise action
+(DELETE range / REPLACE / DROP+reason) per site; then apply BY LINE NUMBER (repo is at the scan
+commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs — still clears 20-50.
+
+- **S1481 (unused local) + S1854 (dead store) fire as a PAIR on the same `Type x = expr;` line** —
+  one edit clears both keys.
+- **Pure RHS → delete the whole declaration line. Side-effecting RHS → KEEP the call as a bare
+  statement, drop only the `Type name = ` prefix** (robust script: `indent + line.split(' = ',1)[1]`,
+  preserves indentation). Must-keep side effects seen: in tests `doc.addAttachment(...)` /
+  `newXObject(...)` (mutates the doc the asserts check), `registerMockComponent(...)`, a getter that
+  lazily inits; in main code `velocityManager.getVelocityContext()` (initializes bindings).
+- **`x = null` dead store in an `else` whose sibling `if` returns** → the whole `else` is redundant;
+  delete the entire `} else { x = null; }` (collapse to the `if`'s closing `}`) rather than leaving an
+  empty `else {}` block. A trailing dead `timer++` on a last use → drop just the `++`, keep the read.
+- **Removing a private LOGGER/field usually ORPHANS its import** (`org.slf4j.Logger`/`LoggerFactory`,
+  or the field's own type) → grep the file for the type after removal and delete the now-unused
+  `import` too, or Checkstyle `UnusedImports` fails. (Removed local vars rarely orphan an import — the
+  type is usually still used elsewhere; grep to confirm before deleting an import.)
+- **DROP (don't fix):** a write-only field/var assigned in several places (removing the decl alone
+  breaks compile — would need deleting every assignment); a field exposed via a public setter (API); a
+  dead store whose call must MOVE to a later line (coordinated multi-line change). These are the ~10-15%
+  residue — leave them, the rest of the cluster still clears the batch.
 
 ## Other clean rules (verify they still have convertible issues — re-query each run)
 
