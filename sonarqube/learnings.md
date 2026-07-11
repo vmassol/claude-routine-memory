@@ -229,6 +229,13 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   or the field's own type) → grep the file for the type after removal and delete the now-unused
   `import` too, or Checkstyle `UnusedImports` fails. (Removed local vars rarely orphan an import — the
   type is usually still used elsewhere; grep to confirm before deleting an import.)
+- **Clean up what the removal leaves behind (reviewers WILL flag both):** (a) any COMMENT that
+  solely described the removed line — e.g. a `// Note: we use getRequestURI()...` above a deleted
+  `requestUri` var, or a field's javadoc (remove the javadoc WITH the field). But KEEP a comment that
+  describes a call you preserved (the strip-assignment case). (b) STRAY BLANK LINES: a statement
+  surrounded by blanks leaves a DOUBLE blank; the last statement before `}` leaves a trailing blank;
+  the first field after `{` leaves a leading blank. Collapse them. Checkstyle usually tolerates these
+  so the build stays green — grep the diff context yourself, don't rely on the build to catch them.
 - **DROP (don't fix):** a write-only field/var assigned in several places (removing the decl alone
   breaks compile — would need deleting every assignment); a field exposed via a public setter (API); a
   dead store whose call must MOVE to a later line (coordinated multi-line change). These are the ~10-15%
