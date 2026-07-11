@@ -20,7 +20,8 @@ learn something, merge it into the right section and trim — don't append dated
   (`size()>0`/`==0` → `!isEmpty()`/`isEmpty()`), `java:S1068`/`java:S1481`/`java:S1854` (unused
   field/var, dead store), `java:S2864` (iterate `entrySet()` not `keySet()`), `java:S1858` (pointless
   `toString()` on a String), `java:S1612` (lambda → method reference), `java:S1488` (inline
-  return-of-temp), `java:S1125` (redundant boolean literal). Starting BLOCKER/CRITICAL is the skill's
+  return-of-temp), `java:S1125` (redundant boolean literal), `java:S1066` (merge collapsible nested
+  `if` — a DEEP oldcore pool, own section below). Starting BLOCKER/CRITICAL is the skill's
   guidance but is not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
 - **A recent open agent PR can drain a WHOLE rule family, not just single issues.** Before committing
   to a rule, read the open `llm-agent` PRs' titles/bodies — if one already batched e.g. S1488/S1125/
@@ -186,6 +187,24 @@ fails; process each file's edits mapping over ORIGINAL indices so a deletion doe
   declaration/expression statement and is REQUIRED (Sonar won't flag those). In an anonymous-class field
   init the flagged one is the INNER method-body `};` (redundant); the OUTER field-terminator `};` is NOT
   flagged — distinguish by indentation / exact line number, so line-number-keyed editing is safe.
+
+## java:S1066 — merge collapsible nested `if` (deep oldcore pool, one-module batch)
+
+A reliable large batch source: often ~70 in oldcore ALONE (one dense module = a whole 40-issue batch
+in ONE build). Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` → `if (A && B) { BODY }`
+— merge with `&&`, delete the inner `if` line, DEDENT the body by 4, and remove ONE of the two trailing
+braces. Wrap an operand containing top-level `||` in parens. NOT a pure line-keyed edit (needs reindent
++ brace surgery), so delegate the reading/editing to ONE subagent that works each file bottom-up.
+**Expect ~40 of 70 fixable; the standard DROPs (~30) are:** a comment sits BETWEEN the outer and inner
+`if` (merging would lose it) — skip; and the merged condition would exceed 120 chars (checkstyle) —
+skip (or two-line wrap with +4 continuation indent when just over). A residual redundant `X != null &&
+X instanceof Y` is harmless — leave it.
+
+**Subagent brace-surgery gotcha (generic):** when a subagent removes a brace level across many sites, a
+single site can be left with a STRAY extra `}` (compiles-cascade error `illegal start of type`). The
+`install` build catches it immediately; the fix is deleting the one leftover `}` and rebuilding. Lesson:
+ALWAYS build after a subagent does structural (brace-removing) edits — never trust the subagent's
+self-report of success; and one bad file among 24 does not condemn the batch (the other 23 compiled).
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
