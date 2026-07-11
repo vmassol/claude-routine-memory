@@ -128,9 +128,11 @@ for a different literal (fix only the reported one).
 ## Pure-simplification rules — the best batch fodder (no dataflow check)
 
 `java:S1125` (`x == true`/`== false` → `x`/`!x`), `java:S1488` (inline an immediately-returned local),
-`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; but if the KEY is NOT used in the loop body, prefer
-`map.values().forEach(v -> ...)` — reviewers flag an `entrySet()` whose key is unused; `Map.Entry` is
-usable without extra import since the map type is in scope), `java:S1858` (drop
+`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; if the KEY is NOT used in the loop body prefer
+`map.values().forEach(v -> ...)`, but use the `entrySet()` enhanced-for — `for (Map.Entry<K,V> e : m.entrySet())`
+with `e.getKey()`/`e.getValue()` — whenever the key IS used or the body throws a checked exception or
+uses `continue`/`break`/a mutated outer local (a `forEach` lambda can't); `Map.Entry` needs no extra
+import since the map type is already in scope), `java:S1858` (drop
 `toString()` on a value that is already a `String` — TRUST the rule, it only fires on String receivers,
 so don't waste time hunting the field's declaration to confirm the type), `java:S1612`
 (`x -> obj.foo(x)` → `obj::foo`; works in `assertThrows(..., obj::method)` and for generic functional
@@ -138,11 +140,18 @@ interfaces, e.g. `query -> query.getResultList()` → `NativeQuery::getResultLis
 block-body single-statement lambda `() -> { obj.foo(); }` → `obj::foo`; a constructor call
 `s -> new Foo(s)` → `Foo::new`; an `instanceof` test `x -> x instanceof Foo` → `Foo.class::isInstance`;
 and a qualified super call `() -> Outer.super.foo()` → `Outer.super::foo`. Test files with repeated
-`assertThrows(..., () -> obj.method())` are a rich, safe cluster). These are
+`assertThrows(..., () -> obj.method())` are a rich, safe cluster. An OVERLOADED target method is fine —
+`this::resend` resolves against the functional-interface signature even when `resend` has other arities).
+These are
 behaviour-preserving with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
 `java:S1068` (must confirm the var/field is truly unused and its RHS has no side effect). For a large
-batch, prefer the simplification rules; oldcore alone routinely holds 40-90 of them, so ONE
-single-module build (no cross-module reactor) clears a 20-50 mix in one PR.
+batch, prefer the simplification rules. Oldcore OFTEN holds 40-90 of them (one single-module build
+clears a 20-50 mix), but density is NOT guaranteed — some runs the pool is spread thin across many
+small leaf modules with oldcore near-zero. **Thin-pool fallback:** query the mix of simplification
+rules project-wide, group by module, pick a cluster of ~10 highest-density fast leaf modules (3-5
+issues each) totalling 20-50, and build them ALL in ONE reactor `-pl m1,m2,...` (exit 0, a few
+minutes) — avoid the heavy modules (feed-api ~5 min, oldcore). Cleanly satisfies the 20-50 override
+even with no single dense module.
 
 **`Edit` replace_all indentation gotcha:** the SAME pattern (e.g. `if (x == true) {`) recurs at
 DIFFERENT nesting depths in one file; a single `replace_all` matches only the exact indentation you
@@ -176,10 +185,10 @@ typed and SILENTLY leaves the others. After any batch replace, grep for the resi
 
 ## Find-phase cost
 
-- Inline `Read` (offset/limit) of ONE candidate region is cheaper than an Explore subagent for
-  mechanical rules; use a subagent only when you must read & reject several candidates.
-- Always trim `issues/search` JSON through `python3`/`jq` (keep key,rule,component,line,message) —
-  some rules attach huge `flows`/`locations`. Never dump raw responses into context.
+- Inline `sed`/`Read` (offset/limit) of ONE candidate region is cheaper than an Explore subagent for
+  mechanical rules; use a subagent only when you must read & reject several candidates. Always trim
+  `issues/search` JSON through `python3`/`jq` (keep key,rule,component,line,message) — some rules
+  attach huge `flows`/`locations`; never dump raw responses into context.
 - Component key = `projectKey:path`; strip the prefix and read locally at
   `/home/user/xwiki-platform/<path>`. Never fetch file contents over a remote API.
 
@@ -187,6 +196,14 @@ typed and SILENTLY leaves the others. After any batch replace, grep for the resi
 
 - One `issues/search?rules=<rule>&ps=500` gives every open issue + component + line. Group by
   file/module.
+- **Apply a many-file mechanical batch in ONE Python script**, not dozens of `Edit` calls: for each
+  `(file, old, new)` assert `content.count(old) == 1` FIRST (catches stale/drifted/ambiguous matches),
+  and write NOTHING if any assertion fails. Atomic, cheap, and a failed count flags a bad target before
+  it corrupts the tree. (Reading via `sed`/`grep` for the snippets is fine — you don't need the `Read`
+  tool before this script; it edits files directly.)
+- **Collecting the issue keys to accept:** re-query the rules, then filter issues by a substring of the
+  full component PATH (`.../xwiki-platform-chart-macro/...`), NOT a guessed short module name — a
+  short-name match silently returns 0.
 - **Build ALL affected modules in ONE reactor invocation**, not one-by-one:
   `mvn clean install -B -ntp -pl m1,m2,m3,... -Plegacy,snapshot -Dxwiki.revapi.skip=true
   -Dxwiki.surefire.captureconsole.skip=true -DskipTests`. Maven sorts by dependency order; missing
