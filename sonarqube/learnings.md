@@ -145,7 +145,12 @@ whenever the key IS used or the body throws a checked exception / uses `continue
 outer local; `Map.Entry` needs no import), `java:S1612` (`x -> obj.foo(x)` → `obj::foo`; also fires on
 block-body `() -> { obj.foo(); }`, constructor `s -> new Foo(s)` → `Foo::new`, `x -> x instanceof Foo`
 → `Foo.class::isInstance`, qualified super `() -> Outer.super.foo()` → `Outer.super::foo`; overloaded
-targets and `assertThrows(..., obj::method)` clusters in tests are fine). These are behaviour-preserving
+targets and `assertThrows(..., obj::method)` clusters in tests are fine). **Import gotcha (build-breaker):**
+a method ref names its target TYPE (`Foo::getX`), which the lambda never needed imported — if that type is
+a NESTED class (`LiveDataQuery.SortEntry` → `SortEntry::getProperty`) or the stream's element type and
+isn't already imported, the build fails `cannot find symbol`; add the import at the right alphabetical
+slot. (`Type.class::isInstance`/`::cast` from an `instanceof`/cast lambda need NO new import — the type was
+already referenced.) These are behaviour-preserving
 with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
 `java:S1068` (own dedicated section below — a deeper pool and great batch fodder). For a large
 batch, prefer the simplification rules. Oldcore OFTEN holds 40-90 of them (one single-module build
@@ -245,7 +250,16 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   surrounded by blanks leaves a DOUBLE blank; the last statement before `}` leaves a trailing blank;
   the first field after `{` leaves a leading blank. Collapse them. Checkstyle usually tolerates these
   so the build stays green — grep the diff context yourself, don't rely on the build to catch them.
-- **DROP (don't fix):** a write-only field/var assigned in several places (removing the decl alone
+- **Removal CASCADES — delete the whole dead chain/block in one pass:** deleting `T x = other.getFoo()`
+  can leave `other` (or a sibling local it read) newly unused; deleting a var can orphan a dead block (a
+  `// comment` + a `Matcher`/`Pattern`/`baseClass` line that only fed it). Sonar flags only the outermost
+  var, so the sibling looks "used" until you remove the first — then a follow-up scan re-flags it. Trace
+  each removed RHS's inputs and delete the entire block (pure getters only; keep side-effecting calls).
+- **A write-only field/var assigned in ONE place IS fixable:** delete the decl AND edit that single
+  assignment — strip the `this.x = ` prefix if the RHS has a side effect to keep (`registerMockComponent`),
+  else delete the assignment line too (a builder setter body collapses to just `return this;`; an
+  `@Override` setter's now-unused param is NOT re-flagged — S1172 skips overrides).
+- **DROP (don't fix):** a write-only field/var assigned in SEVERAL places (removing the decl alone
   breaks compile — would need deleting every assignment); a field exposed via a public setter (API); a
   dead store whose call must MOVE to a later line (coordinated multi-line change). These are the ~10-15%
   residue — leave them, the rest of the cluster still clears the batch.
@@ -361,13 +375,9 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
 ## Token-cost report (when asked)
 
 - Parse the transcript jsonl at `/root/.claude/projects/<id>.jsonl`. Dedupe assistant turns by
-  `message.id` but **keep the LAST record per id** (streamed messages accumulate under one id; the
-  tool_use block, e.g. the PR call, often appears only in a later partial). Sort deduped entries by
-  timestamp before scanning for boundaries.
-- **Find phase boundaries by tool_use NAME, not string-match on content** (the literal string
-  `"create_pull_request"` appears in early schema-loading text → false boundary). Match
-  `b["name"]=="mcp__github__create_pull_request"` and the Edit of the target file. Verify boundary
-  timestamps are monotonic.
+  `message.id` keeping the LAST record per id (streamed partials accumulate; the tool_use block often
+  appears only in a later partial), then sort by timestamp. Find phase boundaries by tool_use NAME
+  (`b["name"]=="mcp__github__create_pull_request"` + the target Edit), NOT string-match on content
+  (`"create_pull_request"` appears in early schema text → false boundary); check timestamps are monotonic.
 - Buckets: (1) find = up to first fix edit; (2) fix = edit + build + commit + push; (3) post = PR +
-  label + accept + report. Cache-read dwarfs everything; keep reads narrow. Add the report by editing
-  the PR **body**, not a comment, if the routine asks for it.
+  label + accept + report. Cache-read dwarfs everything. Add the report to the PR **body**, not a comment.
