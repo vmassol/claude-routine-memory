@@ -289,6 +289,31 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   replacement has no `$`/`\`. Char classes, `\s+`, backrefs, `;jsessionid=.*?` are genuine regex —
   fix only the reported lines.
 
+## Test-code rules — the deep clean pool once syntax/simplification/unused are drained
+
+When the pure-syntax (S1128/S1197/S1116/S1161), simplification (S1125/S1488/S1858/S2864/S1612) and
+unused-code (S1068/S1481/S1854) pools are all EXHAUSTED (re-query — they drain to single digits), the
+biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` (hundreds) and
+`java:S5785`. Pure test-code edits — production code untouched, so very low review risk.
+
+- **`java:S5786` (JUnit5 test class/method should be package-private) — the best test-rule batch.** Two
+  message variants: **method-level** "Remove this 'public' modifier" (single flagged line) and
+  **class-level** "Remove redundant visibility modifiers from this test class and its methods" (the
+  flagged line is the class decl, but resolving it requires stripping `public` from the class AND EVERY
+  test/lifecycle method in it). Fix mechanically in one Python script: strip the leading `public ` token
+  (`re.sub(r'\bpublic\s+', '', line, count=1)`) from (a) the flagged class-declaration line and (b)
+  every method line whose immediately-preceding contiguous annotation block contains a JUnit annotation
+  (`@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeAll`/`@AfterAll`/`@ParameterizedTest`/`@RepeatedTest`/
+  `@TestFactory`/`@TestTemplate`/`@Nested`). Keep other modifiers — `@BeforeAll public static void` →
+  `static void`. Do NOT touch fields or unannotated helper methods: they aren't flagged and leaving them
+  public won't re-flag the class. Behaviour-preserving; `-DskipTests` still test-compiles + runs
+  Checkstyle so it fully validates. One dense module is a whole batch (e.g. model-api held 35, one issue
+  per file). Low cross-module risk, but before making a class package-private grep for `extends <Class>`
+  (a base test extended from another package would break compile) and skip `abstract` base test classes.
+- **`java:S5785` (assertEquals/assertNotEquals instead of boolean-literal assert):** `assertTrue(a.equals(b))`
+  → `assertEquals(b, a)`, `assertFalse(a.equals(b))` → `assertNotEquals(b, a)`. Needs operand-order
+  judgement per site (less purely mechanical than S5786) — prefer S5786 for a large batch.
+
 ## Find-phase cost
 
 - Inline `sed`/`Read` (offset/limit) of ONE candidate region is cheaper than an Explore subagent for
@@ -321,7 +346,9 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   curls ≈ 1.4s, so 43 already blows a 2-min foreground timeout — run the accept loop as a background
   task for 20+ issues. **The `do_transition` response does NOT reliably contain an `issues` key** — don't
   `json.load(...)['issues']` (KeyError); the transition still applied. Confirm separately with one
-  `issues/search?issues=<comma-keys>` → all ACCEPTED/RESOLVED.
+  `issues/search?issues=<comma-keys>` → all ACCEPTED/RESOLVED. **A transition occasionally no-ops for
+  ONE issue in a large batch (e.g. 1 of 35 stayed OPEN) — after the loop, count statuses and re-POST
+  `accept` for any straggler.**
 
 ## Building / verifying
 
