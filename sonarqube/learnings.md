@@ -20,6 +20,12 @@ learn something, merge it into the right section and trim — don't append dated
   `toString()` on a String), `java:S1612` (lambda → method reference), `java:S1488` (inline
   return-of-temp), `java:S1125` (redundant boolean literal). Starting BLOCKER/CRITICAL is the skill's
   guidance but is not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
+- **A recent open agent PR can drain a WHOLE rule family, not just single issues.** Before committing
+  to a rule, read the open `llm-agent` PRs' titles/bodies — if one already batched e.g. S1488/S1125/
+  S1612/S2864/S1858, those issues are still OPEN in Sonar (PR unmerged) but OFF-LIMITS; pivot to an
+  untouched family. The safest untouched fodder is the **pure-syntax trio** (own section below):
+  `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement) —
+  zero-dataflow, even safer than the simplification rules, and they regenerate.
 - **Denylist — skip these** (bad ROI / risky / not one-liners): `java:S3776` (cognitive complexity),
   `java:S3252`/`java:S1845` (API/backward-compat), `java:S1186` (empty methods), `java:S115` (naming),
   `java:S2447` (null from Boolean method — in XWiki *script services* null is a deliberate
@@ -128,22 +134,15 @@ for a different literal (fix only the reported one).
 ## Pure-simplification rules — the best batch fodder (no dataflow check)
 
 `java:S1125` (`x == true`/`== false` → `x`/`!x`), `java:S1488` (inline an immediately-returned local),
-`java:S2864` (`keySet()`+`get(k)` → `entrySet()`; if the KEY is NOT used in the loop body prefer
-`map.values().forEach(v -> ...)`, but use the `entrySet()` enhanced-for — `for (Map.Entry<K,V> e : m.entrySet())`
-with `e.getKey()`/`e.getValue()` — whenever the key IS used or the body throws a checked exception or
-uses `continue`/`break`/a mutated outer local (a `forEach` lambda can't); `Map.Entry` needs no extra
-import since the map type is already in scope), `java:S1858` (drop
-`toString()` on a value that is already a `String` — TRUST the rule, it only fires on String receivers,
-so don't waste time hunting the field's declaration to confirm the type), `java:S1612`
-(`x -> obj.foo(x)` → `obj::foo`; works in `assertThrows(..., obj::method)` and for generic functional
-interfaces, e.g. `query -> query.getResultList()` → `NativeQuery::getResultList`. Also fires on: a
-block-body single-statement lambda `() -> { obj.foo(); }` → `obj::foo`; a constructor call
-`s -> new Foo(s)` → `Foo::new`; an `instanceof` test `x -> x instanceof Foo` → `Foo.class::isInstance`;
-and a qualified super call `() -> Outer.super.foo()` → `Outer.super::foo`. Test files with repeated
-`assertThrows(..., () -> obj.method())` are a rich, safe cluster. An OVERLOADED target method is fine —
-`this::resend` resolves against the functional-interface signature even when `resend` has other arities).
-These are
-behaviour-preserving with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
+`java:S1858` (drop `toString()` on a value already a `String` — TRUST the rule, it only fires on String
+receivers), `java:S2864` (`keySet()`+`get(k)` → `entrySet()`; prefer `values().forEach(v -> ...)` when
+the key is unused, else the `entrySet()` enhanced-for `for (Map.Entry<K,V> e : m.entrySet())` — required
+whenever the key IS used or the body throws a checked exception / uses `continue`/`break`/a mutated
+outer local; `Map.Entry` needs no import), `java:S1612` (`x -> obj.foo(x)` → `obj::foo`; also fires on
+block-body `() -> { obj.foo(); }`, constructor `s -> new Foo(s)` → `Foo::new`, `x -> x instanceof Foo`
+→ `Foo.class::isInstance`, qualified super `() -> Outer.super.foo()` → `Outer.super::foo`; overloaded
+targets and `assertThrows(..., obj::method)` clusters in tests are fine). These are behaviour-preserving
+with NO use-verification, unlike the removal rules `java:S1481`/`java:S1854`/
 `java:S1068` (must confirm the var/field is truly unused and its RHS has no side effect). For a large
 batch, prefer the simplification rules. Oldcore OFTEN holds 40-90 of them (one single-module build
 clears a 20-50 mix), but density is NOT guaranteed — some runs the pool is spread thin across many
@@ -157,6 +156,34 @@ even with no single dense module.
 DIFFERENT nesting depths in one file; a single `replace_all` matches only the exact indentation you
 typed and SILENTLY leaves the others. After any batch replace, grep for the residual pattern
 (`git diff --name-only | xargs grep -n '== true\|== false'`) and fix stragglers with more context.
+
+## Pure-syntax trio — S1128 / S1197 / S1116 (zero-dataflow, the safest batch fodder)
+
+Even safer than the simplification rules (no use/side-effect verification at all) and a deep,
+regenerating pool. A single batch of all three across ~20 leaf modules (one reactor) cleanly satisfies
+the 20-50 override; build ~13 min with oldcore in the set. Exclude a heavy single-issue module (e.g.
+feed-api ~5 min for 1 issue) — fix "almost all", not literally all, for ROI. Apply all three in one
+atomic Python script keyed BY LINE NUMBER (the repo is at the exact master commit Sonar scanned, so
+lines don't drift); assert each target line's shape before editing and write nothing if any assert
+fails; process each file's edits mapping over ORIGINAL indices so a deletion doesn't shift later ones.
+
+- **`java:S1128` (unused import):** delete the flagged `import ...;` line (assert it starts with
+  `import` and ends `;`). TRUST Sonar — it already accounts for javadoc `{@link}` refs (it will keep an
+  import used only in a `{@link}`). A legacy *delegating subclass* can legitimately have 10-14 unused
+  imports (copied wholesale from its parent, whose members it inherits) — all removable. Checkstyle
+  `UnusedImports` + compile is the real gate.
+- **`java:S1197` (array designator):** `TYPE NAME[]` → `TYPE[] NAME`. **Regex gotcha (always review the
+  diff):** `\b(\w+)\s+(\w+)\[\]` WRONGLY grabs a return type already in `[]` form when a modifier
+  precedes it — `protected byte[] createZipFile(... docs[] ...)` becomes `protected[] byte ...`. Fix
+  with a negative lookahead `\b(\w+)(\s+)(\w+)\[\](?!\s*\w)` → `\1[]\2\3` (count=1): a `[]` followed by
+  ` identifier` is an already-correct `Type[] name`, skip it; only a `[]` followed by `,`/`)`/`=`/`;`/`
+  {` is a real `name[]` to convert. Handles params, locals and `int x[] = {...}`.
+- **`java:S1116` (empty statement):** three shapes — a lone `;` line (delete the whole line); a trailing
+  `;;` (strip ONE `;`); and `};` where `}` closes a block/enum/nested-class/method (strip the trailing
+  `;`, keep `}`). NEVER strip the `;` from `new Foo(){...};` / `Type x = ... {...};` — that terminates a
+  declaration/expression statement and is REQUIRED (Sonar won't flag those). In an anonymous-class field
+  init the flagged one is the INNER method-body `};` (redundant); the OUTER field-terminator `};` is NOT
+  flagged — distinguish by indentation / exact line number, so line-number-keyed editing is safe.
 
 ## Other clean rules (verify they still have convertible issues — re-query each run)
 
