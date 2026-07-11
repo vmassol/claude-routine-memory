@@ -26,7 +26,10 @@ learn something, merge it into the right section and trim — don't append dated
 - **A recent open agent PR can drain a WHOLE rule family, not just single issues.** Before committing
   to a rule, read the open `llm-agent` PRs' titles/bodies — if one already batched e.g. S1488/S1125/
   S1612/S2864/S1858, those issues are still OPEN in Sonar (PR unmerged) but OFF-LIMITS; pivot to an
-  untouched family. The safest untouched fodder is the **pure-syntax/annotation group** (own section
+  untouched family. BUT a per-MODULE batch PR only claims the files it touched: if a PR fixed rule X in
+  ONLY one module (e.g. S5786 in model-api), the SAME rule X in OTHER modules is fully fair game — no file
+  overlap. Scope the off-limits check by (rule + module), not by rule alone. The safest untouched fodder
+  is the **pure-syntax/annotation group** (own section
   below): `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement),
   `java:S1161` (missing `@Override`) — zero-dataflow, even safer than the simplification rules, and they
   regenerate.
@@ -297,10 +300,12 @@ biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` 
 `java:S5785`. Pure test-code edits — production code untouched, so very low review risk.
 
 - **`java:S5786` (JUnit5 test class/method should be package-private) — the best test-rule batch.** Two
-  message variants: **method-level** "Remove this 'public' modifier" (single flagged line) and
-  **class-level** "Remove redundant visibility modifiers from this test class and its methods" (the
-  flagged line is the class decl, but resolving it requires stripping `public` from the class AND EVERY
-  test/lifecycle method in it). Fix mechanically in one Python script: strip the leading `public ` token
+  message variants: **method-level** "Remove this 'public' modifier" and **class-level** "Remove
+  redundant visibility modifiers from this test class and its methods". Do NOT infer scope from the
+  message/line — the method-level "Remove this 'public' modifier" often points at the CLASS-decl line
+  itself (class public, methods already package-private), NOT a method. So key the fix BY FILE, not by
+  line: for every flagged file apply the same uniform treatment (strip class decl + `@Nested` +
+  JUnit-annotated methods). Fix mechanically in one Python script: strip the leading `public ` token
   (`re.sub(r'\bpublic\s+', '', line, count=1)`) from (a) the flagged class-declaration line and (b)
   every method line whose immediately-preceding contiguous annotation block contains a JUnit annotation
   (`@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeAll`/`@AfterAll`/`@ParameterizedTest`/`@RepeatedTest`/
@@ -308,8 +313,11 @@ biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` 
   `static void`. Do NOT touch fields or unannotated helper methods: they aren't flagged and leaving them
   public won't re-flag the class. Behaviour-preserving; `-DskipTests` still test-compiles + runs
   Checkstyle so it fully validates. One dense module is a whole batch (e.g. model-api held 35, one issue
-  per file). Low cross-module risk, but before making a class package-private grep for `extends <Class>`
-  (a base test extended from another package would break compile) and skip `abstract` base test classes.
+  per file). No single dense module? Batch ~3-4 fast leaf modules in ONE reactor (e.g. eventstream-api +
+  notifications-notifiers + user-default = 37) — cheaper than oldcore's 32. Low cross-module risk, but
+  before making a class package-private grep `extends <Class>` (a base test extended from another package
+  would break compile) and skip `abstract` base test classes — a class NAMED `Abstract*Test` is often NOT
+  actually abstract, so verify the decl, don't trust the name.
 - **`java:S5785` (assertEquals/assertNotEquals instead of boolean-literal assert):** `assertTrue(a.equals(b))`
   → `assertEquals(b, a)`, `assertFalse(a.equals(b))` → `assertNotEquals(b, a)`. Needs operand-order
   judgement per site (less purely mechanical than S5786) — prefer S5786 for a large batch.
