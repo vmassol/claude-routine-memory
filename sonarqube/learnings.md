@@ -26,9 +26,10 @@ learn something, merge it into the right section and trim — don't append dated
 - **A recent open agent PR can drain a WHOLE rule family, not just single issues.** Before committing
   to a rule, read the open `llm-agent` PRs' titles/bodies — if one already batched e.g. S1488/S1125/
   S1612/S2864/S1858, those issues are still OPEN in Sonar (PR unmerged) but OFF-LIMITS; pivot to an
-  untouched family. The safest untouched fodder is the **pure-syntax trio** (own section below):
-  `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement) —
-  zero-dataflow, even safer than the simplification rules, and they regenerate.
+  untouched family. The safest untouched fodder is the **pure-syntax/annotation group** (own section
+  below): `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement),
+  `java:S1161` (missing `@Override`) — zero-dataflow, even safer than the simplification rules, and they
+  regenerate.
 - **Denylist — skip these** (bad ROI / risky / not one-liners): `java:S3776` (cognitive complexity),
   `java:S3252`/`java:S1845` (API/backward-compat), `java:S1186` (empty methods), `java:S115` (naming),
   `java:S2447` (null from Boolean method — in XWiki *script services* null is a deliberate
@@ -160,15 +161,16 @@ DIFFERENT nesting depths in one file; a single `replace_all` matches only the ex
 typed and SILENTLY leaves the others. After any batch replace, grep for the residual pattern
 (`git diff --name-only | xargs grep -n '== true\|== false'`) and fix stragglers with more context.
 
-## Pure-syntax trio — S1128 / S1197 / S1116 (zero-dataflow, the safest batch fodder)
+## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 (zero-dataflow, safest batch fodder)
 
-Even safer than the simplification rules (no use/side-effect verification at all) and a deep,
-regenerating pool. A single batch of all three across ~20 leaf modules (one reactor) cleanly satisfies
+Even safer than the simplification rules (no use/side-effect verification at all) and deep,
+regenerating pools. A single batch across ~20 leaf modules (one reactor) cleanly satisfies
 the 20-50 override; build ~13 min with oldcore in the set. Exclude a heavy single-issue module (e.g.
-feed-api ~5 min for 1 issue) — fix "almost all", not literally all, for ROI. Apply all three in one
+feed-api ~5 min for 1 issue) — fix "almost all", not literally all, for ROI. Apply in one
 atomic Python script keyed BY LINE NUMBER (the repo is at the exact master commit Sonar scanned, so
 lines don't drift); assert each target line's shape before editing and write nothing if any assert
-fails; process each file's edits mapping over ORIGINAL indices so a deletion doesn't shift later ones.
+fails; process each file's edits mapping over ORIGINAL indices (or insert bottom-up per file) so an
+edit doesn't shift later ones.
 
 - **`java:S1128` (unused import):** delete the flagged `import ...;` line (assert it starts with
   `import` and ends `;`). TRUST Sonar — it already accounts for javadoc `{@link}` refs (it will keep an
@@ -187,6 +189,13 @@ fails; process each file's edits mapping over ORIGINAL indices so a deletion doe
   declaration/expression statement and is REQUIRED (Sonar won't flag those). In an anonymous-class field
   init the flagged one is the INNER method-body `};` (redundant); the OUTER field-terminator `};` is NOT
   flagged — distinguish by indentation / exact line number, so line-number-keyed editing is safe.
+- **`java:S1161` (missing `@Override`):** deep pool (~66 seen), often CONCENTRATED in a few TEST files
+  (anonymous-class methods overriding an interface/abstract, e.g. `new Runnable(){ void run(){...} }`)
+  — so 2-3 dense files can be a whole 50-issue batch. Fix = insert a line `<indent>@Override` (matching
+  the flagged signature's leading whitespace) directly ABOVE each flagged method-signature line; purely
+  additive, no dataflow. TRUST Sonar (the method genuinely overrides). Assert the flagged line contains
+  `(` and is not already `@Override` and its predecessor line isn't `@Override` either; insert bottom-up
+  per file. Behaviour-preserving — the single safest rule in this group.
 
 ## java:S1066 — merge collapsible nested `if` (deep oldcore pool, one-module batch)
 
@@ -272,8 +281,10 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   mechanical rules; use a subagent only when you must read & reject several candidates. Always trim
   `issues/search` JSON through `python3`/`jq` (keep key,rule,component,line,message) — some rules
   attach huge `flows`/`locations`; never dump raw responses into context.
-- Component key = `projectKey:path`; strip the prefix and read locally at
-  `/home/user/xwiki-platform/<path>`. Never fetch file contents over a remote API.
+- Component key = `groupId:artifactId:path` — the projectKey itself contains a colon
+  (`org.xwiki.platform:xwiki-platform:xwiki-platform-core/...`), so it has TWO colons. Get the path with
+  `component.split(':')[-1]`, NOT `split(':',1)[1]` (that leaves `xwiki-platform:...` and every file
+  open fails). Read locally at `/home/user/xwiki-platform/<path>`; never fetch file contents remotely.
 
 ## Batch mode ("fix ALL / 20-50 of rule X")
 
