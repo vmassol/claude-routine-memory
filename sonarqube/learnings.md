@@ -311,7 +311,11 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
 When the pure-syntax (S1128/S1197/S1116/S1161), simplification (S1125/S1488/S1858/S2864/S1612) and
 unused-code (S1068/S1481/S1854) pools are all EXHAUSTED (re-query — they drain to single digits), the
 biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` (hundreds) and
-`java:S5785`. Pure test-code edits — production code untouched, so very low review risk.
+`java:S5785`. Pure test-code edits — production code untouched, so very low review risk. **S5786 is
+frequently SATURATED by concurrent sessions (4+ open PRs at once covering oldcore, model-api and many
+leaf modules) — when it is, S5785 is the go-to fallback: the S5786/syntax cleanup waves never touch it,
+and it has dense SINGLE-MODULE clusters (seen: chart-macro 50, model-api 27, oldcore 22) that one cheap
+build clears — check the densest module and just do that one.**
 
 - **`java:S5786` (JUnit5 test class/method should be package-private) — the best test-rule batch.** Two
   message variants: **method-level** "Remove this 'public' modifier" and **class-level** "Remove
@@ -341,9 +345,22 @@ biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` 
   for each class made package-private. Concrete `*Test` classes are never extended cross-module (check
   comes back empty); the risk is only `abstract`/base test classes — and a class NAMED `Abstract*Test`
   is often NOT abstract and has no subclasses, so read the decl, don't trust the name.
-- **`java:S5785` (assertEquals/assertNotEquals instead of boolean-literal assert):** `assertTrue(a.equals(b))`
-  → `assertEquals(b, a)`, `assertFalse(a.equals(b))` → `assertNotEquals(b, a)`. Needs operand-order
-  judgement per site (less purely mechanical than S5786) — prefer S5786 for a large batch.
+- **`java:S5785` (use assertEquals/assertNotEquals/assertNull, not a boolean assert) — fully SCRIPTABLE
+  per file by line number** (the earlier "prefer S5786, needs judgement" caution was too conservative).
+  The issue MESSAGE names the exact target ("Use assertEquals/assertNotEquals/assertNull instead"), so no
+  guessing. Four shapes, expected-value FIRST: `assertTrue(a.equals(b))`→`assertEquals(b, a)`;
+  `assertFalse(a.equals(b))`→`assertNotEquals(b, a)`; `assertTrue(LIT == x)`/`assertTrue(x == LIT)`
+  →`assertEquals(LIT, x)` (numeric literal is the expected); `assertTrue(null == x)`→`assertNull(x)`.
+  Parse robustly: strip the outer `assertTrue(`…`);`, then for the equals form take the LAST `.equals(`
+  (`rfind`) with the arg = everything up to the final `)` (handles nested parens like `new Date(0)` /
+  `new Foo(x).getId()`); for the `==` form split on ` == ` and pick the null/numeric side as expected.
+  Only convert the FLAGGED lines — sibling `assertTrue(x instanceof Y)` lines in the same file are NOT
+  flagged and must stay (so `assertTrue` often survives; keep its import). **Imports:** add the new
+  static imports (`assertEquals`/`assertNotEquals`/`assertNull`), and remove `assertTrue`/`assertFalse`
+  ONLY when the file no longer uses them (grep after) or Checkstyle `UnusedImports` fails; insert
+  alphabetically. **Compile note (not a risk):** `assertEquals(0, integerReturningMethod())` resolves to
+  `assertEquals(int,int)` via unboxing and preserves the original `int == Integer` semantics. Build WITH
+  tests on the (small) module — it cheaply confirms no operand order inverted a passing assertion.
 
 ## Find-phase cost
 
