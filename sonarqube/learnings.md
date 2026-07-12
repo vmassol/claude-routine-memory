@@ -345,6 +345,14 @@ build clears — check the densest module and just do that one.**
   for each class made package-private. Concrete `*Test` classes are never extended cross-module (check
   comes back empty); the risk is only `abstract`/base test classes — and a class NAMED `Abstract*Test`
   is often NOT abstract and has no subclasses, so read the decl, don't trust the name.
+  **When EVERY mechanical family is simultaneously thin** (concurrent sessions can drain S1066 + unused +
+  syntax + simplification AND S5786's dense modules all at once — S5786 seen at 88 total but max ~4/module,
+  no dense module anywhere), PREFER a uniform single-rule S5786 cluster of ~10 fast leaf modules over
+  assembling a MIXED multi-rule many-module reactor: one uniform per-file script keeps a wide reactor
+  low-risk, whereas mixing 5+ rule mechanics across 10 modules multiplies edit-error surface for the same
+  ~27 fixes. A class-level flag makes the script strip ALL that file's `@Test`/lifecycle methods, so a
+  dense test file yields far MORE `public` removals than its flagged-issue count (e.g. 40 removals in one
+  file flagged with 2 issues) — expected, not an error.
 - **`java:S5785` (use assertEquals/assertNotEquals/assertNull, not a boolean assert) — fully SCRIPTABLE
   per file by line number** (the earlier "prefer S5786, needs judgement" caution was too conservative).
   The issue MESSAGE names the exact target ("Use assertEquals/assertNotEquals/assertNull instead"), so no
