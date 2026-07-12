@@ -311,13 +311,18 @@ biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` 
   (`@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeAll`/`@AfterAll`/`@ParameterizedTest`/`@RepeatedTest`/
   `@TestFactory`/`@TestTemplate`/`@Nested`). Keep other modifiers — `@BeforeAll public static void` →
   `static void`. Do NOT touch fields or unannotated helper methods: they aren't flagged and leaving them
-  public won't re-flag the class. Behaviour-preserving; `-DskipTests` still test-compiles + runs
-  Checkstyle so it fully validates. One dense module is a whole batch (e.g. model-api held 35, one issue
-  per file). No single dense module? Batch ~3-4 fast leaf modules in ONE reactor (e.g. eventstream-api +
-  notifications-notifiers + user-default = 37) — cheaper than oldcore's 32. Low cross-module risk, but
-  before making a class package-private grep `extends <Class>` (a base test extended from another package
-  would break compile) and skip `abstract` base test classes — a class NAMED `Abstract*Test` is often NOT
-  actually abstract, so verify the decl, don't trust the name.
+  public won't re-flag the class. It IS also safe to strip `public` from a NESTED helper/`@Nested` class
+  in a test file (same package — won't re-flag, no cross-package caller in practice), so a simple
+  `public (abstract|final)? (class|interface|enum)` match covering top-level AND nested decls is fine.
+  Behaviour-preserving; `-DskipTests` still test-compiles + runs Checkstyle so it fully validates.
+  **The pool drains toward a thin spread** — early runs had a dense module (model-api ~35), but once the
+  dense modules are PR'd it's ~1-8 issues per module across dozens of leaf modules. Thin-pool batch:
+  pick a CLUSTER of ~7 fast leaf `*-api`/leaf modules totalling ~30 and build them ALL in ONE reactor
+  `-pl m1,m2,...` (a couple heavier `-api` modules ~2.5 min each dominate; leaf modules ~5-45s) — cleanly
+  hits 20-50 with no dense module needed. Low cross-module risk, but before making a class package-private
+  grep `extends <Class>` (a base test extended from another package would break compile) and verify
+  `abstract` base test classes — a class NAMED `Abstract*Test` is often NOT actually abstract (and often
+  has no subclasses), so read the decl, don't trust the name.
 - **`java:S5785` (assertEquals/assertNotEquals instead of boolean-literal assert):** `assertTrue(a.equals(b))`
   → `assertEquals(b, a)`, `assertFalse(a.equals(b))` → `assertNotEquals(b, a)`. Needs operand-order
   judgement per site (less purely mechanical than S5786) — prefer S5786 for a large batch.
