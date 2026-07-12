@@ -359,8 +359,15 @@ build clears — check the densest module and just do that one.**
   static imports (`assertEquals`/`assertNotEquals`/`assertNull`), and remove `assertTrue`/`assertFalse`
   ONLY when the file no longer uses them (grep after) or Checkstyle `UnusedImports` fails; insert
   alphabetically. **Compile note (not a risk):** `assertEquals(0, integerReturningMethod())` resolves to
-  `assertEquals(int,int)` via unboxing and preserves the original `int == Integer` semantics. Build WITH
-  tests on the (small) module — it cheaply confirms no operand order inverted a passing assertion.
+  `assertEquals(int,int)` via unboxing and preserves the original `int == Integer` semantics.
+  **ASYMMETRIC-equals gotcha (real test failure, seen in model-api `RegexEntityReferenceTest`):** the
+  `assertEquals(b, a)` shape flips the call to `b.equals(a)`, which is FINE for value classes but WRONG
+  when the receiver has a custom asymmetric `equals()` (receiver type ≠ arg type — e.g. a regex/matcher
+  reference that `.equals()` a plain one but not vice-versa). There `assertEquals(b, a)` evaluates the
+  reverse direction and the test FAILS. Fix: keep the RECEIVER as the FIRST arg (`a.equals(b)` →
+  `assertEquals(a, b)` / `assertNotEquals(a, b)`) for those files. This is exactly why you **build WITH
+  tests** on the (small) module — it is the only cheap check that catches an inverted operand order; a
+  `-DskipTests`/compile-only build passes silently.
 
 ## Find-phase cost
 
@@ -403,6 +410,10 @@ build clears — check the densest module and just do that one.**
 - Checkstyle + Spoon run in `install` (that's what catches issues); `-DskipTests` is fine.
 - Pick the smallest leaf module(s). Rough datapoints: small plugin/notifier leaf modules ~10s each in
   a warm reactor; oldcore ~3.5 min warm / ~6.5 min cold; feed-api ~5 min.
+- **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn ...` or `-f
+  /home/user/xwiki-platform/pom.xml`): the shell cwd can silently reset to `/home/user` between turns,
+  and a `-pl <relative>` build from the wrong cwd fails fast with `Could not find the selected project
+  in the reactor` (a path error, not a code error — just relaunch from root).
 - Run the build in the **background**, letting the run-in-background tool capture stdout to its own
   `tasks/<id>.output`. Do NOT add your own `> build.log` redirect (leaves the tool's file empty) and do
   NOT wrap in `nohup … &` (one layer of backgrounding only). NO `| tail` (breaks incremental grep).
