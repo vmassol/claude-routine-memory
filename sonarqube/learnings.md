@@ -348,26 +348,34 @@ build clears — check the densest module and just do that one.**
 - **`java:S5785` (use assertEquals/assertNotEquals/assertNull, not a boolean assert) — fully SCRIPTABLE
   per file by line number** (the earlier "prefer S5786, needs judgement" caution was too conservative).
   The issue MESSAGE names the exact target ("Use assertEquals/assertNotEquals/assertNull instead"), so no
-  guessing. Four shapes, expected-value FIRST: `assertTrue(a.equals(b))`→`assertEquals(b, a)`;
-  `assertFalse(a.equals(b))`→`assertNotEquals(b, a)`; `assertTrue(LIT == x)`/`assertTrue(x == LIT)`
-  →`assertEquals(LIT, x)` (numeric literal is the expected); `assertTrue(null == x)`→`assertNull(x)`.
-  Parse robustly: strip the outer `assertTrue(`…`);`, then for the equals form take the LAST `.equals(`
-  (`rfind`) with the arg = everything up to the final `)` (handles nested parens like `new Date(0)` /
-  `new Foo(x).getId()`); for the `==` form split on ` == ` and pick the null/numeric side as expected.
-  Only convert the FLAGGED lines — sibling `assertTrue(x instanceof Y)` lines in the same file are NOT
-  flagged and must stay (so `assertTrue` often survives; keep its import). **Imports:** add the new
-  static imports (`assertEquals`/`assertNotEquals`/`assertNull`), and remove `assertTrue`/`assertFalse`
-  ONLY when the file no longer uses them (grep after) or Checkstyle `UnusedImports` fails; insert
-  alphabetically. **Compile note (not a risk):** `assertEquals(0, integerReturningMethod())` resolves to
-  `assertEquals(int,int)` via unboxing and preserves the original `int == Integer` semantics.
-  **ASYMMETRIC-equals gotcha (real test failure, seen in model-api `RegexEntityReferenceTest`):** the
-  `assertEquals(b, a)` shape flips the call to `b.equals(a)`, which is FINE for value classes but WRONG
-  when the receiver has a custom asymmetric `equals()` (receiver type ≠ arg type — e.g. a regex/matcher
-  reference that `.equals()` a plain one but not vice-versa). There `assertEquals(b, a)` evaluates the
-  reverse direction and the test FAILS. Fix: keep the RECEIVER as the FIRST arg (`a.equals(b)` →
-  `assertEquals(a, b)` / `assertNotEquals(a, b)`) for those files. This is exactly why you **build WITH
-  tests** on the (small) module — it is the only cheap check that catches an inverted operand order; a
-  `-DskipTests`/compile-only build passes silently.
+  guessing. **Default to RECEIVER-FIRST for the `.equals()` shapes — it is universally safe and removes the
+  need to hunt for asymmetric equals:** `assertTrue(a.equals(b))`→`assertEquals(a, b)`;
+  `assertFalse(a.equals(b))`→`assertNotEquals(a, b)`. JUnit's `assertEquals(expected, actual)` calls
+  `expected.equals(actual)`, so keeping the ORIGINAL receiver first reproduces the exact same
+  `a.equals(b)` call — correct even when `a.equals` is custom/asymmetric or `b` is a DIFFERENT type
+  (e.g. `event.equals(anotherTypeEvent)`, a regex/matcher reference). The only cost is cosmetic (the
+  failure message's expected/actual labels are swapped when `b` is the "expected" literal); for symmetric
+  value classes either order passes, so receiver-first is a safe single rule for the whole file — no
+  per-site asymmetry analysis. (The old "flip to `assertEquals(b, a)`" caused a real test failure in
+  model-api `RegexEntityReferenceTest`; receiver-first avoids it entirely.) Other shapes: `assertTrue(LIT
+  == x)`/`assertTrue(x == LIT)`→`assertEquals(LIT, x)`; `assertTrue(x != LIT)`→`assertNotEquals(LIT, x)`
+  (covers `hashCode() != 0`→`assertNotEquals(0, x.hashCode())` and `== 0`→`assertEquals(0, ...)`);
+  `assertTrue(null == x)`→`assertNull(x)`. Only convert the FLAGGED lines — sibling `assertTrue(x
+  instanceof Y)` lines are NOT flagged and must stay (so `assertTrue` often survives; keep its import).
+  A message-string arg (`assertTrue(cond, "msg")`) just moves to the end: `assertEquals(a, b, "msg")`.
+  **Imports:** add the new static imports (`assertEquals`/`assertNotEquals`/`assertNull`), remove
+  `assertTrue`/`assertFalse` ONLY when the file no longer uses them (grep after) or Checkstyle
+  `UnusedImports` fails; insert alphabetically (`assertNotEquals` sits between `assertFalse` and
+  `assertNull`). **Duplicate-line gotcha:** identical assert lines can recur in different test methods
+  (e.g. same call + same message string in two tests) — a `content.count(old)==1` assert then trips;
+  diagnose, and if both convert identically just replace with the real count. **Compile note (not a
+  risk):** `assertEquals(0, method())`/`assertNotEquals(0, x.hashCode())` resolve via `int` overload or
+  autoboxing to `(Object,Object)` — both compile and preserve semantics. **Still build WITH tests** on
+  the module (no `-DskipTests`) — the cheap safety net for operand correctness. **Module choice:** S5785
+  clusters in dense single files (seen: `ActionExecutingEventTest` 14, `SimpleEventQueryTest` 12,
+  `XWikiDocumentMockitoTest` 15); when no single module hits 20, COMBINE two small dense modules in one
+  reactor (bridge 14 + eventstream-api 17 = 31, builds with tests in a few min) — cheaper than oldcore,
+  whose FULL test suite (needed since S5785 must run tests) is costly.
 
 ## Find-phase cost
 
@@ -397,9 +405,11 @@ build clears — check the densest module and just do that one.**
   -Dxwiki.surefire.captureconsole.skip=true -DskipTests`. Maven sorts by dependency order; missing
   transitive deps resolve from the remote snapshot repo (`-Psnapshot`). `-Plegacy` is required to
   include `*-legacy-oldcore`.
-- Accept all issues in one loop (per issue: `add_comment` + `do_transition` accept). Each issue is 2
-  curls ≈ 1.4s, so 43 already blows a 2-min foreground timeout — run the accept loop as a background
-  task for 20+ issues. **The `do_transition` response does NOT reliably contain an `issues` key** — don't
+- Accept all issues in one loop (per issue: `add_comment` + `do_transition` accept). Each issue's 2
+  curls to sonarcloud run ~4s round-trip, so even ~30 issues blow a 2-min foreground timeout (seen: 29
+  of 31 done at the cutoff) — run the accept loop as a BACKGROUND task for 20+ issues, or make it
+  idempotent (query which keys are still OPEN and only accept those, so a re-run finishes the tail).
+  **The `do_transition` response does NOT reliably contain an `issues` key** — don't
   `json.load(...)['issues']` (KeyError); the transition still applied. Confirm separately with one
   `issues/search?issues=<comma-keys>` → all ACCEPTED/RESOLVED. **A transition occasionally no-ops for
   ONE issue in a large batch (e.g. 1 of 35 stayed OPEN) — after the loop, count statuses and re-POST
