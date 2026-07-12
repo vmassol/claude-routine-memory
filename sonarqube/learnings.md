@@ -314,15 +314,19 @@ biggest remaining CLEAN mechanical pools are the JUnit5 test rules `java:S5786` 
   public won't re-flag the class. It IS also safe to strip `public` from a NESTED helper/`@Nested` class
   in a test file (same package — won't re-flag, no cross-package caller in practice), so a simple
   `public (abstract|final)? (class|interface|enum)` match covering top-level AND nested decls is fine.
-  Behaviour-preserving; `-DskipTests` still test-compiles + runs Checkstyle so it fully validates.
-  **The pool drains toward a thin spread** — early runs had a dense module (model-api ~35), but once the
-  dense modules are PR'd it's ~1-8 issues per module across dozens of leaf modules. Thin-pool batch:
-  pick a CLUSTER of ~7 fast leaf `*-api`/leaf modules totalling ~30 and build them ALL in ONE reactor
-  `-pl m1,m2,...` (a couple heavier `-api` modules ~2.5 min each dominate; leaf modules ~5-45s) — cleanly
-  hits 20-50 with no dense module needed. Low cross-module risk, but before making a class package-private
-  grep `extends <Class>` (a base test extended from another package would break compile) and verify
-  `abstract` base test classes — a class NAMED `Abstract*Test` is often NOT actually abstract (and often
-  has no subclasses), so read the decl, don't trust the name.
+  Behaviour-preserving; `-DskipTests` still test-compiles + runs Checkstyle so it fully validates
+  (oldcore's `install -DskipTests` build is ~4 min and clears a 32-issue batch cleanly).
+  **Check oldcore FIRST** — like the other rules it is frequently a dense single-module batch (32 seen,
+  each in its own file), which one `-pl xwiki-platform-oldcore` build clears with no reactor juggling.
+  Otherwise the pool is a thin spread (~1-8 per module across dozens of leaf modules once the dense
+  modules are PR'd): pick a CLUSTER of ~7 fast leaf `*-api`/leaf modules totalling ~30 and build them ALL
+  in ONE reactor `-pl m1,m2,...` (a couple heavier `-api` modules ~2.5 min each dominate; leaf modules
+  ~5-45s). **Cross-module compile check** (matters most in oldcore, which publishes a widely-used
+  test-jar): an oldcore-only build won't catch a subclass in ANOTHER module breaking when its base goes
+  package-private, so `grep -rl "extends <Class>" --include=*.java xwiki-platform-core | grep -v <thisModule>`
+  for each class made package-private. Concrete `*Test` classes are never extended cross-module (check
+  comes back empty); the risk is only `abstract`/base test classes — and a class NAMED `Abstract*Test`
+  is often NOT abstract and has no subclasses, so read the decl, don't trust the name.
 - **`java:S5785` (assertEquals/assertNotEquals instead of boolean-literal assert):** `assertTrue(a.equals(b))`
   → `assertEquals(b, a)`, `assertFalse(a.equals(b))` → `assertNotEquals(b, a)`. Needs operand-order
   judgement per site (less purely mechanical than S5786) — prefer S5786 for a large batch.
