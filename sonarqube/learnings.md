@@ -28,8 +28,12 @@ learn something, merge it into the right section and trim — don't append dated
   S1612/S2864/S1858, those issues are still OPEN in Sonar (PR unmerged) but OFF-LIMITS; pivot to an
   untouched family. BUT a per-MODULE batch PR only claims the files it touched: if a PR fixed rule X in
   ONLY one module (e.g. S5786 in model-api), the SAME rule X in OTHER modules is fully fair game — no file
-  overlap. Scope the off-limits check by (rule + module), not by rule alone. The safest untouched fodder
-  is the **pure-syntax/annotation group** (own section
+  overlap. Scope the off-limits check by (rule + module), not by rule alone. **SEVERAL concurrent
+  sessions can saturate the single "best" rule at once** — e.g. 4 open S5786 PRs covering oldcore,
+  model-api + ~15 modules in one day. When the rule you planned already has multiple open PRs, don't try
+  to thread the gaps; PIVOT to a rule family with ZERO open PRs. `java:S1066` (merge nested `if`, deep
+  oldcore pool) is a reliable such pivot — structural, so the S5786/syntax cleanup waves never touch it.
+  The safest untouched fodder is the **pure-syntax/annotation group** (own section
   below): `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement),
   `java:S1161` (missing `@Override`) — zero-dataflow, even safer than the simplification rules, and they
   regenerate.
@@ -212,16 +216,26 @@ in ONE build). Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` →
 — merge with `&&`, delete the inner `if` line, DEDENT the body by 4, and remove ONE of the two trailing
 braces. Wrap an operand containing top-level `||` in parens. NOT a pure line-keyed edit (needs reindent
 + brace surgery), so delegate the reading/editing to ONE subagent that works each file bottom-up.
-**Expect ~40 of 70 fixable; the standard DROPs (~30) are:** a comment sits BETWEEN the outer and inner
-`if` (merging would lose it) — skip; and the merged condition would exceed 120 chars (checkstyle) —
-skip (or two-line wrap with +4 continuation indent when just over). A residual redundant `X != null &&
-X instanceof Y` is harmless — leave it.
+**Fixable rate is HIGH once you recover comment-between sites — ~25 of 29 seen in oldcore alone.** The
+standard DROPs are: the merged condition would exceed 120 chars AND can't be cleanly two-line-wrapped
+(+4 continuation indent); the outer is an `else if`; or the inner `if` is NOT the sole statement of the
+outer body (sibling statements / an `else`) — merging any of these changes semantics. A residual
+redundant `X != null && X instanceof Y` is harmless — leave it.
+**A comment BETWEEN the outer and inner `if` is USUALLY recoverable, not an automatic drop:** if it is a
+single-line `//` comment describing the inner condition/body, MOVE it directly above the merged
+`if (A && B)` (same indent) and merge — the comment still describes the same logic, so it's clean and
+NOT review churn. This roughly doubled the fix rate (14→25). DROP only when the comment is a multi-line
+`//`/block comment, or clearly documents the OUTER condition rather than the inner.
 
 **Subagent brace-surgery gotcha (generic):** when a subagent removes a brace level across many sites, a
 single site can be left with a STRAY extra `}` (compiles-cascade error `illegal start of type`). The
 `install` build catches it immediately; the fix is deleting the one leftover `}` and rebuilding. Lesson:
 ALWAYS build after a subagent does structural (brace-removing) edits — never trust the subagent's
 self-report of success; and one bad file among 24 does not condemn the batch (the other 23 compiled).
+**Cheap pre-build stray-brace check:** for each edited file compare the `{` vs `}` COUNT-DELTA before
+vs after (`git show HEAD:f` vs the working copy). Absolute counts are non-zero (braces live in strings/
+regex/comments), but a correct nested-if merge removes exactly one `{` and one `}`, so the delta must be
+UNCHANGED. A file whose delta shifted has a stray/missing brace — inspect before spending the build.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
