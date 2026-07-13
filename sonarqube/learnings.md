@@ -381,20 +381,27 @@ build clears — check the densest module and just do that one.**
   **Check oldcore FIRST** — like the other rules it is frequently a dense single-module batch (32 seen,
   each in its own file), which one `-pl xwiki-platform-oldcore` build clears with no reactor juggling.
   Otherwise the pool is a thin spread (~1-8 per module across dozens of leaf modules once the dense
-  modules are PR'd): pick a CLUSTER of ~7 fast leaf `*-api`/leaf modules totalling ~30 and build them ALL
+  modules are PR'd): pick a CLUSTER of fast leaf `*-api`/leaf modules totalling ~30 and build them ALL
   in ONE reactor `-pl m1,m2,...` (a couple heavier `-api` modules ~2.5 min each dominate; leaf modules
-  ~5-45s). **Cross-module compile check** (matters most in oldcore, which publishes a widely-used
+  ~5-45s). **Ultra-thin case (~1/module):** when the spread is only 1-2 per module the ~30-issue batch
+  needs ~30 modules — don't be deterred by the width, a 32-module reactor (one issue each, incl. a
+  mix of `*-api`, xar `*-ui` page-test and legacy modules) still builds green in ONE shot, dominated by
+  its one heaviest module. This is the correct play when S5786 is the ONLY pool ≥20 and every other rule
+  is drained to single digits (S1066/unused/S1192 all <10, syntax/simplification/S5785 at 0 — a common
+  concurrent-session state). **Open S5786 PRs usually sit on SIBLING modules, not yours:** a prior PR
+  covering `annotation-core`/`store-merge`/`localization-source-jar`/`search-solr`/`livedata-livetable`
+  leaves `annotation-reference`/`store-transaction`/`localization-source-wiki`/`search-ui`/`livetable-ui`
+  fully fair game — sibling modules under one parent are DISTINCT modules with no file overlap, so scope
+  the off-limits check by exact module path, and don't abandon S5786 just because 2-3 of its PRs are open. **Cross-module compile check** (matters most in oldcore, which publishes a widely-used
   test-jar): an oldcore-only build won't catch a subclass in ANOTHER module breaking when its base goes
   package-private, so `grep -rl "extends <Class>" --include=*.java xwiki-platform-core | grep -v <thisModule>`
   for each class made package-private. Concrete `*Test` classes are never extended cross-module (check
   comes back empty); the risk is only `abstract`/base test classes — and a class NAMED `Abstract*Test`
   is often NOT abstract and has no subclasses, so read the decl, don't trust the name.
-  **When EVERY mechanical family is simultaneously thin** (concurrent sessions can drain S1066 + unused +
-  syntax + simplification AND S5786's dense modules all at once — S5786 seen at 88 total but max ~4/module,
-  no dense module anywhere), PREFER a uniform single-rule S5786 cluster of ~10 fast leaf modules over
-  assembling a MIXED multi-rule many-module reactor: one uniform per-file script keeps a wide reactor
-  low-risk, whereas mixing 5+ rule mechanics across 10 modules multiplies edit-error surface for the same
-  ~27 fixes. **BUT when even S5786 AND S5785 are BOTH multi-PR-saturated** (2–3 open `llm-agent` PRs each,
+  **When EVERY mechanical family is simultaneously thin**, PREFER a uniform single-rule S5786 wide
+  reactor over a MIXED multi-rule reactor: one uniform per-file script keeps a wide reactor low-risk,
+  whereas mixing 5+ rule mechanics multiplies edit-error surface for the same fix count.
+  **BUT when even S5786 AND S5785 are BOTH multi-PR-saturated** (2–3 open `llm-agent` PRs each,
   their remaining OPEN issues sitting in modules those PRs already claim) AND no single other rule reaches
   20, the correct fallback IS a MIXED batch of the small ZERO-PR pure-mechanical rules — S1612 + S1125 +
   S2864 + S1155 + S1197 + S1128 together reached 24 across ~20 modules in one green reactor. The
