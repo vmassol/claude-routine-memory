@@ -329,7 +329,11 @@ build clears — check the densest module and just do that one.**
   (`@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeAll`/`@AfterAll`/`@ParameterizedTest`/`@RepeatedTest`/
   `@TestFactory`/`@TestTemplate`/`@Nested`). Keep other modifiers — `@BeforeAll public static void` →
   `static void`. Do NOT touch fields or unannotated helper methods: they aren't flagged and leaving them
-  public won't re-flag the class. It IS also safe to strip `public` from a NESTED helper/`@Nested` class
+  public won't re-flag the class. **Keep the allowlist to REAL JUnit annotations only** — a method
+  annotated with an XWiki-specific (non-JUnit) lifecycle annotation such as `@BeforeComponent`/
+  `@AfterComponent` is NOT flagged by S5786, so leave its `public` intact (a `@BeforeComponent public
+  void configure(MockitoComponentManager cm)` stays public and won't re-flag; only its JUnit-annotated
+  siblings like `@BeforeEach setup()` are stripped). It IS also safe to strip `public` from a NESTED helper/`@Nested` class
   in a test file (same package — won't re-flag, no cross-package caller in practice), so a simple
   `public (abstract|final)? (class|interface|enum)` match covering top-level AND nested decls is fine.
   Behaviour-preserving; `-DskipTests` still test-compiles + runs Checkstyle so it fully validates
@@ -471,6 +475,12 @@ build clears — check the densest module and just do that one.**
   routine's override email differs from the git userEmail context — use the override.)
 - Prefer a file with a SINGLE issue of the rule for clean one-PR-per-issue mode; the count of OPEN
   issues in a file should equal the number you convert (a clean cross-check).
+- **Reset the designated feature branch to master FIRST — it persists across runs.** A previous run's
+  commits may still sit on it; once their PR merged, `git fetch origin master` then `git log
+  origin/master..HEAD` shows 0 (they're in master) — reset with `git checkout -B <branch>
+  origin/master` before editing, or the new PR bundles all the old already-merged commits. (A stale
+  local `origin/master` hides this: it can show N commits "ahead" that vanish after the fetch — always
+  fetch before judging.)
 - **Recording learnings (memory repo → `main`):** the xwiki-platform fix lives on a feature branch but
   learnings go to `main`. Do NOT edit on the feature branch then stash/checkout/pop (main has diverged;
   the pop conflicts and can bake `<<<<<<<` markers into the commit). Instead `git checkout main &&
