@@ -214,14 +214,27 @@ edit doesn't shift later ones.
   6+), so a target inside an interface is valid, not a bug. Behaviour-preserving — the single safest
   rule in this group.
 
-## java:S1066 — merge collapsible nested `if` (deep oldcore pool, one-module batch)
+## java:S1066 — merge collapsible nested `if` (structural; the reliable pivot when all else is drained)
 
-A reliable large batch source: often ~70 in oldcore ALONE (one dense module = a whole 40-issue batch
-in ONE build). Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` → `if (A && B) { BODY }`
+The single most reliable batch source when the syntax / simplification / unused-code / S5785 / S5786
+pools are ALL simultaneously drained-or-saturated (concurrent sessions frequently leave every one of
+them near-zero or with multiple open PRs at once) — S1066 is STRUCTURAL, so those syntax/test cleanup
+waves never touch it, and it regenerates. **Density is NOT reliably oldcore-concentrated** — sometimes
+~70 in oldcore alone (one dense module = a whole 40-issue batch in ONE build), but other runs it is
+THIN-SPREAD (e.g. 31 total across 16 modules, only ~4 in oldcore, no dense module). Then a WIDE
+~17-module reactor still clears the whole rule in ONE `install -DskipTests` build (~10-15 min, dominated
+by oldcore/packager/model-api). Re-query the module distribution each run; don't assume a single-module
+batch. Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` → `if (A && B) { BODY }`
 — merge with `&&`, delete the inner `if` line, DEDENT the body by 4, and remove ONE of the two trailing
 braces. Wrap an operand containing top-level `||` in parens. NOT a pure line-keyed edit (needs reindent
-+ brace surgery), so delegate the reading/editing to ONE subagent that works each file bottom-up.
-**Fixable rate is HIGH once you recover comment-between sites — ~25 of 29 seen in oldcore alone.** The
++ brace surgery), so DELEGATE the reading/editing to subagents that work each file bottom-up — for a
+wide spread, split the files across SEVERAL parallel subagents (e.g. 4 groups of ~7 files); disjoint
+files never conflict, so parallel is safe and much faster than one subagent. **A triple-nested
+`if (A){if(B){if(C){...}}}` collapses to `if (A && B && C)` and resolves TWO Sonar keys in one merge** —
+so the fixed-ISSUE count can exceed the edited-SITE count; build the accept list by KEY (all-open-S1066
+minus the dropped `(basename,line)` pairs), not by counting edits.
+**Fixable rate is HIGH once you recover comment-between sites — ~23 of 31 (~74%) this run, ~25 of 29 in a
+dense oldcore run.** The
 standard DROPs are: the merged condition would exceed 120 chars AND can't be cleanly two-line-wrapped
 (+4 continuation indent); the outer is an `else if`; or the inner `if` is NOT the sole statement of the
 outer body (sibling statements / an `else`) — merging any of these changes semantics. A residual
@@ -237,10 +250,12 @@ single site can be left with a STRAY extra `}` (compiles-cascade error `illegal 
 `install` build catches it immediately; the fix is deleting the one leftover `}` and rebuilding. Lesson:
 ALWAYS build after a subagent does structural (brace-removing) edits — never trust the subagent's
 self-report of success; and one bad file among 24 does not condemn the batch (the other 23 compiled).
-**Cheap pre-build stray-brace check:** for each edited file compare the `{` vs `}` COUNT-DELTA before
-vs after (`git show HEAD:f` vs the working copy). Absolute counts are non-zero (braces live in strings/
-regex/comments), but a correct nested-if merge removes exactly one `{` and one `}`, so the delta must be
-UNCHANGED. A file whose delta shifted has a stray/missing brace — inspect before spending the build.
+**Cheap pre-build stray-brace check (run across ALL edited files at once before building):** for each
+file compute `open-Δ = #{(HEAD) - #{(working)` and `close-Δ = #}(HEAD) - #}(working)`. A correct merge
+removes exactly one `{` and one `}` per issue, so for every file `open-Δ == close-Δ` AND both equal that
+file's S1066 issue count (2 for a two-issue file or a resolved triple-nest). Any file where the two
+deltas differ has a stray/missing brace — inspect before spending the build. (Also grep the diff for
+added lines >120 chars — a wrapped merged condition can breach the checkstyle limit.)
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
