@@ -150,14 +150,18 @@ for a different literal (fix only the reported one).
 
 ## Pure-simplification rules — the best batch fodder (no dataflow check)
 
-`java:S1125` (`x == true`/`== false` → `x`/`!x`), `java:S1488` (inline an immediately-returned local),
+`java:S1125` (redundant boolean literal: `x == true`/`== false` → `x`/`!x`; ALSO the ternary shapes
+`cond ? x : true` → `!cond || x`, `cond ? x : false` → `cond && x`, `cond ? true : y` → `cond || y`,
+`cond ? false : y` → `!cond && y` — the operand can be a boxed `Boolean` that autounboxes, still fine),
+`java:S1488` (inline an immediately-returned local),
 `java:S1858` (drop `toString()` on a value already a `String` — TRUST the rule, it only fires on String
 receivers), `java:S2864` (`keySet()`+`get(k)` → `entrySet()`; prefer `values().forEach(v -> ...)` when
 the key is unused, else the `entrySet()` enhanced-for `for (Map.Entry<K,V> e : m.entrySet())` — required
 whenever the key IS used or the body throws a checked exception / uses `continue`/`break`/a mutated
 outer local; `Map.Entry` needs no import), `java:S1612` (`x -> obj.foo(x)` → `obj::foo`; also fires on
 block-body `() -> { obj.foo(); }`, constructor `s -> new Foo(s)` → `Foo::new`, `x -> x instanceof Foo`
-→ `Foo.class::isInstance`, qualified super `() -> Outer.super.foo()` → `Outer.super::foo`; overloaded
+→ `Foo.class::isInstance`, enum `v -> v.name()` → `Enum::name` (java.lang, no import), qualified super
+`() -> Outer.super.foo()` → `Outer.super::foo`; overloaded
 targets and `assertThrows(..., obj::method)` clusters in tests are fine). **Import gotcha (build-breaker):**
 a method ref names its target TYPE (`Foo::getX`), which the lambda never needed imported — if that type is
 a NESTED class (`LiveDataQuery.SortEntry` → `SortEntry::getProperty`) or the stream's element type and
@@ -392,7 +396,14 @@ build clears — check the densest module and just do that one.**
   no dense module anywhere), PREFER a uniform single-rule S5786 cluster of ~10 fast leaf modules over
   assembling a MIXED multi-rule many-module reactor: one uniform per-file script keeps a wide reactor
   low-risk, whereas mixing 5+ rule mechanics across 10 modules multiplies edit-error surface for the same
-  ~27 fixes. A class-level flag makes the script strip ALL that file's `@Test`/lifecycle methods, so a
+  ~27 fixes. **BUT when even S5786 AND S5785 are BOTH multi-PR-saturated** (2–3 open `llm-agent` PRs each,
+  their remaining OPEN issues sitting in modules those PRs already claim) AND no single other rule reaches
+  20, the correct fallback IS a MIXED batch of the small ZERO-PR pure-mechanical rules — S1612 + S1125 +
+  S2864 + S1155 + S1197 + S1128 together reached 24 across ~20 modules in one green reactor. The
+  error-surface caution above applies to DATAFLOW rules; these six are all zero-dataflow single-line edits
+  (method ref / boolean literal / entrySet / isEmpty / array designator / unused import), so a scripted
+  mixed batch stays low-risk. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule.
+  A class-level flag makes the script strip ALL that file's `@Test`/lifecycle methods, so a
   dense test file yields far MORE `public` removals than its flagged-issue count (e.g. 40 removals in one
   file flagged with 2 issues) — expected, not an error.
 - **`java:S5785` (use assertEquals/assertNotEquals/assertNull, not a boolean assert) — fully SCRIPTABLE
