@@ -243,9 +243,7 @@ files never conflict, so parallel is safe and much faster than one subagent. **A
 `if (A){if(B){if(C){...}}}` collapses to `if (A && B && C)` and resolves TWO Sonar keys in one merge** —
 so the fixed-ISSUE count can exceed the edited-SITE count; build the accept list by KEY (all-open-S1066
 minus the dropped `(basename,line)` pairs), not by counting edits.
-**Fixable rate is HIGH once you recover comment-between sites — ~23 of 31 (~74%) this run, ~25 of 29 in a
-dense oldcore run.** The
-standard DROPs are: the merged condition would exceed 120 chars AND can't be cleanly two-line-wrapped
+**Fixable rate is HIGH (~75%) once you recover comment-between sites.** The standard DROPs are: the merged condition would exceed 120 chars AND can't be cleanly two-line-wrapped
 (+4 continuation indent); the outer is an `else if`; or the inner `if` is NOT the sole statement of the
 outer body (sibling statements / an `else`) — merging any of these changes semantics. A residual
 redundant `X != null && X instanceof Y` is harmless — leave it.
@@ -421,7 +419,11 @@ build clears — check the densest module and just do that one.**
   model-api `RegexEntityReferenceTest`; receiver-first avoids it entirely.) Other shapes: `assertTrue(LIT
   == x)`/`assertTrue(x == LIT)`→`assertEquals(LIT, x)`; `assertTrue(x != LIT)`→`assertNotEquals(LIT, x)`
   (covers `hashCode() != 0`→`assertNotEquals(0, x.hashCode())` and `== 0`→`assertEquals(0, ...)`);
-  `assertTrue(null == x)`→`assertNull(x)`. **`==`/`!=` between two REFERENCES** (identity, not value) is
+  `assertTrue(null == x)`→`assertNull(x)`. **Degenerate `.equals()` forms convert too — trust the
+  message:** `assertFalse(x.equals(null))`→`assertNotEquals(x, null)` and self-equality
+  `assertTrue(x.equals(x))`→`assertEquals(x, x)` both compile and pass (JUnit uses `Objects.equals`, so
+  the null/self case never routes through a custom `equals`); no need to "improve" them to
+  assertNotNull. **`==`/`!=` between two REFERENCES** (identity, not value) is
   a distinct message "Use assertSame/assertNotSame instead": `assertTrue(a == b)`→`assertSame(a, b)`,
   `assertFalse(a == b)`→`assertNotSame(a, b)` (identity is symmetric so operand order is cosmetic; TRUST
   the message to choose same-vs-equals — e.g. attachment identity, enum constants). Only convert the
