@@ -203,11 +203,16 @@ edit doesn't shift later ones.
   flagged — distinguish by indentation / exact line number, so line-number-keyed editing is safe.
 - **`java:S1161` (missing `@Override`):** deep pool (~66 seen), often CONCENTRATED in a few TEST files
   (anonymous-class methods overriding an interface/abstract, e.g. `new Runnable(){ void run(){...} }`)
-  — so 2-3 dense files can be a whole 50-issue batch. Fix = insert a line `<indent>@Override` (matching
-  the flagged signature's leading whitespace) directly ABOVE each flagged method-signature line; purely
+  — so 2-3 dense files can be a whole 50-issue batch, but it also spreads 1-per-module as a great
+  additive add-on to an unused-code batch. Fix = insert a line `<indent>@Override` (matching the
+  flagged signature's leading whitespace) directly ABOVE each flagged method-signature line; purely
   additive, no dataflow. TRUST Sonar (the method genuinely overrides). Assert the flagged line contains
-  `(` and is not already `@Override` and its predecessor line isn't `@Override` either; insert bottom-up
-  per file. Behaviour-preserving — the single safest rule in this group.
+  `(` and is not already `@Override` and its predecessor line isn't `@Override`; insert bottom-up per
+  file. When the preceding line is ANOTHER annotation (`@BeforeEach`, `@Unstable`, …), inserting above
+  the signature puts `@Override` between it and the signature — fine, annotation order is irrelevant.
+  An INTERFACE method that redeclares a super-interface method legitimately takes `@Override` (Java
+  6+), so a target inside an interface is valid, not a bug. Behaviour-preserving — the single safest
+  rule in this group.
 
 ## java:S1066 — merge collapsible nested `if` (deep oldcore pool, one-module batch)
 
@@ -240,11 +245,17 @@ UNCHANGED. A file whose delta shifted has a stray/missing brace — inspect befo
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
 The most reliable batch source once the simplification/syntax pools are drained: ~100+ open
-project-wide, often ~45 in oldcore ALONE (one dense module = a whole 20-50 batch in ONE build), and
-untouched by the simplification/syntax cleanup PRs so rarely off-limits. Needs light dataflow
-judgement per site, so delegate the reading to ONE Explore subagent that returns a precise action
-(DELETE range / REPLACE / DROP+reason) per site; then apply BY LINE NUMBER (repo is at the scan
-commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs — still clears 20-50.
+project-wide, sometimes ~45 in oldcore ALONE (one dense module = a whole 20-50 batch in ONE build),
+and untouched by the simplification/syntax cleanup PRs so rarely off-limits. **But density is NOT
+guaranteed** — some runs the ~40-issue pool is thin-spread 1-2 per module across ~28 modules with
+oldcore near-zero (or oldcore's few all DROPs). Then a WIDE ~24-module reactor of mostly leaf modules
+builds green in one shot; and you can EXCLUDE the heaviest module (oldcore) entirely when ALL its
+issues are DROPs — check that before adding it. **Bundle `java:S1161` (@Override, purely additive)
+into the same batch for a clean multi-type PR** — Vincent's override explicitly allows mixed issue
+types, and additive @Override adds no risk. Needs light dataflow judgement per site, so delegate the
+reading to ONE Explore subagent that returns a precise action (DELETE range / STRIP_PREFIX /
+INSERT_OVERRIDE / DROP+reason) per issue KEY; then apply BY LINE NUMBER in one atomic assert-guarded
+Python script (repo is at the scan commit, lines don't drift). Expect to fix ~40 of ~45 after DROPs.
 
 - **S1481 (unused local) + S1854 (dead store) fire as a PAIR on the same `Type x = expr;` line** —
   one edit clears both keys.
@@ -257,9 +268,12 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   delete the entire `} else { x = null; }` (collapse to the `if`'s closing `}`) rather than leaving an
   empty `else {}` block. A trailing dead `timer++` on a last use → drop just the `++`, keep the read.
 - **Removing a private LOGGER/field usually ORPHANS its import** (`org.slf4j.Logger`/`LoggerFactory`,
-  or the field's own type) → grep the file for the type after removal and delete the now-unused
-  `import` too, or Checkstyle `UnusedImports` fails. (Removed local vars rarely orphan an import — the
-  type is usually still used elsewhere; grep to confirm before deleting an import.)
+  or the field's own type) → delete the now-unused `import` too, or Checkstyle `UnusedImports` fails.
+  In the script, delete an import ONLY IF the type's SIMPLE NAME is absent from the FINAL post-edit
+  content, matched with a WORD-BOUNDARY regex `\bLogger\b` — a plain substring check sees `Logger`
+  inside `LoggerFactory` and wrongly keeps the orphan. This rule is safe both ways: name still present
+  → keep the import (no checkstyle issue), absent → delete. (Removed local vars rarely orphan an
+  import — the type is usually still used elsewhere; the same check confirms it.)
 - **Clean up what the removal leaves behind (reviewers WILL flag both):** (a) any COMMENT that
   solely described the removed line — e.g. a `// Note: we use getRequestURI()...` above a deleted
   `requestUri` var, or a field's javadoc (remove the javadoc WITH the field). But KEEP a comment that
@@ -267,6 +281,9 @@ commit, lines don't drift). Expect to fix ~30 of a ~34-site cluster after DROPs 
   surrounded by blanks leaves a DOUBLE blank; the last statement before `}` leaves a trailing blank;
   the first field after `{` leaves a leading blank. Collapse them. Checkstyle usually tolerates these
   so the build stays green — grep the diff context yourself, don't rely on the build to catch them.
+  **ASSERT each blank you delete is truly blank (`line.strip()==''`) before removing it** — a
+  subagent's "collapse this blank line N" hint can mis-point at a following member's `/**` javadoc
+  opener (which looks like the start of the next block); deleting it would corrupt that member.
 - **Removal CASCADES — delete the whole dead chain/block in one pass:** deleting `T x = other.getFoo()`
   can leave `other` (or a sibling local it read) newly unused; deleting a var can orphan a dead block (a
   `// comment` + a `Matcher`/`Pattern`/`baseClass` line that only fed it). Sonar flags only the outermost
