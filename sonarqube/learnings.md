@@ -389,7 +389,11 @@ build clears — check the densest module and just do that one.**
   model-api `RegexEntityReferenceTest`; receiver-first avoids it entirely.) Other shapes: `assertTrue(LIT
   == x)`/`assertTrue(x == LIT)`→`assertEquals(LIT, x)`; `assertTrue(x != LIT)`→`assertNotEquals(LIT, x)`
   (covers `hashCode() != 0`→`assertNotEquals(0, x.hashCode())` and `== 0`→`assertEquals(0, ...)`);
-  `assertTrue(null == x)`→`assertNull(x)`. Only convert the FLAGGED lines — sibling `assertTrue(x
+  `assertTrue(null == x)`→`assertNull(x)`. **`==`/`!=` between two REFERENCES** (identity, not value) is
+  a distinct message "Use assertSame/assertNotSame instead": `assertTrue(a == b)`→`assertSame(a, b)`,
+  `assertFalse(a == b)`→`assertNotSame(a, b)` (identity is symmetric so operand order is cosmetic; TRUST
+  the message to choose same-vs-equals — e.g. attachment identity, enum constants). Only convert the
+  FLAGGED lines — sibling `assertTrue(x
   instanceof Y)` lines are NOT flagged and must stay (so `assertTrue` often survives; keep its import).
   A message-string arg (`assertTrue(cond, "msg")`) just moves to the end: `assertEquals(a, b, "msg")`.
   **Imports:** add the new static imports (`assertEquals`/`assertNotEquals`/`assertNull`), remove
@@ -397,14 +401,21 @@ build clears — check the densest module and just do that one.**
   `UnusedImports` fails; insert alphabetically (`assertNotEquals` sits between `assertFalse` and
   `assertNull`). **Duplicate-line gotcha:** identical assert lines can recur in different test methods
   (e.g. same call + same message string in two tests) — a `content.count(old)==1` assert then trips;
-  diagnose, and if both convert identically just replace with the real count. **Compile note (not a
-  risk):** `assertEquals(0, method())`/`assertNotEquals(0, x.hashCode())` resolve via `int` overload or
-  autoboxing to `(Object,Object)` — both compile and preserve semantics. **Still build WITH tests** on
-  the module (no `-DskipTests`) — the cheap safety net for operand correctness. **Module choice:** S5785
-  clusters in dense single files (seen: `ActionExecutingEventTest` 14, `SimpleEventQueryTest` 12,
-  `XWikiDocumentMockitoTest` 15); when no single module hits 20, COMBINE two small dense modules in one
-  reactor (bridge 14 + eventstream-api 17 = 31, builds with tests in a few min) — cheaper than oldcore,
-  whose FULL test suite (needed since S5785 must run tests) is costly.
+  diagnose, and if both convert identically just replace with the real count. **Already-half-fixed site:**
+  a flagged `assertTrue(x != Y)` sometimes sits directly ABOVE an already-present `assertNotSame(Y, x)`
+  (a prior partial fix) — converting would DUPLICATE the next line, so just DELETE the redundant flagged
+  line (and drop its now-unused import). Always eyeball the adjacent line before converting. **Compile
+  note (not a risk):** `assertEquals(0, method())`/`assertNotEquals(0, x.hashCode())` resolve via `int`
+  overload or autoboxing to `(Object,Object)` — both compile and preserve semantics. **Build WITH the
+  flagged tests as the operand-correctness safety net, but you do NOT need the module's FULL suite:** run
+  `install ... -Dtest=<the flagged test classes> -DfailIfNoTests=false` — Checkstyle + full test-compile
+  still run (that's what `install` gates), only the flagged classes execute (~5s even in oldcore). This
+  makes oldcore a perfectly cheap S5785 batch and generalises to any test-rule that "must run tests".
+  **Module choice:** S5785 clusters in dense single files (seen: `XWikiDocumentMockitoTest` 15,
+  `ActionExecutingEventTest` 14, `SimpleEventQueryTest` 12); oldcore is a solid dense single-module batch
+  (22 seen across 4 files) even when the previously-dense modules (bridge/eventstream-api/model-api/
+  chart-macro) are already PR'd — check oldcore FIRST. When no single module hits 20, COMBINE two small
+  dense modules in one reactor (e.g. bridge + eventstream-api).
 
 ## Find-phase cost
 
