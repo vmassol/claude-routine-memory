@@ -13,7 +13,13 @@ learn something, merge it into the right section and trim — don't append dated
 - **Counts shift every run as PRs land, and clean rules get EXHAUSTED then slowly REGENERATE — always
   re-query, never assume a rule still has convertible issues.** If a rule's remaining issues are all
   the non-convertible residue, pivot to another rule (skill rule: "if a fix is hard, drop it and pick
-  another"). `java:S1192` is the reliable perennial fallback (see below).
+  another"). `java:S1192` (~12) and `java:S1488` (~12, inline immediately-returned local — pure,
+  no-dataflow, in practice zero-drop) are the reliable small ZERO-PR perennials: when EVERY other
+  family (syntax S1128/S1197/S1116/S1161, simplification S1125/S1858/S2864/S1612, unused
+  S1068/S1481/S1854, S1066, and even the test rules S5786/S5785) is simultaneously drained-to-zero OR
+  already covered by open PRs — a common concurrent-session state — MIX S1488 + S1192 into ONE wide
+  reactor to reach the 20-50 target (a clean two-rule PR). Their small pools each sit below 20 alone,
+  so neither is a standalone batch; together they clear it.
 - **The BLOCKER/CRITICAL mechanical pool is frequently exhausted** — S1192 tiny (see feasibility
   check), S2093 often ALL residue. When it is, drop the severity filter: there is a deep MAJOR-severity
   clean pool for single-issue fixes. Reliable MAJOR winners (re-query counts): `java:S1155`
