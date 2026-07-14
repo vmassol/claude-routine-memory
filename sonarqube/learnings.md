@@ -42,7 +42,10 @@ learn something, merge it into the right section and trim — don't append dated
   The safest untouched fodder is the **pure-syntax/annotation group** (own section
   below): `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement),
   `java:S1161` (missing `@Override`) — zero-dataflow, even safer than the simplification rules, and they
-  regenerate.
+  regenerate. **When EVERY small pool (syntax + simplification + unused + S1066 + S1192 + S2093 + test
+  rules) is simultaneously below 20**, the deepest untouched fallback is `java:S6201` (pattern matching
+  for instanceof, hundreds open — own section below): structural like S1066, so cleanup waves never
+  touch it, and oldcore alone holds enough for a single-module 50-issue batch.
 - **Denylist — skip these** (bad ROI / risky / not one-liners): `java:S3776` (cognitive complexity),
   `java:S3252`/`java:S1845` (API/backward-compat), `java:S1186` (empty methods), `java:S115` (naming),
   `java:S2447` (null from Boolean method — in XWiki *script services* null is a deliberate
@@ -264,6 +267,38 @@ removes exactly one `{` and one `}` per issue, so for every file `open-Δ == clo
 file's S1066 issue count (2 for a two-issue file or a resolved triple-nest). Any file where the two
 deltas differ has a stray/missing brace — inspect before spending the build. (Also grep the diff for
 added lines >120 chars — a wrapped merged condition can breach the checkstyle limit.)
+
+## java:S6201 — pattern matching for instanceof (the DEEPEST clean pool; go-to when all small pools drained)
+
+By far the largest clean pool (seen 566 open, 143 in oldcore ALONE) and it barely regenerates down —
+so it is the reliable batch source when the small mechanical rules (S1066/S1068/S1192/S2093/syntax/
+simplification/test-rules) are ALL simultaneously drained below 20 (a common concurrent-session state).
+Requires Java 16+; xwiki-platform 18.x is Java 17 and already uses `instanceof` patterns, so it compiles.
+Message: "Replace this instanceof check and cast with 'instanceof Foo foo'". Fix = bind a pattern
+variable and delete the redundant cast:
+- Positive guard: `if (x instanceof Foo) { ((Foo) x).m(); }` → `if (x instanceof Foo foo) { foo.m(); }`
+- Compound `&&` (pattern var scopes rightward + into the block): `x instanceof Foo && ((Foo) x).m()` →
+  `x instanceof Foo foo && foo.m()`
+- Ternary/return: `return x instanceof Foo ? ((Foo) x).m() : y;` → `return x instanceof Foo foo ? foo.m() : y;`
+- Negated guard + early exit (flow scoping): `if (!(x instanceof Foo)) { return; } Foo foo = (Foo) x;` →
+  `if (!(x instanceof Foo foo)) { return; }` (delete the redundant decl, use `foo`).
+- Existing explicit local: `if (x instanceof Foo) { Foo foo = (Foo) x; ... }` → `if (x instanceof Foo foo)
+  { ... }` — REUSE that local's name and delete its declaration line.
+`Object[]` patterns work too (`x instanceof Object[] arr`).
+
+STRUCTURAL like S1066 (not a pure line-keyed edit) → DELEGATE reading+editing to PARALLEL
+general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 sites each; oldcore's
+143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
+- **Naming:** use idiomatic **camelCase**, NOT Sonar's all-lowercase suggestion (`alltablecolumns` →
+  `allTableColumns`). Ensure no collision with an in-scope name.
+- **Replace EVERY cast of that expression WITHIN the pattern var's scope.** A cast OUTSIDE that scope —
+  the `else` branch, a later statement, or a cast to a DIFFERENT type (`(Object[]) result` beside
+  `(String) result`) — is a separate/unflagged site; leave it.
+- **DROP:** a negated `instanceof` with NO early exit whose only cast sits under a SEPARATE positive
+  `instanceof` (flow scoping can't reach it); instanceof and cast on unrelated expressions; name collision.
+  Fix rate is high (~98%: 52/53 seen).
+- **Line length:** the rewritten condition can breach 120 — drop redundant parens to fit
+  (`(x instanceof T v) && (!v.foo())` → `x instanceof T v && !v.foo()`). Grep the diff for >120 after.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
