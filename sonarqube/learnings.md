@@ -289,10 +289,15 @@ variable and delete the redundant cast:
 STRUCTURAL like S1066 (not a pure line-keyed edit) → DELEGATE reading+editing to PARALLEL
 general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 sites each; oldcore's
 143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
-When oldcore is already PR-claimed (there is usually 1 oldcore S6201 PR open at a time), the
+When oldcore is already PR-claimed, the
 next-densest single FEATURE module is a clean self-contained batch — reliable ones seen: notifications
-~52, rendering ~41, extension ~34, eventstream ~32, security ~21, each spread across 3-6 submodules /
-8-18 files. Pick one with ZERO open PRs, and build all its touched submodules in ONE `-pl sub1,sub2,...`
+~52, rendering ~41, extension ~34, eventstream ~32, security ~21, search ~21 (ALL in the one
+`xwiki-platform-search-solr` submodule group: `-solr-api` + `-solr-query`, 6 files — the single most
+concentrated 20+ batch, 21/21 0-drop first build). Feature-module pools spread across 3-6 submodules /
+6-18 files. **Concurrent sessions routinely leave SEVERAL S6201 feature-module PRs open at once** (seen:
+oldcore + rendering + eventstream + notifications all open simultaneously), so don't assume only oldcore is
+claimed — scan the WHOLE open `llm-agent` PR list up front and pick a module with ZERO open PRs. Build all
+its touched submodules in ONE `-pl sub1,sub2,...`
 reactor (a 3-submodule feature module is a cheaper build than a 5-6 submodule one — prefer the
 concentrated ones for ROI; note store submodules nest two levels deep, e.g.
 `...-eventstream/...-eventstream-stores/...-eventstream-store-solr`). Split the files across 3-4 parallel
