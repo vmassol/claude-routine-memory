@@ -311,8 +311,13 @@ subagents BY SUBMODULE (disjoint files never conflict). Fix rate is ~98-100% —
 - **DROP:** a negated `instanceof` with NO early exit whose only cast sits under a SEPARATE positive
   `instanceof` (flow scoping can't reach it); instanceof and cast on unrelated expressions; name collision.
   Fix rate is high (~98%: 52/53 seen).
-- **Line length:** the rewritten condition can breach 120 — drop redundant parens to fit
-  (`(x instanceof T v) && (!v.foo())` → `x instanceof T v && !v.foo()`). Grep the diff for >120 after.
+- **Line length is the #1 DROP cause in a feature module:** the rewritten line can breach 120 —
+  first drop redundant parens to fit (`(x instanceof T v) && (!v.foo())` → `x instanceof T v && !v.foo()`),
+  and pick a SHORTER in-scope pattern-var name (`reference` over `entityReference`) when that saves the line.
+  But when the flagged site is a long pre-existing line with NO redundant parens — a lambda-field
+  initializer (`BlockMatcher M = b -> ... instanceof RawBlock`) or an already-tight declaration — adding
+  any idiomatic name overflows and it is an UNAVOIDABLE drop. This pulls a dense-feature-module fix rate
+  down to ~90-93% (38/41 in rendering) vs oldcore's ~98%. Grep the diff for >120 after.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool, best single-module batch)
 
