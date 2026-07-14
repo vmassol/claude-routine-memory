@@ -27,7 +27,9 @@ learn something, merge it into the right section and trim — don't append dated
   field/var, dead store), `java:S2864` (iterate `entrySet()` not `keySet()`), `java:S1858` (pointless
   `toString()` on a String), `java:S1612` (lambda → method reference), `java:S1488` (inline
   return-of-temp), `java:S1125` (redundant boolean literal), `java:S1066` (merge collapsible nested
-  `if` — a DEEP oldcore pool, own section below). Starting BLOCKER/CRITICAL is the skill's
+  `if` — a DEEP oldcore pool, own section below), `java:S2147` (combine identical `catch` bodies) and
+  `java:S3626` (remove a trailing redundant `return`/`continue`) — both structural, clean, see "Other
+  clean rules". Starting BLOCKER/CRITICAL is the skill's
   guidance but is not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
 - **A recent open agent PR can drain a WHOLE rule family, not just single issues.** Before committing
   to a rule, read the open `llm-agent` PRs' titles/bodies — if one already batched e.g. S1488/S1125/
@@ -43,9 +45,8 @@ learn something, merge it into the right section and trim — don't append dated
   below): `java:S1128` (unused import), `java:S1197` (array designator), `java:S1116` (empty statement),
   `java:S1161` (missing `@Override`) — zero-dataflow, even safer than the simplification rules, and they
   regenerate. **When EVERY small pool (syntax + simplification + unused + S1066 + S1192 + S2093 + test
-  rules) is simultaneously below 20**, the deepest untouched fallback is `java:S6201` (pattern matching
-  for instanceof, hundreds open — own section below): structural like S1066, so cleanup waves never
-  touch it, and oldcore alone holds enough for a single-module 50-issue batch.
+  rules) is simultaneously below 20**, fall back to `java:S6201` (pattern matching for instanceof,
+  hundreds open — own section below), the deepest untouched pool.
 - **Denylist — skip these** (bad ROI / risky / not one-liners): `java:S3776` (cognitive complexity),
   `java:S3252`/`java:S1845` (API/backward-compat), `java:S1186` (empty methods), `java:S115` (naming),
   `java:S2447` (null from Boolean method — in XWiki *script services* null is a deliberate
@@ -409,6 +410,21 @@ Python script (repo is at the scan commit, lines don't drift). Expect to fix ~40
   regex metachars `. * + ? [ ] ( ) { } | \ ^ $`, or a single escaped metachar `"\\+"`→`"+"`) AND the
   replacement has no `$`/`\`. Char classes, `\s+`, backrefs, `;jsessionid=.*?` are genuine regex —
   fix only the reported lines.
+- **`java:S2147` (combine `catch` clauses with identical bodies) — clean, mechanical, safe** and
+  clusters nicely (oldcore data-migration classes, REST resources each hold 1-2). `catch (A e){BODY}
+  catch (B e){BODY}` → `catch (A | B e){BODY}`; comment-only body differences are fine to collapse.
+  **Two gotchas:** (1) if the two types are in a SUBTYPE relationship (e.g. `UnsupportedEncodingException`
+  extends `IOException`), a multi-catch is a COMPILE ERROR — instead DELETE the redundant subclass
+  `catch` (identical body ⇒ behaviour-preserving). (2) Deleting a `catch` can ORPHAN that exception's
+  import → checkstyle `UnusedImports` (a real build failure this run); remove the import if its simple
+  name is now absent (same word-boundary check as the unused-code rules).
+- **`java:S3626` (remove redundant jump) — clean ONLY for a TRULY-trailing jump.** SAFE: a trailing
+  `return;` that is the last statement of a void method, or a branch-final `continue;`/`return;` when the
+  if-else chain is the WHOLE loop body (so the jump lands exactly where fall-through would). DROP: (a)
+  the jump is the branch's ONLY statement (or leaves only comments) — removing it makes an EMPTY /
+  comment-only block → checkstyle `EmptyBlock`; (b) it sits in complex nested try/catch/finally where
+  redundancy is hard to verify (e.g. a `return;` before a `finally` with code after) — too risky, skip.
+  Line-length/import churn is nil; the only failure mode is the empty-block trap.
 
 ## Test-code rules — the deep clean pool once syntax/simplification/unused are drained
 
