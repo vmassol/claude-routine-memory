@@ -291,9 +291,11 @@ general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 
 143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
 When oldcore is already PR-claimed, the
 next-densest single FEATURE module is a clean self-contained batch — reliable ones seen: notifications
-~52, rendering ~41, extension ~34, eventstream ~32, security ~21, search ~21 (ALL in the one
+~52, rendering ~41, extension ~34 (but spread over 7 submodules — heavier build), eventstream ~32,
+security ~21 (concentrated in just 2 leaf modules — `-security-authorization-api` 16 + `-security-requiredrights-default` 5, 8 files, 20/21 0-drop cheap build), search ~21 (ALL in the one
 `xwiki-platform-search-solr` submodule group: `-solr-api` + `-solr-query`, 6 files — the single most
-concentrated 20+ batch, 21/21 0-drop first build). Feature-module pools spread across 3-6 submodules /
+concentrated 20+ batch, 21/21 0-drop first build). Prefer a module concentrated in FEW submodules
+(security, search-solr) over one with the same issue count spread wide (extension) — fewer submodules = cheaper reactor build. Feature-module pools spread across 3-6 submodules /
 6-18 files. **Concurrent sessions routinely leave SEVERAL S6201 feature-module PRs open at once** (seen:
 oldcore + rendering + eventstream + notifications all open simultaneously), so don't assume only oldcore is
 claimed — scan the WHOLE open `llm-agent` PR list up front and pick a module with ZERO open PRs. Build all
@@ -313,9 +315,12 @@ subagents BY SUBMODULE (disjoint files never conflict). Fix rate is ~98-100% —
 - **Replace EVERY cast of that expression WITHIN the pattern var's scope.** A cast OUTSIDE that scope —
   the `else` branch, a later statement, or a cast to a DIFFERENT type (`(Object[]) result` beside
   `(String) result`) — is a separate/unflagged site; leave it.
-- **DROP:** a negated `instanceof` with NO early exit whose only cast sits under a SEPARATE positive
-  `instanceof` (flow scoping can't reach it); instanceof and cast on unrelated expressions; name collision.
-  Fix rate is high (~98%: 52/53 seen).
+- **DROP** when the cast can't reach the pattern var's flow scope: a negated `instanceof` with NO early
+  exit whose only cast sits under a SEPARATE positive `instanceof`; OR a negated `instanceof` used as a
+  TERNARY/`&&` CONDITION (not a guard with early exit) whose cast is in the `:`/else branch — a
+  `x != null && !(x instanceof Y) ? ... : ((Y) x)...` short-circuits to that branch via `x == null` too,
+  so the var isn't definitely assigned there. Also DROP instanceof+cast on unrelated expressions; name
+  collision. Fix rate is high (~95-98%; e.g. 20/21 in the security modules, 52/53 in oldcore).
 - **Line length is the #1 DROP cause in a feature module:** the rewritten line can breach 120 —
   first drop redundant parens to fit (`(x instanceof T v) && (!v.foo())` → `x instanceof T v && !v.foo()`),
   and pick a SHORTER in-scope pattern-var name (`reference` over `entityReference`) when that saves the line.
