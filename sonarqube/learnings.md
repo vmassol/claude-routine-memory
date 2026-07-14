@@ -283,6 +283,10 @@ variable and delete the redundant cast:
 - Ternary/return: `return x instanceof Foo ? ((Foo) x).m() : y;` → `return x instanceof Foo foo ? foo.m() : y;`
 - Negated guard + early exit (flow scoping): `if (!(x instanceof Foo)) { return; } Foo foo = (Foo) x;` →
   `if (!(x instanceof Foo foo)) { return; }` (delete the redundant decl, use `foo`).
+- Negated `||` short-circuit (VALID, don't drop it): `!(x instanceof Foo) || ((Foo) x).m()` →
+  `!(x instanceof Foo foo) || foo.m()` — the `||` RHS runs only when the left is false, i.e. when the
+  instanceof is TRUE, so `foo` is definitely assigned there. (Contrast the DROP case below: a negated
+  instanceof in a `&&`/ternary whose cast is in the `:`/else branch is NOT in scope.)
 - Existing explicit local: `if (x instanceof Foo) { Foo foo = (Foo) x; ... }` → `if (x instanceof Foo foo)
   { ... }` — REUSE that local's name and delete its declaration line.
 `Object[]` patterns work too (`x instanceof Object[] arr`).
