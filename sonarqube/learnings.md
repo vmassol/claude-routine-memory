@@ -270,10 +270,10 @@ added lines >120 chars — a wrapped merged condition can breach the checkstyle 
 
 ## java:S6201 — pattern matching for instanceof (the DEEPEST clean pool; go-to when all small pools drained)
 
-By far the largest clean pool (seen 566 open, 143 in oldcore ALONE) and it barely regenerates down —
-so it is the reliable batch source when the small mechanical rules (S1066/S1068/S1192/S2093/syntax/
-simplification/test-rules) are ALL simultaneously drained below 20 (a common concurrent-session state).
-Requires Java 16+; xwiki-platform 18.x is Java 17 and already uses `instanceof` patterns, so it compiles.
+By far the largest clean pool (seen 460-566 open, ~90-143 in oldcore ALONE) and it barely regenerates
+down — so it is the reliable batch source when the small mechanical rules (S1066/S1068/S1192/S2093/
+syntax/simplification/test-rules) are ALL simultaneously drained below 20 (the common concurrent-session
+state). Requires Java 16+; xwiki-platform 18.x is Java 17 and already uses `instanceof` patterns, so it compiles.
 Message: "Replace this instanceof check and cast with 'instanceof Foo foo'". Fix = bind a pattern
 variable and delete the redundant cast:
 - Positive guard: `if (x instanceof Foo) { ((Foo) x).m(); }` → `if (x instanceof Foo foo) { foo.m(); }`
@@ -289,9 +289,15 @@ variable and delete the redundant cast:
 STRUCTURAL like S1066 (not a pure line-keyed edit) → DELEGATE reading+editing to PARALLEL
 general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 sites each; oldcore's
 143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
-When oldcore is already PR-claimed, the next-densest single FEATURE module (e.g. notifications ~52,
-spread across ~6 submodules/27 files) is a clean batch: build all its touched submodules in ONE
-`-pl sub1,sub2,...` reactor. Delegated in 4 parallel subagents this ran 0-drop (52/52 fixed).
+When oldcore is already PR-claimed (there is usually 1 oldcore S6201 PR open at a time), the
+next-densest single FEATURE module is a clean self-contained batch — reliable ones seen: notifications
+~52, rendering ~41, extension ~34, eventstream ~32, security ~21, each spread across 3-6 submodules /
+8-18 files. Pick one with ZERO open PRs, and build all its touched submodules in ONE `-pl sub1,sub2,...`
+reactor (a 3-submodule feature module is a cheaper build than a 5-6 submodule one — prefer the
+concentrated ones for ROI; note store submodules nest two levels deep, e.g.
+`...-eventstream/...-eventstream-stores/...-eventstream-store-solr`). Split the files across 3-4 parallel
+subagents BY SUBMODULE (disjoint files never conflict). Fix rate is ~98-100% — 52/52 and 32/32 seen
+0-drop.
 - **Splitting files across subagents — verify FULL coverage.** When you partition the file list into
   N subagent groups, it is easy to drop a file from every group (missed one of 27). After the agents
   return, cross-check `git diff --name-only | wc -l` == the expected file count and fix any gap before
