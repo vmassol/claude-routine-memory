@@ -289,6 +289,14 @@ variable and delete the redundant cast:
 STRUCTURAL like S1066 (not a pure line-keyed edit) → DELEGATE reading+editing to PARALLEL
 general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 sites each; oldcore's
 143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
+When oldcore is already PR-claimed, the next-densest single FEATURE module (e.g. notifications ~52,
+spread across ~6 submodules/27 files) is a clean batch: build all its touched submodules in ONE
+`-pl sub1,sub2,...` reactor. Delegated in 4 parallel subagents this ran 0-drop (52/52 fixed).
+- **Splitting files across subagents — verify FULL coverage.** When you partition the file list into
+  N subagent groups, it is easy to drop a file from every group (missed one of 27). After the agents
+  return, cross-check `git diff --name-only | wc -l` == the expected file count and fix any gap before
+  building. Also note a pattern var can be a try-with-resources resource (`try (fooVar)`) — it's
+  effectively final — so `instanceof Foo f` + `try ((Foo)x)` collapses cleanly.
 - **Naming:** use idiomatic **camelCase**, NOT Sonar's all-lowercase suggestion (`alltablecolumns` →
   `allTableColumns`). Ensure no collision with an in-scope name.
 - **Replace EVERY cast of that expression WITHIN the pattern var's scope.** A cast OUTSIDE that scope —
