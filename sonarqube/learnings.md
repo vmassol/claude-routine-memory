@@ -60,7 +60,12 @@ learn something, merge it into the right section and trim — don't append dated
   drift — line-number-keyed editing is safe (process each file bottom-up, or map over ORIGINAL indices).
   For STRUCTURAL rules (S1066/S6201) that need reindent/brace surgery, DELEGATE to PARALLEL
   general-purpose subagents (NOT Explore — they must Edit) over DISJOINT files; verify full coverage
-  afterwards (`git diff --name-only | wc -l` == expected).
+  afterwards. **NEVER trust a subagent's self-reported per-site "CONVERTED" — a subagent routinely
+  reports (with a plausible rationale) editing a file it never touched.** For a per-site dataflow rule
+  (S6204/S1068/…) a missed site still COMPILES, so the build won't catch it. After any delegated batch,
+  cross-check the EXACT set of expected files against `git diff --name-only`; for every expected file
+  NOT in the diff, read it and apply the missed sites yourself. Also re-grep for the pre-fix pattern
+  across the changed files (only intentional keeps should remain).
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count
   (a triple-nest S1066 merge or a class-level S5786 flag resolves more keys than edited sites).
@@ -259,16 +264,22 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
 - **`S6204`/`S6211` `Stream.collect(Collectors.toList()/toSet())` → `Stream.toList()`/`.toSet()`** — a
   deep (~100 open) rarely-PR-touched pool; the GO-TO pivot when the mechanical/simplification/unused/
   S1066/S6201 families are ALL simultaneously PR-drained to 0 (a common concurrent-session state — verify
-  with a facet query). Thin-spread across modules, so aggregate a dense same-family reactor (e.g. the 3
-  livedata modules held 25). CAVEAT: `.toList()` is UNMODIFIABLE — convert only when the result is
-  read-only (returned, iterated, `isEmpty`/`size`/`get`/`toArray`, or used as an `addAll` SOURCE) or
-  passed to a non-mutating setter/ctor; DROP if it is later `add`/`set`/`remove`/`sort`/`removeIf`-ed or
-  assigned to an `ArrayList`-typed target (delegate this per-site dataflow read to ONE Explore agent).
+  with a facet query). Thin-spread across modules (a wide ~20-25-module reactor is fine — 59 sites in
+  one green build, excluding the slow Solr/`-index` modules); aggregate a dense same-family reactor
+  (e.g. the 3 livedata modules held 25). CAVEAT: `.toList()` is UNMODIFIABLE — convert only when the
+  result is read-only (returned, iterated, `isEmpty`/`size`/`get`/`toArray`, or used as an `addAll`
+  SOURCE) or passed to a non-mutating setter/ctor; DROP if it is later `add`/`set`/`remove`/`sort`/
+  `removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate the per-site dataflow read to
+  subagents — but they must EDIT, so use general-purpose (not Explore), and verify their edits landed
+  (see the trust-nothing rule in Batch mode: a subagent may report a conversion it never made — the
+  fix still compiles, so re-grep the pattern across changed files and re-apply missed sites). In test
+  code, a list built only for `assertEquals`/iteration is a safe convert (near-0 drops overall).
   `.toList()` is 19 chars shorter than the original so line length never breaches. **Auto-derive the
   orphaned-import removal:** after converting a file's flagged lines, drop `import
-  java.util.stream.Collectors;` iff `Collectors.` no longer appears in the body (KEEP when a sibling
-  `Collectors.toSet/joining` survives) — this reproduces the correct per-file REMOVE/KEEP with no manual
-  bookkeeping. Line-keyed edits are safe (repo at scan commit; the flagged line always holds `.collect(...)`).
+  java.util.stream.Collectors;` (or the `import static java.util.stream.Collectors.toList;` variant,
+  which also shows up as `.collect(toList())`) iff `Collectors.`/`toList(` no longer appears in the
+  body (KEEP when a sibling `Collectors.toSet/joining/toMap/groupingBy` survives) — reproduces the
+  correct per-file REMOVE/KEEP with no manual bookkeeping. Line-keyed edits are safe (repo at scan commit).
 - `S2093` try-with-resources: `R r = new ...(); try {...} finally { r.close() }` → `try (R r = new
   ...()) {...}`. ~half of hits are NOT real closes (push/pop, `reset()`, semaphore release, resource
   created mid-body) — verify the finally actually CLOSES an `AutoCloseable` declared just before `try`.
@@ -345,6 +356,12 @@ Checkstyle, so it validates these.
   -Dxwiki.revapi.skip=true -Dxwiki.surefire.captureconsole.skip=true -DskipTests`. Maven sorts by
   dependency order; missing transitive deps resolve from the remote snapshot repo (`-Psnapshot`).
   `-Plegacy` is required to include `*-legacy-*` modules.
+- **Snapshot-repo lag after a version bump:** right after master's "prepare for next development
+  iteration" commit, the remote snapshot repo may not yet hold EVERY sibling at the new `X.Y.0-SNAPSHOT`,
+  so a `-pl` build fails with `Could not find artifact org.xwiki.platform:<sibling>:jar:X.Y.0-SNAPSHOT`
+  (a resolution error, NOT your code). Fix: re-run the FAILED module with `-am` (also-make) so Maven
+  builds the missing local siblings from source — the already-installed modules from the first run are
+  reused, so this is cheap and only the failing sub-tree rebuilds.
 - **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn ...`): the shell cwd can
   silently reset to `/home/user` between turns; a `-pl <relative>` build from the wrong cwd fails fast
   with "Could not find the selected project in the reactor" (a path error, not code — relaunch from root).
