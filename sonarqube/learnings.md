@@ -304,15 +304,21 @@ security ~21 (concentrated in just 2 leaf modules — `-security-authorization-a
 `xwiki-platform-search-solr` submodule group: `-solr-api` + `-solr-query`, 6 files — the single most
 concentrated 20+ batch, 21/21 0-drop first build). Prefer a module concentrated in FEW submodules
 (security, search-solr) over one with the same issue count spread wide (extension) — fewer submodules = cheaper reactor build. Feature-module pools spread across 3-6 submodules /
-6-18 files. **Concurrent sessions routinely leave SEVERAL S6201 feature-module PRs open at once** (seen:
-oldcore + rendering + eventstream + notifications all open simultaneously), so don't assume only oldcore is
-claimed — scan the WHOLE open `llm-agent` PR list up front and pick a module with ZERO open PRs. Build all
-its touched submodules in ONE `-pl sub1,sub2,...`
-reactor (a 3-submodule feature module is a cheaper build than a 5-6 submodule one — prefer the
-concentrated ones for ROI; note store submodules nest two levels deep, e.g.
+6-18 files. **Concurrent sessions routinely leave SEVERAL S6201 feature-module PRs open at once** (seen NINE at
+once: oldcore + refactoring + query-manager + security + search-solr + rendering + eventstream +
+notifications + extension), so don't assume only oldcore is claimed — scan the WHOLE open `llm-agent`
+PR list up front and pick modules with ZERO open PRs. Build all touched submodules in ONE
+`-pl sub1,sub2,...` reactor (a 3-submodule feature module is a cheaper build than a 5-6 submodule one —
+prefer the concentrated ones for ROI; note store submodules nest two levels deep, e.g.
 `...-eventstream/...-eventstream-stores/...-eventstream-store-solr`). Split the files across 3-4 parallel
-subagents BY SUBMODULE (disjoint files never conflict). Fix rate is ~98-100% — 52/52 and 32/32 seen
-0-drop.
+subagents BY MODULE/submodule (disjoint files never conflict — verify full coverage: `git diff
+--name-only | wc -l` == expected file count). Fix rate is ~98-100% — 52/52, 45/45 and 32/32 seen 0-drop.
+**When even the big feature modules are ALL claimed (the 9-at-once state), AGGREGATE 3-4 SMALL
+untouched SINGLE-submodule modules into one reactor to reach 20-50** (seen: model-api 15 + user-default
+11 + livedata-livetable 10 + lesscss-default 9 = 45/45 0-drop, one green build). The cleanest ~100%
+fodder is the internal `*Reference`/`*Resolver`/`*Serializer`/colortheme/skin classes: their
+equals-style `if (!(o instanceof X)) return...; X x = (X) o;` and simple `return (X) ref;` resolver
+guards all convert with no drops.
 - **Splitting files across subagents — verify FULL coverage.** When you partition the file list into
   N subagent groups, it is easy to drop a file from every group (missed one of 27). After the agents
   return, cross-check `git diff --name-only | wc -l` == the expected file count and fix any gap before
