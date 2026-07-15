@@ -313,17 +313,24 @@ prefer the concentrated ones for ROI; note store submodules nest two levels deep
 `...-eventstream/...-eventstream-stores/...-eventstream-store-solr`). Split the files across 3-4 parallel
 subagents BY MODULE/submodule (disjoint files never conflict — verify full coverage: `git diff
 --name-only | wc -l` == expected file count). Fix rate is ~98-100% — 52/52, 45/45 and 32/32 seen 0-drop.
-**When even the big feature modules are ALL claimed (the 9-at-once state), AGGREGATE untouched leaf
-modules into one reactor to reach 20-50 — but the named sets get claimed too** (a concurrent session's
-PR did the exact model-api+user-default+livedata-livetable+lesscss-default aggregate below), so trust NO
-fixed list: re-query S6201 by module, subtract EVERY module named in an open S6201 PR title, and
-aggregate whatever cheap untouched leaf modules remain. Two proven 0-drop aggregate sets: (a) small
-single-submodule modules model-api 15 + user-default 11 + livedata-livetable 10 + lesscss-default 9 =
-45; (b) mid-size feature leaf modules rest-server 8 + chart-renderer 6 + filter-stream-xar 6 +
-mail-send-default 5 + mentions-default 5 + office-importer 4 = 34/34, a fast 6-module reactor (~few min).
-The cleanest ~100% fodder is the internal `*Reference`/`*Resolver`/`*Serializer`/colortheme/skin classes
-and equals-style `if (!(o instanceof X)) return...; X x = (X) o;` / `return (X) ref;` guards — all
-convert with no drops. Avoid feed-api (~5 min build for a few issues) and Solr-based submodules.
+**When even the big feature modules are ALL claimed (the 9-10-at-once state — seen 10 open S6201 PRs
+covering oldcore + notifications + rendering + eventstream + extension + security + search-solr +
+query-manager/refactoring + the model/user/livedata/lesscss aggregate + a rest-server/chart-renderer/
+filter-stream-xar/mail-send-default/mentions/office-importer aggregate), AGGREGATE untouched leaf
+modules into one reactor to reach 20-50.** Trust NO fixed list — the "obvious" aggregate sets get
+claimed too (both the model-api+user-default+livedata-livetable+lesscss set AND the rest-server+
+chart-renderer+filter-stream-xar+mail-send+mentions+office-importer set were BOTH already-PR'd in one
+run): re-query S6201 by module, subtract EVERY module named in an open S6201 PR title, and aggregate
+whatever cheap untouched leaf modules remain. **The `xwiki-platform-legacy-*` modules are the reliable
+untouched fallback** — the syntax/simplification/feature-module cleanup waves skip them, so they stay
+unclaimed and can be DENSE (legacy-events-hibernate-api held 18, one file alone 16). Add `-Plegacy` to
+the reactor (already in the standard command) and they build fast (~40s). A ~6-leaf-module mix built
+around one legacy module + a handful of small `*-api`/leaf modules cleared 41/41 0-drop. The cleanest
+~100% fodder is the internal
+`*Reference`/`*Resolver`/`*Serializer`/colortheme/skin classes and equals-style
+`if (!(o instanceof X)) return...; X x = (X) o;` / `return (X) ref;` guards, plus AST-visitor
+converters (`node instanceof FooNode` chains) — all convert with no drops. Avoid feed-api (~5 min
+build for a few issues) and Solr-based submodules.
 - **Splitting files across subagents — verify FULL coverage.** When you partition the file list into
   N subagent groups, it is easy to drop a file from every group (missed one of 27). After the agents
   return, cross-check `git diff --name-only | wc -l` == the expected file count and fix any gap before
