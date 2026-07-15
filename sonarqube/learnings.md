@@ -23,10 +23,10 @@ learn something, merge it into the right section and trim — don't append dated
   read its file list (`pull_request_read` `get_files`).
 - **Rule-family map, easiest/safest first:**
   - *Pure syntax/annotation* (zero dataflow, safest): `S1128` unused import, `S1197` array designator,
-    `S1116` empty statement, `S1161` missing `@Override`.
+    `S1116` empty statement, `S1161` missing `@Override`, `S1611` redundant lambda-param parens.
   - *Pure simplification* (no use-verification): `S1125` redundant boolean literal, `S1488` inline
     returned local, `S1858` pointless `toString()` on String, `S2864` iterate `entrySet()`, `S1612`
-    lambda→method ref, `S1155` `size()>0`→`!isEmpty()`.
+    lambda→method ref, `S1155` `size()>0`→`!isEmpty()`, `S1126` if-then-else→single return.
   - *Constant extraction*: `S1192` duplicated literal.
   - *Unused-code removal* (light dataflow): `S1068` field, `S1481` local, `S1854` dead store.
   - *Structural*: `S1066` merge nested `if`, `S6201` instanceof pattern matching (the deepest pool),
@@ -227,8 +227,16 @@ modules (a ~10-module reactor of 3-5 each clears the target).
   imported, build fails `cannot find symbol`; add the import. (`Type.class::isInstance`/`::cast` need NO
   new import.)
 - `S1155` `size()>0`/`==0` → `!isEmpty()`/`isEmpty()`.
+- `S1126` if-then-else returning boolean literals → single return: `if (c) {return true;} else
+  {return false;}` → `return c;`; the `false`/`true` shape → `return !c;`; the equals-style tail
+  `if (!c) {return false;} ... return true;` also collapses to `return c;`. When the flagged condition
+  returns `false` you NEGATE it — De Morgan a multi-part `||` (`!(A||B||C)` → `A' && B' && C'`), wrapping
+  a >120 result onto a `+4` continuation line. STRUCTURAL (multi-line old-string) → use the assert-guarded
+  script with the exact block, never `replace_all`. A `// comment` between the `if` and the final `return`
+  survives above the merged return (same as S1066). Concentrated in oldcore (equals()/boolean getters) —
+  a DIFFERENT rule from any open oldcore S6201 PR, so oldcore stays fair game for it.
 
-## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 (safest fodder)
+## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 / S1611 (safest fodder)
 
 Zero dataflow, deep regenerating pools; a wide reactor cleanly satisfies the override. Apply by line
 number in one assert-guarded script (see General techniques).
@@ -244,6 +252,10 @@ number in one assert-guarded script (see General techniques).
   additive). Deep pool, often concentrated in TEST files (anonymous-class methods). TRUST Sonar; assert
   the line has `(` and neither it nor its predecessor is already `@Override`. Interface methods
   redeclaring a super-interface method legitimately take `@Override` (Java 6+).
+- `S1611` redundant lambda-param parens: `(x) -> ...` → `x -> ...` (single untyped param only). Thin-
+  spread across modules; ideal filler to bundle into any batch. Match a UNIQUE token — `(x) -> {` or
+  `(x) -> body`, not the bare `(x)` (which recurs); a `.thenAnswer((invocation) -> ...)` shape is common
+  in Mockito test setup. Assert the per-file count (a file can hold >1 flagged lambda with the same body).
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool)
 
