@@ -296,7 +296,10 @@ general-purpose subagents (NOT Explore — they must Edit), disjoint files, ~13 
 143 make a single-module batch (`-pl xwiki-platform-oldcore install -DskipTests`, ~6.5 min cold, clears 50).
 When oldcore is already PR-claimed, the
 next-densest single FEATURE module is a clean self-contained batch — reliable ones seen: notifications
-~52, rendering ~41, extension ~34 (but spread over 7 submodules — heavier build), eventstream ~32,
+~52, rendering ~41, extension ~34 (spread over 6-7 submodules, but 2 are Solr-based —
+`-extension-index` + `-extension-security-index`, slow builds; DROP those two and the remaining 5 leaf
+submodules — `-api`/`-cluster`/`-distribution`/`-handler-xar`/`-script` — give a 28/28 0-drop cheap
+batch, incl. dense else-if safe-provider chains that convert cleanly), eventstream ~32,
 security ~21 (concentrated in just 2 leaf modules — `-security-authorization-api` 16 + `-security-requiredrights-default` 5, 8 files, 20/21 0-drop cheap build), search ~21 (ALL in the one
 `xwiki-platform-search-solr` submodule group: `-solr-api` + `-solr-query`, 6 files — the single most
 concentrated 20+ batch, 21/21 0-drop first build). Prefer a module concentrated in FEW submodules
