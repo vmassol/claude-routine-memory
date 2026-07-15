@@ -256,6 +256,19 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
 
 ## Other clean rules (re-query each run)
 
+- **`S6204`/`S6211` `Stream.collect(Collectors.toList()/toSet())` → `Stream.toList()`/`.toSet()`** — a
+  deep (~100 open) rarely-PR-touched pool; the GO-TO pivot when the mechanical/simplification/unused/
+  S1066/S6201 families are ALL simultaneously PR-drained to 0 (a common concurrent-session state — verify
+  with a facet query). Thin-spread across modules, so aggregate a dense same-family reactor (e.g. the 3
+  livedata modules held 25). CAVEAT: `.toList()` is UNMODIFIABLE — convert only when the result is
+  read-only (returned, iterated, `isEmpty`/`size`/`get`/`toArray`, or used as an `addAll` SOURCE) or
+  passed to a non-mutating setter/ctor; DROP if it is later `add`/`set`/`remove`/`sort`/`removeIf`-ed or
+  assigned to an `ArrayList`-typed target (delegate this per-site dataflow read to ONE Explore agent).
+  `.toList()` is 19 chars shorter than the original so line length never breaches. **Auto-derive the
+  orphaned-import removal:** after converting a file's flagged lines, drop `import
+  java.util.stream.Collectors;` iff `Collectors.` no longer appears in the body (KEEP when a sibling
+  `Collectors.toSet/joining` survives) — this reproduces the correct per-file REMOVE/KEEP with no manual
+  bookkeeping. Line-keyed edits are safe (repo at scan commit; the flagged line always holds `.collect(...)`).
 - `S2093` try-with-resources: `R r = new ...(); try {...} finally { r.close() }` → `try (R r = new
   ...()) {...}`. ~half of hits are NOT real closes (push/pop, `reset()`, semaphore release, resource
   created mid-body) — verify the finally actually CLOSES an `AutoCloseable` declared just before `try`.
