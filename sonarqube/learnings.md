@@ -9,9 +9,8 @@ learn something, merge it into the right section and trim — don't append dated
 - Get the rule distribution cheaply FIRST (no issue bodies): one `issues/search?...&issueStatuses=OPEN&facets=rules&ps=1`
   call returns the whole project rule distribution. For an exact per-rule count read the response
   `total` (query with `&rules=java:SXXXX&ps=1`), not a facet value.
-- **Counts shift every run as PRs land; clean rules get EXHAUSTED then slowly REGENERATE — always
-  re-query, never assume a rule still has convertible issues.** If a rule's remaining issues are all
-  non-convertible residue, pivot (skill rule: "if a fix is hard, drop it and pick another").
+- Pools shift every run (see General techniques). If a rule's remaining issues are all non-convertible
+  residue, pivot (skill rule: "if a fix is hard, drop it and pick another").
 - **The BLOCKER/CRITICAL mechanical pool is frequently exhausted.** BLOCKER/CRITICAL-first is the
   skill's guidance but not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
   There is a deep MAJOR-severity clean pool.
@@ -41,6 +40,33 @@ learn something, merge it into the right section and trim — don't append dated
   instance method — usually lazy-init needing sync), `S2157` (add `clone()`), `S5845` (assert
   dissimilar types — erasure can make the assertion correct). Verify before "fixing" any of these.
 
+## General batch-fix techniques (apply to every rule below)
+
+Cross-cutting mechanics shared by all rules; each rule section notes only its *deltas*.
+
+- **The repo is at the exact scan commit** → line numbers don't drift, so line-number-keyed editing
+  is safe (process each file bottom-up, or map over ORIGINAL indices).
+- **Apply a many-file mechanical batch in ONE assert-guarded script**, not dozens of `Edit` calls: for
+  each `(file, old, new)` assert `content.count(old) == 1` FIRST (catches stale/drifted/ambiguous) and
+  write NOTHING if any assertion fails. (`Edit`'s `replace_all` matches only the exact indentation you
+  typed and SILENTLY leaves the same pattern at other depths — so prefer the script, and grep for the
+  residual pattern after any batch replace.)
+- **Delegate STRUCTURAL rules** (reindent/brace surgery — S1066/S6201) and **per-site dataflow rules**
+  (S6204/S1068/…) to PARALLEL general-purpose subagents (NOT Explore — they must Edit) over DISJOINT
+  files. **Never trust a subagent's self-reported "CONVERTED"** — it routinely reports (with a
+  plausible rationale) editing a file it never touched, and a missed dataflow site still COMPILES so
+  the build won't catch it. After any delegated batch: cross-check the EXACT expected file set against
+  `git diff --name-only`, open every expected-but-absent file and apply the missed sites yourself, and
+  re-grep the pre-fix pattern across changed files (only intentional keeps should remain).
+- **Line length is the #1 drop cause:** a rewritten line can breach 120 — first drop redundant parens,
+  then pick a SHORTER in-scope name; a pre-existing long line with no slack is an unavoidable drop.
+  Grep the diff for >120 after every batch.
+- **Deleting code orphans its import** → remove the now-unused import too, but ONLY IF the type's
+  SIMPLE NAME is absent from the FINAL content, matched with a WORD-BOUNDARY regex (`\bLogger\b`, else
+  a plain substring sees `Logger` inside `LoggerFactory`).
+- **Pools shift every run** as PRs land — clean rules get EXHAUSTED then slowly REGENERATE; always
+  re-query, never assume a rule still has convertible issues.
+
 ## Batch mode (Vincent's "fix 20-50 / all of rule X" override)
 
 - Mixed issue types in one PR are explicitly allowed — bundle a purely-additive rule (`S1161`
@@ -54,18 +80,9 @@ learn something, merge it into the right section and trim — don't append dated
   S2864 + S1155 + S1197 + S1128, all zero-dataflow single-line edits) across ~20 modules into one
   green reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve
   mixed *dataflow*-rule batches for when unavoidable (each rule multiplies edit-error surface).
-- **Apply a many-file mechanical batch in ONE Python script**, not dozens of `Edit` calls: for each
-  `(file, old, new)` assert `content.count(old) == 1` FIRST (catches stale/drifted/ambiguous), and
-  write NOTHING if any assertion fails. The repo is at the exact scan commit, so line numbers don't
-  drift — line-number-keyed editing is safe (process each file bottom-up, or map over ORIGINAL indices).
-  For STRUCTURAL rules (S1066/S6201) that need reindent/brace surgery, DELEGATE to PARALLEL
-  general-purpose subagents (NOT Explore — they must Edit) over DISJOINT files; verify full coverage
-  afterwards. **NEVER trust a subagent's self-reported per-site "CONVERTED" — a subagent routinely
-  reports (with a plausible rationale) editing a file it never touched.** For a per-site dataflow rule
-  (S6204/S1068/…) a missed site still COMPILES, so the build won't catch it. After any delegated batch,
-  cross-check the EXACT set of expected files against `git diff --name-only`; for every expected file
-  NOT in the diff, read it and apply the missed sites yourself. Also re-grep for the pre-fix pattern
-  across the changed files (only intentional keeps should remain).
+- The mechanics for APPLYING a batch — assert-guarded script, subagent delegation + verification, line
+  length, orphaned imports — are in **General batch-fix techniques** above; this section covers only
+  batch *composition* (which rules/modules to bundle).
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count
   (a triple-nest S1066 merge or a class-level S5786 flag resolves more keys than edited sites).
@@ -93,8 +110,8 @@ variable and delete the redundant cast:
 - Existing explicit local: `if (x instanceof Foo) { Foo foo = (Foo) x; ... }` → reuse that local's
   name in the pattern and delete its declaration line. `Object[]` patterns work (`x instanceof Object[] arr`).
 
-**Module choice.** oldcore's ~140 make a cheap single-module batch (`-pl xwiki-platform-oldcore
-install -DskipTests`, clears 50). When oldcore is PR-claimed, the next-densest FEATURE module is a
+**Module choice.** oldcore's ~140 make a single-module batch (`-pl xwiki-platform-oldcore
+install`, clears 50). When oldcore is PR-claimed, the next-densest FEATURE module is a
 clean self-contained batch — PREFER one concentrated in FEW submodules (cheaper reactor) over the same
 count spread wide, and DROP Solr-based submodules (`-*-index`, `-solr-*` — slow) and feed-api (~5 min).
 **Concurrent sessions routinely leave 9-10 S6201 feature-module PRs open at once** — scan the WHOLE
@@ -120,17 +137,16 @@ site — leave it. **DROP** when: the cast can't reach the pattern var's flow sc
 with no early exit whose cast is under a separate positive instanceof; or a negated instanceof used as
 a ternary/`&&` CONDITION whose cast is in the `:`/else branch — `x != null && !(x instanceof Y) ? ...
 : ((Y) x)...` short-circuits via `x==null` too, so the var isn't definitely assigned); name collision;
-unrelated expression. **Line length is the #1 drop cause in dense feature modules** — the rewritten
-line can breach 120; first drop redundant parens, then pick a SHORTER in-scope name; a long
-pre-existing line (lambda-field initializer, tight decl) with no slack is an unavoidable drop. Grep
-the diff for >120 after. Fix rate ~95-100% (oldcore ~98%, dense feature modules ~90-93%).
+unrelated expression. **Line length** (see General techniques) is the #1 drop cause in dense feature
+modules — a long pre-existing line (lambda-field initializer, tight decl) with no slack is an
+unavoidable drop. Fix rate ~95-100% (oldcore ~98%, dense feature modules ~90-93%).
 
 ## java:S1066 — merge collapsible nested `if` (structural; reliable pivot when all else drained)
 
 Reliable when syntax/simplification/unused/test pools are all drained — STRUCTURAL, so those cleanup
 waves never touch it, and it regenerates. Density NOT reliably oldcore-concentrated (sometimes ~70 in
 oldcore = one batch; other runs thin-spread across ~16 modules). A wide reactor clears it in one
-`install -DskipTests`. Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` →
+`install`. Sonar flags the INNER `if`. Fix: `if (A) { if (B) { BODY } }` →
 `if (A && B) { BODY }` — merge with `&&`, delete the inner `if` line, DEDENT the body by 4, remove ONE
 trailing brace. Wrap an operand containing top-level `||` in parens. NOT a pure line-keyed edit →
 DELEGATE to parallel subagents, each file bottom-up. **A triple-nest `if(A){if(B){if(C){}}}` collapses
@@ -142,8 +158,8 @@ usually recoverable** (not an auto-drop): a single-line `//` describing the inne
 above the merged `if` (same indent); DROP only a multi-line/block comment or one documenting the OUTER
 condition.
 **Subagent brace-surgery gotcha:** a subagent can leave a STRAY `}` (cascade `illegal start of type`).
-ALWAYS build after structural subagent edits; never trust self-reported success; one bad file doesn't
-condemn the batch. **Cheap pre-build check:** per file, `open-Δ = #{(HEAD) - #{(working)` and
+ALWAYS build after structural subagent edits (and verify the file set per General techniques); one bad
+file doesn't condemn the batch. **Cheap pre-build check:** per file, `open-Δ = #{(HEAD) - #{(working)` and
 `close-Δ` similarly; a correct merge removes exactly one `{` and one `}` per issue, so
 `open-Δ == close-Δ ==` the file's issue count. Any mismatch = stray/missing brace, inspect first.
 
@@ -211,14 +227,11 @@ modules (a ~10-module reactor of 3-5 each clears the target).
   imported, build fails `cannot find symbol`; add the import. (`Type.class::isInstance`/`::cast` need NO
   new import.)
 - `S1155` `size()>0`/`==0` → `!isEmpty()`/`isEmpty()`.
-**`Edit` replace_all indentation gotcha:** the same pattern recurs at different nesting depths;
-`replace_all` matches only the exact indentation you typed and SILENTLY leaves the rest. After any
-batch replace, grep for the residual pattern and fix stragglers.
 
 ## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 (safest fodder)
 
-Zero dataflow, deep regenerating pools; a wide reactor cleanly satisfies the override. Apply by LINE
-NUMBER in one atomic assert-guarded script; process each file bottom-up.
+Zero dataflow, deep regenerating pools; a wide reactor cleanly satisfies the override. Apply by line
+number in one assert-guarded script (see General techniques).
 - `S1128` unused import: delete the flagged `import ...;` (assert it starts `import`, ends `;`). TRUST
   Sonar (it keeps `{@link}`-only imports). A delegating subclass can legitimately have 10-14 removable.
 - `S1197` array designator: `TYPE NAME[]`→`TYPE[] NAME`. **Regex gotcha:** a naive `\b(\w+)\s+(\w+)\[\]`
@@ -246,9 +259,8 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
   lazily-initializing getter, `velocityManager.getVelocityContext()`.
 - `x = null` dead store in an `else` whose `if` returns → delete the whole `} else { x = null; }`. A
   trailing dead `timer++` → drop just the `++`, keep the read.
-- **Removing a private LOGGER/field usually ORPHANS its import** → delete the import too, but ONLY IF
-  the type's SIMPLE NAME is absent from the FINAL content, matched with a WORD-BOUNDARY regex `\bLogger\b`
-  (a plain substring sees `Logger` inside `LoggerFactory`).
+- **Removing a private LOGGER/field usually ORPHANS its import** → delete it too (orphaned-import rule,
+  General techniques).
 - Clean up what removal leaves: a COMMENT that solely described the removed line (or a field's javadoc);
   STRAY BLANK LINES (double blanks, trailing before `}`, leading after `{`). ASSERT each deleted blank
   is truly blank (`line.strip()==''`) — a hint can mis-point at the next member's `/**` opener.
@@ -270,16 +282,14 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
   result is read-only (returned, iterated, `isEmpty`/`size`/`get`/`toArray`, or used as an `addAll`
   SOURCE) or passed to a non-mutating setter/ctor; DROP if it is later `add`/`set`/`remove`/`sort`/
   `removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate the per-site dataflow read to
-  subagents — but they must EDIT, so use general-purpose (not Explore), and verify their edits landed
-  (see the trust-nothing rule in Batch mode: a subagent may report a conversion it never made — the
-  fix still compiles, so re-grep the pattern across changed files and re-apply missed sites). In test
-  code, a list built only for `assertEquals`/iteration is a safe convert (near-0 drops overall).
+  subagents — general-purpose (not Explore), and verify their edits landed (General techniques). In
+  test code, a list built only for `assertEquals`/iteration is a safe convert (near-0 drops overall).
   `.toList()` is 19 chars shorter than the original so line length never breaches. **Auto-derive the
   orphaned-import removal:** after converting a file's flagged lines, drop `import
   java.util.stream.Collectors;` (or the `import static java.util.stream.Collectors.toList;` variant,
   which also shows up as `.collect(toList())`) iff `Collectors.`/`toList(` no longer appears in the
   body (KEEP when a sibling `Collectors.toSet/joining/toMap/groupingBy` survives) — reproduces the
-  correct per-file REMOVE/KEEP with no manual bookkeeping. Line-keyed edits are safe (repo at scan commit).
+  correct per-file REMOVE/KEEP with no manual bookkeeping.
 - `S2093` try-with-resources: `R r = new ...(); try {...} finally { r.close() }` → `try (R r = new
   ...()) {...}`. ~half of hits are NOT real closes (push/pop, `reset()`, semaphore release, resource
   created mid-body) — verify the finally actually CLOSES an `AutoCloseable` declared just before `try`.
@@ -303,8 +313,8 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
 
 ## Test-code rules — deep clean pool once syntax/simplification/unused are drained
 
-Pure test-code edits (production untouched, low review risk). `-DskipTests` still test-compiles + runs
-Checkstyle, so it validates these.
+Pure test-code edits (production untouched, low review risk). The module's tests now RUN (no
+`-DskipTests`), so these edited tests are exercised directly; Checkstyle also runs in `install`.
 - **`S5786` JUnit5 test class/method should be package-private — the best test-rule batch.** Two
   message variants (method-level "Remove this 'public' modifier", class-level "Remove redundant
   visibility modifiers..."). Do NOT infer scope from the message/line (the method-level message often
@@ -335,10 +345,11 @@ Checkstyle, so it validates these.
   add the new static imports (alphabetical), remove `assertTrue`/`assertFalse` only when the file no
   longer uses them (grep after). Duplicate-line gotcha: identical assert lines can recur — a
   `count==1` assert then trips, diagnose. Already-half-fixed site: a flagged line directly above an
-  existing equivalent → DELETE the redundant flagged line. **Build with the flagged tests as the
-  operand-correctness net but NOT the full suite:** `install ... -Dtest=<flagged classes>
-  -DfailIfNoTests=false` (Checkstyle + full test-compile still run; only flagged classes execute, ~5s
-  even in oldcore).
+  existing equivalent → DELETE the redundant flagged line. **Run the changed test classes as the
+  operand-correctness net:** `install ... -Dtest=<flagged classes> -DfailIfNoTests=false`. Since ONLY
+  test code changed, the flagged classes are exactly the tests that can break — this RUNS them, it does
+  not skip tests (Checkstyle + full test-compile still run, ~5s even in oldcore). For production-code
+  rules never narrow like this: run the whole edited module (see Building / verifying).
 
 ## Find-phase cost
 
@@ -351,9 +362,13 @@ Checkstyle, so it validates these.
 
 ## Building / verifying
 
-- Checkstyle + Spoon run in `install` (that's what catches issues); `-DskipTests` is fine.
+- Checkstyle + Spoon run in `install` (that's what catches the Sonar issues). **Run the tests too —
+  never `-DskipTests` (or `-DskipITs`).** Even a mechanical Sonar fix can change runtime behaviour, and
+  the edited modules' unit tests are what reveal a regression the compiler can't. If a test fails
+  because of your change, fix the change — or drop the issue and pick another; never skip tests to go
+  green. Under the background-build discipline in **Cost control** this is a TIME cost, not a token cost.
 - **Build ALL affected modules in ONE reactor:** `mvn clean install -B -ntp -pl m1,m2,... -Plegacy,snapshot
-  -Dxwiki.revapi.skip=true -Dxwiki.surefire.captureconsole.skip=true -DskipTests`. Maven sorts by
+  -Dxwiki.revapi.skip=true -Dxwiki.surefire.captureconsole.skip=true`. Maven sorts by
   dependency order; missing transitive deps resolve from the remote snapshot repo (`-Psnapshot`).
   `-Plegacy` is required to include `*-legacy-*` modules.
 - **Snapshot-repo lag after a version bump:** right after master's "prepare for next development
@@ -365,17 +380,24 @@ Checkstyle, so it validates these.
 - **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn ...`): the shell cwd can
   silently reset to `/home/user` between turns; a `-pl <relative>` build from the wrong cwd fails fast
   with "Could not find the selected project in the reactor" (a path error, not code — relaunch from root).
-- Rough datapoints: small leaf modules ~10-45s warm; oldcore ~3.5 min warm / ~6.5 cold; feed-api ~5 min.
-  Pick the smallest leaf modules; avoid Solr submodules and feed-api.
+- Rough datapoints (build only; running the modules' unit tests adds substantially more time —
+  oldcore's suite is large): small leaf modules ~10-45s warm; oldcore ~3.5 min warm / ~6.5 cold;
+  feed-api ~5 min. Pick the smallest leaf modules; avoid Solr submodules and feed-api. Now that tests
+  run, prefer a few dense modules over a wide reactor — fewer test suites to execute.
 - Run the build in the **background**, letting the tool capture stdout to its own `tasks/<id>.output`.
   Do NOT add your own `> build.log` redirect, do NOT `nohup … &`, NO `| tail`. The completion
   notification carries the exit code; ONE grep for `BUILD SUCCESS` afterwards confirms.
 
-## Cost control (the build wait dominates the bill)
+## Cost control (the build wait dominates the bill — but in TIME, not tokens)
 
-- Every wait/poll/wakeup turn re-reads the full cached context — minimize those turns. Once the build
-  is running, STOP: one line, end the turn. Do NOT Read/grep the log while it runs; the notification
-  wakes you. Don't arm a short `ScheduleWakeup` for a build; if you want a fallback use 1200s+.
+- The token bill is driven by how many TURNS happen while the build runs, NOT how long it takes.
+  Running the tests (see Building / verifying) makes builds slower in wall-clock but costs ~the same
+  tokens, PROVIDED you keep this discipline: once the build is running, STOP — one line, end the turn.
+  Do NOT Read/grep the log while it runs; the completion notification wakes you (one wake-up turn
+  re-reads the cached context once, whether the build took 3 min or 25). Don't arm a short
+  `ScheduleWakeup` for a build; if you want a fallback use 1200s+.
+- Tests add real tokens in exactly one case: a test FAILS and you must diagnose/fix/rebuild — which is
+  the regression you WANTED to catch. On clean mechanical fixes this is rare.
 - The stop-hook ("uncommitted changes") firing while you wait on the build is EXPECTED — do NOT commit
   before the build verifies.
 - **A container restart can kill the background build mid-run.** Working-copy edits PERSIST
