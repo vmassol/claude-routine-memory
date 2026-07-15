@@ -313,12 +313,17 @@ prefer the concentrated ones for ROI; note store submodules nest two levels deep
 `...-eventstream/...-eventstream-stores/...-eventstream-store-solr`). Split the files across 3-4 parallel
 subagents BY MODULE/submodule (disjoint files never conflict — verify full coverage: `git diff
 --name-only | wc -l` == expected file count). Fix rate is ~98-100% — 52/52, 45/45 and 32/32 seen 0-drop.
-**When even the big feature modules are ALL claimed (the 9-at-once state), AGGREGATE 3-4 SMALL
-untouched SINGLE-submodule modules into one reactor to reach 20-50** (seen: model-api 15 + user-default
-11 + livedata-livetable 10 + lesscss-default 9 = 45/45 0-drop, one green build). The cleanest ~100%
-fodder is the internal `*Reference`/`*Resolver`/`*Serializer`/colortheme/skin classes: their
-equals-style `if (!(o instanceof X)) return...; X x = (X) o;` and simple `return (X) ref;` resolver
-guards all convert with no drops.
+**When even the big feature modules are ALL claimed (the 9-at-once state), AGGREGATE untouched leaf
+modules into one reactor to reach 20-50 — but the named sets get claimed too** (a concurrent session's
+PR did the exact model-api+user-default+livedata-livetable+lesscss-default aggregate below), so trust NO
+fixed list: re-query S6201 by module, subtract EVERY module named in an open S6201 PR title, and
+aggregate whatever cheap untouched leaf modules remain. Two proven 0-drop aggregate sets: (a) small
+single-submodule modules model-api 15 + user-default 11 + livedata-livetable 10 + lesscss-default 9 =
+45; (b) mid-size feature leaf modules rest-server 8 + chart-renderer 6 + filter-stream-xar 6 +
+mail-send-default 5 + mentions-default 5 + office-importer 4 = 34/34, a fast 6-module reactor (~few min).
+The cleanest ~100% fodder is the internal `*Reference`/`*Resolver`/`*Serializer`/colortheme/skin classes
+and equals-style `if (!(o instanceof X)) return...; X x = (X) o;` / `return (X) ref;` guards — all
+convert with no drops. Avoid feed-api (~5 min build for a few issues) and Solr-based submodules.
 - **Splitting files across subagents — verify FULL coverage.** When you partition the file list into
   N subagent groups, it is easy to drop a file from every group (missed one of 27). After the agents
   return, cross-check `git diff --name-only | wc -l` == the expected file count and fix any gap before
