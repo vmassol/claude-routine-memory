@@ -23,7 +23,8 @@ learn something, merge it into the right section and trim — don't append dated
   read its file list (`pull_request_read` `get_files`).
 - **Rule-family map, easiest/safest first:**
   - *Pure syntax/annotation* (zero dataflow, safest): `S1128` unused import, `S1197` array designator,
-    `S1116` empty statement, `S1161` missing `@Override`, `S1611` redundant lambda-param parens.
+    `S1116` empty statement, `S1161` missing `@Override`, `S1611` redundant lambda-param parens,
+    `S1124` modifier order, `S3878` redundant varargs array.
   - *Pure simplification* (no use-verification): `S1125` redundant boolean literal, `S1488` inline
     returned local, `S1858` pointless `toString()` on String, `S2864` iterate `entrySet()`, `S1612`
     lambda→method ref, `S1155` `size()>0`→`!isEmpty()`, `S1126` if-then-else→single return.
@@ -58,6 +59,12 @@ Cross-cutting mechanics shared by all rules; each rule section notes only its *d
   the build won't catch it. After any delegated batch: cross-check the EXACT expected file set against
   `git diff --name-only`, open every expected-but-absent file and apply the missed sites yourself, and
   re-grep the pre-fix pattern across changed files (only intentional keeps should remain).
+- **Two issues on the SAME line** (e.g. two `new T[]{}` on one line) → do NOT stack two edits both keyed
+  to the original full line: the second's stored "old" goes stale after the first applies and only one
+  lands (or the assert aborts). COMBINE them into one edit covering both replacements.
+- **Sonar attributes a multi-line statement's issue to the STATEMENT-START line, not the line the flagged
+  expression is actually on** — the reported `line` can be a few lines above the token. When a
+  line-number-keyed edit's `old` isn't found there, grep the file for the actual token to get the real line.
 - **Line length is the #1 drop cause:** a rewritten line can breach 120 — first drop redundant parens,
   then pick a SHORTER in-scope name; a pre-existing long line with no slack is an unavoidable drop.
   Grep the diff for >120 after every batch.
@@ -125,8 +132,7 @@ near-100% 0-drop fodder: **event-listener `onEvent(Event event, ...)` guards**
 (`if (event instanceof XEvent) { ...((XEvent)event)... }`), **exception-rethrow guards**
 (`if (e instanceof XException) { throw (XException) e; }`), equals-style `if (!(o instanceof X))
 return; X x=(X)o;`, servlet-filter `request/response instanceof HttpServlet*`, and internal
-`*Reference`/`*Resolver`/`*Serializer` + AST-visitor converters. A 10-leaf-module aggregate cleared
-32/32 with zero drops.
+`*Reference`/`*Resolver`/`*Serializer` + AST-visitor converters (near-0-drop fodder).
 
 **Mechanics & drops.** STRUCTURAL → delegate to PARALLEL general-purpose subagents (disjoint files,
 ~13 sites each), splitting BY module/submodule; verify full coverage after. A pattern var can be a
@@ -236,7 +242,7 @@ modules (a ~10-module reactor of 3-5 each clears the target).
   survives above the merged return (same as S1066). Concentrated in oldcore (equals()/boolean getters) —
   a DIFFERENT rule from any open oldcore S6201 PR, so oldcore stays fair game for it.
 
-## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 / S1611 (safest fodder)
+## Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 / S1611 / S1124 / S3878 (safest fodder)
 
 Zero dataflow, deep regenerating pools; a wide reactor cleanly satisfies the override. Apply by line
 number in one assert-guarded script (see General techniques).
@@ -256,6 +262,20 @@ number in one assert-guarded script (see General techniques).
   spread across modules; ideal filler to bundle into any batch. Match a UNIQUE token — `(x) -> {` or
   `(x) -> body`, not the bare `(x)` (which recurs); a `.thenAnswer((invocation) -> ...)` shape is common
   in Mockito test setup. Assert the per-file count (a file can hold >1 flagged lambda with the same body).
+- `S1124` modifier order: reorder the LEADING modifier run to canonical JLS order (public/protected/
+  private → abstract → static → final → transient → volatile → synchronized → native → strictfp). Almost
+  always `final static`→`static final` or `static public`→`public static`. FULLY scriptable: regex-consume
+  the leading run of modifier keywords, sort by canonical index, keep the type+rest verbatim. Zero
+  behaviour/visibility change → NO `@since` even on public constants. Usually ZERO open PRs (cleanup waves
+  skip it); dense in oldcore + spread across many leaf modules — a solid unclaimed backbone batch.
+- `S3878` arrays created for varargs: remove the `new T[]{...}` wrapper and pass the elements. TWO message
+  variants, both usually clean spreads: "Remove this array creation / and simply pass the elements" AND
+  "Disambiguate by casting as Object/Object[]" (the latter is typically `MessageFormat.format`, SLF4J
+  `LOGGER.x`, `Arrays.asList`, or reflection `getMethod`/`getConstructor`/`newInstance` — spreading is
+  equivalent and preferred). DROP the genuinely ambiguous ones: an EMPTY-array delegation `foo(x, new
+  Object[]{})` (overload-resolution / self-recursion risk) and a single `new Object[]{y}` where `y` could
+  itself be an array. Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
+  `}`), then normalize any over-indented continuation to +4. Concentrated in oldcore + legacy.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool)
 
