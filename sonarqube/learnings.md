@@ -340,13 +340,22 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
   deep (~100 open) rarely-PR-touched pool; the GO-TO pivot when the mechanical/simplification/unused/
   S1066/S6201 families are ALL simultaneously PR-drained to 0 (a common concurrent-session state — verify
   with a facet query). Thin-spread across modules (a wide ~20-25-module reactor is fine — 59 sites in
-  one green build, excluding the slow Solr/`-index` modules); aggregate a dense same-family reactor
-  (e.g. the 3 livedata modules held 25). CAVEAT: `.toList()` is UNMODIFIABLE — convert only when the
-  result is read-only (returned, iterated, `isEmpty`/`size`/`get`/`toArray`, or used as an `addAll`
-  SOURCE) or passed to a non-mutating setter/ctor; DROP if it is later `add`/`set`/`remove`/`sort`/
-  `removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate the per-site dataflow read to
-  subagents — general-purpose (not Explore), and verify their edits landed (General techniques). In
-  test code, a list built only for `assertEquals`/iteration is a safe convert (near-0 drops overall).
+  one green build, excluding the slow Solr/`-index` modules); or aggregate a dense same-family reactor
+  (e.g. the 3 livedata modules held 25). CAVEAT: `.toList()` is UNMODIFIABLE, so the check is not just
+  "is it mutated here" but "**can it ESCAPE into a public API where an external caller could mutate
+  it**" (a reviewer WILL push back on this — it is the #1 objection). Convert only when the result stays
+  confined: returned/iterated/`isEmpty`/`size`/`get`/`toArray` locally, or used as an `addAll` SOURCE
+  (elements copied out, the unmodifiable list discarded); a test-code list built only for
+  `assertEquals`/iteration is likewise safe (near-0 drops in tests). **"Passed to a setter/ctor" is NOT
+  automatically safe** — if the setter stores the list BY REFERENCE (`this.x = x;`) on a non-`internal`
+  public model class whose getter returns it directly (`return x;`), the unmodifiable list becomes the
+  live backing list of a public getter and an extension doing `obj.getX().add(...)` breaks at runtime →
+  DROP. READ the target setter+getter to confirm copy-vs-by-reference before trusting it. A REST JAXB
+  response DTO (`*.rest.model.jaxb`) built once and only serialized stays safe. Also DROP if the result
+  is later `add`/`set`/`remove`/`sort`/`removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate
+  the per-site dataflow read to subagents (general-purpose, not Explore, and verify their edits landed —
+  General techniques), telling them to trace the FULL escape path (setter → field → public getter), not
+  just the immediate use.
   `.toList()` is 19 chars shorter than the original so line length never breaches. **Auto-derive the
   orphaned-import removal:** after converting a file's flagged lines, drop `import
   java.util.stream.Collectors;` (or the `import static java.util.stream.Collectors.toList;` variant,
