@@ -320,6 +320,10 @@ delegate the per-site reading to parallel general-purpose subagents over DISJOIN
   **Removal CASCADES** — deleting the method can orphan a private helper it was the sole caller of (e.g.
   removing `localizePlainOrKey` orphaned `getLocalization()` + its field); trace and delete the whole
   dead chain, else you leave a fresh S1144. Process multiple methods in the SAME file highest-line-first.
+  (4) **Check the SIBLING/twin class** — a legacy `Deprecated*` class often mirrors a non-deprecated
+  twin (in a different, often non-legacy module outside your batch's module set) carrying the SAME dead
+  method; re-query the rule project-wide by the method name so both get fixed in one PR, not a review
+  round-trip.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool)
 
