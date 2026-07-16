@@ -369,6 +369,8 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
 - `S2147` combine catch clauses with identical bodies: `catch (A e){B} catch (B e){B}` → `catch (A | B
   e){B}`. Gotchas: (1) if the types are in a SUBTYPE relationship, multi-catch is a COMPILE ERROR —
   DELETE the redundant subclass catch instead. (2) Deleting a catch can ORPHAN that exception's import.
+  (3) if the merged/removed catches had DIFFERENT comments, MERGE both into the surviving block — a
+  reviewer will flag a dropped comment.
 - `S3626` remove redundant jump — clean ONLY for a TRULY-trailing jump (last statement of a void
   method; a branch-final `continue`/`return` when the if-else chain is the WHOLE loop body). DROP: the
   jump is the branch's only statement (removing → EMPTY block, checkstyle `EmptyBlock`); complex nested
