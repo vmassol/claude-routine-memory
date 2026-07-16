@@ -301,7 +301,18 @@ delegate the per-site reading to parallel general-purpose subagents over DISJOIN
 - **`S1185`** remove an override whose body is ONLY `super.x(sameArgs)` (optionally `return`ed). Delete
   the whole method incl. Javadoc + `@Override`. DROP if it does anything else, changes
   return/throws/visibility meaningfully, or adds a behaviour-bearing annotation. Removing the sole
-  method of a class ORPHANS its imports → clean them (word-boundary rule).
+  method of a class ORPHANS its imports → clean them (word-boundary rule). **CRITICAL false-positive —
+  reflective declared-method dispatch:** a pure super-call override IS needed (not redundant) when a
+  framework registers behaviour by scanning the concrete class's `getDeclaredMethods()` (inherited
+  methods excluded). In XWiki this is **`XWikiPluginManager.initPlugin()`**: it maps a plugin to a
+  function name only if that method is DECLARED on the plugin class, so any `com.xpn.xwiki.plugin.*`
+  class (extends `XWikiDefaultPlugin` / implements `XWikiPluginInterface`, incl. all `skinx` plugins)
+  must redeclare `endParsing`/`virtualInit`/… even to just call super, or the callback stops firing.
+  **DROP every S1185 hit in a plugin class.** More generally: **an explicit "we must override…"/"do not
+  remove" Javadoc on the method is a HARD STOP — never delete a method whose own comment explains why it
+  exists**; treat that comment as authoritative and drop the issue (Sonar can't see runtime dispatch,
+  and the build/tests won't catch a lost reflective callback). Non-plugin classes with no such dispatch
+  (plain POJOs, component impls called via their interface) are safe to remove.
 - **`S1144`** remove an unused `private` method (+ orphaned fields/imports). GOTCHAS: (1) **Hibernate/JPA
   reflective accessors** — a `getX`/`setX` on a persistent entity (e.g. `XWikiDocument`) may be mapped by
   property name in `*.hbm.xml`; grep the `.hbm.xml` mappings before removing any getter/setter, DROP if
