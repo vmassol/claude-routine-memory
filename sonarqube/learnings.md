@@ -24,12 +24,14 @@ learn something, merge it into the right section and trim — don't append dated
 - **Rule-family map, easiest/safest first:**
   - *Pure syntax/annotation* (zero dataflow, safest): `S1128` unused import, `S1197` array designator,
     `S1116` empty statement, `S1161` missing `@Override`, `S1611` redundant lambda-param parens,
-    `S1124` modifier order, `S3878` redundant varargs array.
+    `S1124` modifier order, `S3878` redundant varargs array, `S1118` add private constructor to a
+    utility class (additive).
   - *Pure simplification* (no use-verification): `S1125` redundant boolean literal, `S1488` inline
     returned local, `S1858` pointless `toString()` on String, `S2864` iterate `entrySet()`, `S1612`
     lambda→method ref, `S1155` `size()>0`→`!isEmpty()`, `S1126` if-then-else→single return.
   - *Constant extraction*: `S1192` duplicated literal.
-  - *Unused-code removal* (light dataflow): `S1068` field, `S1481` local, `S1854` dead store.
+  - *Unused-code removal* (light dataflow): `S1068` field, `S1481` local, `S1854` dead store, `S1144`
+    unused private method, `S1185` remove override that only calls `super`.
   - *Structural*: `S1066` merge nested `if`, `S6201` instanceof pattern matching (the deepest pool),
     `S2147` combine catch, `S3626` remove redundant jump, `S2093` try-with-resources.
   - *Test-code*: `S5786` JUnit5 package-private, `S5785` assertEquals/assertSame not boolean assert.
@@ -121,9 +123,9 @@ variable and delete the redundant cast:
 install`, clears 50). When oldcore is PR-claimed, the next-densest FEATURE module is a
 clean self-contained batch — PREFER one concentrated in FEW submodules (cheaper reactor) over the same
 count spread wide, and DROP Solr-based submodules (`-*-index`, `-solr-*` — slow) and feed-api (~5 min).
-**Concurrent sessions routinely leave 9-10 S6201 feature-module PRs open at once** — scan the WHOLE
-open `llm-agent` PR list up front, subtract EVERY module named in an open S6201 PR (incl. wildcard
-"various modules" aggregates — read their file lists), and pick modules with ZERO open PRs.
+**Concurrent sessions routinely leave 9-10 S6201 feature-module PRs open at once** (incl. oldcore +
+several wildcard "various modules" PRs) — often leaving only thin residue spread 1-2 per module across
+26+ submodules; when that's all that's left, PIVOT (the S1118/S1144/S1185 family above is the go-to).
 **When even the big feature modules are ALL claimed, AGGREGATE untouched cheap leaf modules into one
 reactor to reach 20-50.** Trust NO fixed list — the "obvious" aggregate sets get claimed too;
 re-query by module each run. The `xwiki-platform-legacy-*` modules are a reliable untouched fallback
@@ -276,6 +278,35 @@ number in one assert-guarded script (see General techniques).
   Object[]{})` (overload-resolution / self-recursion risk) and a single `new Object[]{y}` where `y` could
   itself be an array. Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
   `}`), then normalize any over-indented continuation to +4. Concentrated in oldcore + legacy.
+
+## Utility-class / dead-code family — S1118 / S1144 / S1185 (fresh pivot when S6201/S6204 saturated)
+
+When the small mechanical pools AND S6201/S6204/S1066 are all simultaneously drained or PR-saturated
+(the common concurrent-session state), this trio is a reliable unclaimed pivot — deep MAJOR pools,
+cleanup waves rarely touch them, they regenerate, and they're near-always zero open PRs. **oldcore is
+the densest source and is FAIR GAME** for them even when an open oldcore PR exists, as long as that PR
+is a *different* rule (the recurring open oldcore PR is S6201-only). All three are additive/removal, so
+they bundle into one multi-type PR over an oldcore-dominant reactor (one build). Verify each per below —
+delegate the per-site reading to parallel general-purpose subagents over DISJOINT files, then cross-check
+`git diff --name-only` against the expected set and grep each removed name is gone (General techniques).
+- **`S1118`** add a `private` constructor to a utility class. Two variants: "Add a private constructor
+  to hide the implicit public one" (class has NO ctor → insert `private Foo() { }` after fields/before
+  first method, respecting DeclarationOrder; a short Javadoc is safe, private ctors don't strictly need
+  it) and "Hide this public constructor" (class HAS a `public` ctor → change `public`→`private`).
+  **DROP the "hide" variant when the ctor is actually instantiated** (`grep "new Foo("` across the
+  reactor) — e.g. factory classes exposing instance methods, `new XxxFactory()` called from a service.
+  Purely additive → the safest, highest-yield of the three; near-0 drops for the "add" variant.
+- **`S1185`** remove an override whose body is ONLY `super.x(sameArgs)` (optionally `return`ed). Delete
+  the whole method incl. Javadoc + `@Override`. DROP if it does anything else, changes
+  return/throws/visibility meaningfully, or adds a behaviour-bearing annotation. Removing the sole
+  method of a class ORPHANS its imports → clean them (word-boundary rule).
+- **`S1144`** remove an unused `private` method (+ orphaned fields/imports). GOTCHAS: (1) **Hibernate/JPA
+  reflective accessors** — a `getX`/`setX` on a persistent entity (e.g. `XWikiDocument`) may be mapped by
+  property name in `*.hbm.xml`; grep the `.hbm.xml` mappings before removing any getter/setter, DROP if
+  mapped. (2) skip serialization hooks (`writeObject`/`readObject`/`readResolve`/`writeReplace`). (3)
+  **Removal CASCADES** — deleting the method can orphan a private helper it was the sole caller of (e.g.
+  removing `localizePlainOrKey` orphaned `getLocalization()` + its field); trace and delete the whole
+  dead chain, else you leave a fresh S1144. Process multiple methods in the SAME file highest-line-first.
 
 ## java:S1068 / S1481 / S1854 — unused-code removal (deep MAJOR pool)
 
