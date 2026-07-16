@@ -350,7 +350,10 @@ one assert-guarded script. Expect ~40 of ~45 after drops.
   automatically safe** — if the setter stores the list BY REFERENCE (`this.x = x;`) on a non-`internal`
   public model class whose getter returns it directly (`return x;`), the unmodifiable list becomes the
   live backing list of a public getter and an extension doing `obj.getX().add(...)` breaks at runtime →
-  DROP. READ the target setter+getter to confirm copy-vs-by-reference before trusting it. A REST JAXB
+  DROP, OR (reviewer-preferred when the model class is xwiki-owned) keep the `.toList()` and make the
+  SETTER defensively copy: `this.x = x == null ? null : new ArrayList<>(x);` — clears the Sonar issue
+  AND preserves the mutable-getter contract, so the escaping list no longer matters. READ the target
+  setter+getter to confirm copy-vs-by-reference before trusting it. A REST JAXB
   response DTO (`*.rest.model.jaxb`) built once and only serialized stays safe. Also DROP if the result
   is later `add`/`set`/`remove`/`sort`/`removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate
   the per-site dataflow read to subagents (general-purpose, not Explore, and verify their edits landed —
