@@ -290,9 +290,11 @@ they bundle into one multi-type PR over an oldcore-dominant reactor (one build).
 delegate the per-site reading to parallel general-purpose subagents over DISJOINT files, then cross-check
 `git diff --name-only` against the expected set and grep each removed name is gone (General techniques).
 - **`S1118`** add a `private` constructor to a utility class. Two variants: "Add a private constructor
-  to hide the implicit public one" (class has NO ctor → insert `private Foo() { }` after fields/before
-  first method, respecting DeclarationOrder; a short Javadoc is safe, private ctors don't strictly need
-  it) and "Hide this public constructor" (class HAS a `public` ctor → change `public`→`private`).
+  to hide the implicit public one" (class has NO ctor → insert one after fields/before first method,
+  respecting DeclarationOrder; a short Javadoc is safe, private ctors don't strictly need it) and
+  "Hide this public constructor" (class HAS a `public` ctor → change `public`→`private`). **The body
+  MUST contain a comment** (`{ // Utility class }`, matching the `XarUtils`/`TikaUtils` idiom) — an
+  empty body just trades S1118 for a fresh `S1186` (empty method) and a reviewer WILL flag it.
   **DROP the "hide" variant when the ctor is actually instantiated** (`grep "new Foo("` across the
   reactor) — e.g. factory classes exposing instance methods, `new XxxFactory()` called from a service.
   Purely additive → the safest, highest-yield of the three; near-0 drops for the "add" variant.
