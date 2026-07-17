@@ -11,6 +11,11 @@ learn something, merge it into the right section and trim — don't append dated
   `total` (query with `&rules=java:SXXXX&ps=1`), not a facet value.
 - Pools shift every run (see General techniques). If a rule's remaining issues are all non-convertible
   residue, pivot (skill rule: "if a fix is hard, drop it and pick another").
+- **Scope/mode overrides.** A run may target only *new-code* issues (add `&sinceLeakPeriod=true` to
+  the search; the pool is smaller, ~100 project-wide, but the same rule families apply) and/or ask for
+  *safe changes only*. In safe-only mode stick to purely-mechanical families (syntax/simplification/
+  unused/`S1066`) and DROP judgment-heavy ones (logging reformatting `S2629`/`S3457`, `S6880` if→switch,
+  `S1130` remove-`throws`, `S1845`); whenever you're unsure a change preserves behaviour, drop it.
 - **The BLOCKER/CRITICAL mechanical pool is frequently exhausted.** BLOCKER/CRITICAL-first is the
   skill's guidance but not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
   There is a deep MAJOR-severity clean pool.
@@ -20,7 +25,8 @@ learn something, merge it into the right section and trim — don't append dated
   only claims the files it touched, so the same rule in OTHER (incl. sibling) modules is fair game.
   When your planned rule already has multiple open PRs, PIVOT to a zero-PR rule family rather than
   threading the gaps. When you must know exactly which modules a wildcard "various modules" PR claims,
-  read its file list (`pull_request_read` `get_files`).
+  read its file list (`pull_request_read` `get_files`). **A same-FILE open PR is off-limits even for a
+  DIFFERENT rule** — a concurrent edit to that file risks merge conflicts; drop that site and pick another.
 - **Rule-family map, easiest/safest first:**
   - *Pure syntax/annotation* (zero dataflow, safest): `S1128` unused import, `S1197` array designator,
     `S1116` empty statement, `S1161` missing `@Override`, `S1611` redundant lambda-param parens,
@@ -41,7 +47,8 @@ learn something, merge it into the right section and trim — don't append dated
   `S1214` (constants-in-interface, cross-module), `S1113` (finalize), `S1215` (`System.gc()` — the
   enclosing method may be a deliberately-exposed API, e.g. `$xwiki.gc()`), `S2696` (static field from
   instance method — usually lazy-init needing sync), `S2157` (add `clone()`), `S5845` (assert
-  dissimilar types — erasure can make the assertion correct). Verify before "fixing" any of these.
+  dissimilar types — erasure can make the assertion correct), `S3415` (swap assert expected/actual —
+  often breaks order-dependent tests, see Test-code rules). Verify before "fixing" any of these.
 
 ## General batch-fix techniques (apply to every rule below)
 
@@ -89,9 +96,9 @@ Cross-cutting mechanics shared by all rules; each rule section notes only its *d
   S2864 + S1155 + S1197 + S1128, all zero-dataflow single-line edits) across ~20 modules into one
   green reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve
   mixed *dataflow*-rule batches for when unavoidable (each rule multiplies edit-error surface).
-- The mechanics for APPLYING a batch — assert-guarded script, subagent delegation + verification, line
-  length, orphaned imports — are in **General batch-fix techniques** above; this section covers only
-  batch *composition* (which rules/modules to bundle).
+- This section covers batch *composition* (which rules/modules to bundle); the *mechanics* of applying
+  a batch (assert-guarded script, subagent delegation + verification, line length, orphaned imports)
+  are in **General batch-fix techniques** above.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count
   (a triple-nest S1066 merge or a class-level S5786 flag resolves more keys than edited sites).
@@ -163,8 +170,10 @@ trailing brace. Wrap an operand containing top-level `||` in parens. NOT a pure 
 DELEGATE to parallel subagents, each file bottom-up. **A triple-nest `if(A){if(B){if(C){}}}` collapses
 to `if (A && B && C)` and resolves TWO keys** — count accepted issues by KEY.
 **Fixable ~75%.** DROP: merged condition >120 that can't cleanly two-line-wrap (+4 continuation
-indent); the outer is `else if`; the inner `if` is not the sole statement of the outer body (siblings/
-an `else`). A residual `X != null && X instanceof Y` is harmless. **A comment BETWEEN the two `if`s is
+indent); the inner `if` is not the sole statement of the outer body (siblings/an `else`); the OUTER
+`if`/`else if` has its own trailing `else`/`else if` (merging changes when that `else` fires). An
+`else if` outer with NO trailing `else` IS mergeable (`} else if (A) { if (B) {..} }` →
+`} else if (A && B) {..}`). A residual `X != null && X instanceof Y` is harmless. **A comment BETWEEN the two `if`s is
 usually recoverable** (not an auto-drop): a single-line `//` describing the inner condition MOVES
 above the merged `if` (same indent); DROP only a multi-line/block comment or one documenting the OUTER
 condition.
@@ -447,6 +456,15 @@ Pure test-code edits (production untouched, low review risk). The module's tests
   test code changed, the flagged classes are exactly the tests that can break — this RUNS them, it does
   not skip tests (Checkstyle + full test-compile still run, ~5s even in oldcore). For production-code
   rules never narrow like this: run the whole edited module (see Building / verifying).
+- **`S3415` "swap expected/actual arguments" — usually UNSAFE, default DROP.** The rule assumes
+  operand order is cosmetic, but many flagged asserts DEPEND on it (same root cause as S5785's "never
+  flip operands"): (a) an `assertEquals`/`assertNotEquals` on a type with ASYMMETRIC `equals` — e.g.
+  `RegexEntityReference.equals` does regex matching, so `regexRef.equals(plain)` ≠ `plain.equals(regexRef)`;
+  swapping flips the result and BREAKS the test; (b) `assertNotEquals(obj, null)` deliberately exercises
+  `obj.equals(null)` — swapping to `(null, obj)` short-circuits via `Objects.equals` and no longer tests
+  that contract. Only swap when BOTH operands are plain values with symmetric `equals` and neither is
+  `null` (e.g. a bare literal genuinely in the actual slot); otherwise DROP. Read the asserted type's
+  `equals` before trusting Sonar.
 
 ## Find-phase cost
 
