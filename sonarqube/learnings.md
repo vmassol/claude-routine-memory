@@ -144,16 +144,28 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   the edited modules' unit tests are what reveal a regression the compiler can't. If a test fails
   because of your change, fix the change — or drop the issue and pick another; never skip tests to go
   green. Under the background-build discipline in **Cost control** this is a TIME cost, not a token cost.
-- **Build ALL affected modules in ONE reactor:** `mvn clean install -B -ntp -pl m1,m2,... -Plegacy,snapshot
-  -Dxwiki.revapi.skip=true -Dxwiki.surefire.captureconsole.skip=true`. Maven sorts by
-  dependency order; missing transitive deps resolve from the remote snapshot repo (`-Psnapshot`).
-  `-Plegacy` is required to include `*-legacy-*` modules.
-- **Snapshot-repo lag after a version bump:** right after master's "prepare for next development
-  iteration" commit, the remote snapshot repo may not yet hold EVERY sibling at the new `X.Y.0-SNAPSHOT`,
-  so a `-pl` build fails with `Could not find artifact org.xwiki.platform:<sibling>:jar:X.Y.0-SNAPSHOT`
-  (a resolution error, NOT your code). Fix: re-run the FAILED module with `-am` (also-make) so Maven
-  builds the missing local siblings from source — the already-installed modules from the first run are
-  reused, so this is cheap and only the failing sub-tree rebuilds.
+- **Build ALL affected modules in ONE reactor with `-Plegacy,quality`:** `mvn clean install -B -ntp
+  -pl m1,m2,... -Plegacy,quality`. Maven sorts by dependency order; `-Plegacy` is required to include
+  `*-legacy-*` modules. **`-Pquality` is MANDATORY for a Sonar-fix verification** — the JaCoCo
+  `jacoco:check` goal (enforces each module's pinned `xwiki.jacoco.instructionRatio`) runs ONLY under
+  `-Pquality`, and so do Revapi + Enforcer. Removing covered instructions (e.g. S6204
+  `.collect(Collectors.toList())`→`.toList()`, or any dead-code/simplification removal) can drop a
+  module below its ratio → **JaCoCo fails in CI even when your local `install` was green**. This is
+  invisible without `-Pquality`. So NEVER skip revapi/checkstyle/coverage in the verification build,
+  and do NOT run bare `-Plegacy` — always `-Plegacy,quality`. (If JaCoCo then fails, the change
+  genuinely lowered coverage: prefer a smaller/behaviour-neutral edit, or use the
+  `xwiki-increase-test-coverage` skill — do NOT just lower the pinned ratio to go green.)
+- **Do NOT use the `snapshot` profile** — it was dropped from the org build recipe (not needed in
+  general). Transitive `X.Y.0-SNAPSHOT` deps resolve from the local `~/.m2` (siblings you already
+  built, or a prior full build) and the standard XWiki repos. If a `-pl` build hits `Could not find
+  artifact org.xwiki.platform:<sibling>:jar:X.Y.0-SNAPSHOT` (a resolution error, NOT your code), add
+  `-am` (also-make) so Maven builds the missing local siblings from source — already-installed modules
+  are reused, so only the failing sub-tree rebuilds. Prefer building the fix modules alone (no `-am`)
+  once the upstream tree is already installed, to keep `-Pquality` fast.
+- **Session plugin cache can be STALE vs the xwiki-dev-llm source.** The build recipe / profiles are
+  authoritative in the plugin *repo* (`xwiki/skills/xwiki-build/SKILL.md`, `instructions/xwiki-org.md`),
+  which may be several versions ahead of the cached plugin loaded this session. When a reviewer cites
+  "latest plugin says X", re-read the source repo, not the cache — and correct this file.
 - **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn ...`): the shell cwd can
   silently reset to `/home/user` between turns; a `-pl <relative>` build from the wrong cwd fails fast
   with "Could not find the selected project in the reactor" (a path error, not code — relaunch from root).
