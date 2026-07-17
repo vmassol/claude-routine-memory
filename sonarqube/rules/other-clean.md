@@ -31,7 +31,14 @@
   java.util.stream.Collectors;` (or the `import static java.util.stream.Collectors.toList;` variant,
   which also shows up as `.collect(toList())`) iff `Collectors.`/`toList(` no longer appears in the
   body (KEEP when a sibling `Collectors.toSet/joining/toMap/groupingBy` survives) — reproduces the
-  correct per-file REMOVE/KEEP with no manual bookkeeping.
+  correct per-file REMOVE/KEEP with no manual bookkeeping. **PITFALL — the "keep import" substring
+  check is fooled by a surviving `import static java.util.stream.Collectors.joining;` (or any
+  `Collectors.X` static import): that line literally contains `Collectors.`, so a naive
+  `"Collectors." in content` test wrongly KEEPS the now-unused plain `import
+  java.util.stream.Collectors;` → Checkstyle `UnusedImports` FAILS the build.** Test for `Collectors.`
+  usage OUTSIDE `import` lines (strip/skip lines whose lstrip starts with `import`), not anywhere in
+  the file. A plain `import java.util.stream.Collectors;` and a `import static
+  ...Collectors.joining;` can COEXIST — the static one being used does NOT keep the plain one alive.
 - `S2093` try-with-resources: `R r = new ...(); try {...} finally { r.close() }` → `try (R r = new
   ...()) {...}`. ~half of hits are NOT real closes (push/pop, `reset()`, semaphore release, resource
   created mid-body) — verify the finally actually CLOSES an `AutoCloseable` declared just before `try`.
