@@ -119,8 +119,11 @@ variable and delete the redundant cast:
 - Existing explicit local: `if (x instanceof Foo) { Foo foo = (Foo) x; ... }` → reuse that local's
   name in the pattern and delete its declaration line. `Object[]` patterns work (`x instanceof Object[] arr`).
 
-**Module choice.** oldcore's ~140 make a single-module batch (`-pl xwiki-platform-oldcore
-install`, clears 50). When oldcore is PR-claimed, the next-densest FEATURE module is a
+**Module choice.** oldcore's ~90-140 make a single-module batch (`-pl xwiki-platform-oldcore
+install`) — you can clear ALL of oldcore's S6201 in ONE PR: split the sites across ~6 PARALLEL
+general-purpose subagents (~15 sites/agent) over DISJOINT files, one ~7.5-min build-with-tests, ~0
+drops (oldcore S6201 is ~100% clean fodder). Don't cap at 50 — the whole module is feasible.
+When oldcore is PR-claimed, the next-densest FEATURE module is a
 clean self-contained batch — PREFER one concentrated in FEW submodules (cheaper reactor) over the same
 count spread wide, and DROP Solr-based submodules (`-*-index`, `-solr-*` — slow) and feed-api (~5 min).
 **Concurrent sessions routinely leave 9-10 S6201 feature-module PRs open at once** (incl. oldcore +
@@ -479,8 +482,10 @@ Pure test-code edits (production untouched, low review risk). The module's tests
   feed-api ~5 min. Pick the smallest leaf modules; avoid Solr submodules and feed-api. Now that tests
   run, prefer a few dense modules over a wide reactor — fewer test suites to execute.
 - Run the build in the **background**, letting the tool capture stdout to its own `tasks/<id>.output`.
-  Do NOT add your own `> build.log` redirect, do NOT `nohup … &`, NO `| tail`. The completion
-  notification carries the exit code; ONE grep for `BUILD SUCCESS` afterwards confirms.
+  Do NOT add your own `> build.log` redirect, do NOT `nohup … &`, NO `| tail` (a `| tail -N` on the
+  backgrounded `mvn` DISCARDS all but the last N lines from the captured file — you then can't grep
+  `Tests run:`/failing-test names, only the final summary). The completion notification carries the
+  exit code; grep the full `tasks/<id>.output` for `BUILD SUCCESS` afterwards to confirm.
 
 ## Cost control (the build wait dominates the bill — but in TIME, not tokens)
 
