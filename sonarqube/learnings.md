@@ -113,6 +113,17 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   `split(':',1)[1]` is WRONG and every file open fails). Then either: (a) one dense single module
   (oldcore often holds 30-90 of a rule = one cheap build); or (b) a WIDE reactor of many cheap leaf
   modules when the pool is thin-spread. A 30+-module reactor still builds green in ONE shot.
+- **oldcore's dense mechanical count is a TRAP for the small clean rules** (S1118/S1144/S1185/S1192/
+  S3626/S6204/S1068). Datapoint: a run found 26 oldcore "mechanical" issues across 9 rules and nearly
+  ALL were DROPs — S1118 factories are `new XxxFactory()`-instantiated by a service, S1185/S1144 are
+  plugin/`.hbm.xml`-mapped reflective, S1192 forward-ref/coincidental, S3626 sits in complex
+  try/catch/finally, S6204 escapes via a public getter. oldcore is heavily scanned so its EASY hits are
+  long-fixed; a high count there means residue, not cheap fixes, and building oldcore's large test suite
+  for 1-3 survivors is poor ROI. Triage a few oldcore candidates with targeted greps (`new Foo(`, the
+  class's `extends`, `.hbm.xml`, the constant's decl line) BEFORE committing to it; for the small clean
+  rules PREFER leaf feature modules. (S6201 is the exception — oldcore S6201 is still ~98% clean, per
+  its rule file.) This tempers the dead-code.md "oldcore is FAIR GAME for S1118/S1144/S1185" framing:
+  fair game to *query*, but expect heavy drops there now.
 - **When a rule's small pool sits below 20 alone, MIX zero-PR pure-mechanical rules** (S1612 + S1125 +
   S2864 + S1155 + S1197 + S1128, all zero-dataflow single-line edits) across ~20 modules into one
   green reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve

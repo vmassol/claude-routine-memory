@@ -21,7 +21,11 @@
   SETTER defensively copy: `this.x = x == null ? null : new ArrayList<>(x);` — clears the Sonar issue
   AND preserves the mutable-getter contract, so the escaping list no longer matters. READ the target
   setter+getter to confirm copy-vs-by-reference before trusting it. A REST JAXB
-  response DTO (`*.rest.model.jaxb`) built once and only serialized stays safe. Also DROP if the result
+  response DTO (`*.rest.model.jaxb`) built once and only serialized stays safe. **Script-exposed escape
+  (common oldcore/feature drop): a `private` collector method whose result is returned up through a
+  public `ScriptService` method (or any `*.internal` method whose result reaches a `@Component`-role
+  return type callable from Velocity) DROPS — Velocity callers are untraceable and can `.add()`/`.sort()`
+  the list. Trace the return chain to the outermost public/role method, not just the immediate caller.** Also DROP if the result
   is later `add`/`set`/`remove`/`sort`/`removeIf`-ed or assigned to an `ArrayList`-typed target. Delegate
   the per-site dataflow read to subagents (general-purpose, not Explore, and verify their edits landed —
   General techniques), telling them to trace the FULL escape path (setter → field → public getter), not

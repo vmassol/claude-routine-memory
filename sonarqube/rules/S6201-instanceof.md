@@ -20,6 +20,8 @@ variable and delete the redundant cast:
   foo) || foo.m()` — the `||` RHS runs only when the instanceof is TRUE, so `foo` is assigned there.
 - Existing explicit local: `if (x instanceof Foo) { Foo foo = (Foo) x; ... }` → reuse that local's
   name in the pattern and delete its declaration line. `Object[]` patterns work (`x instanceof Object[] arr`).
+  **When that decl line was followed by a blank line, deleting it leaves a stray leading blank right
+  after the pattern-`if {`** — remove that blank too (grep the changed files for `{\n\n` / eyeball the diff).
 
 **Module choice.** oldcore's ~90-140 make a single-module batch (`-pl xwiki-platform-oldcore
 install`) — you can clear ALL of oldcore's S6201 in ONE PR: split the sites across ~6 PARALLEL
