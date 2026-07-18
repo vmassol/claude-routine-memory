@@ -21,6 +21,11 @@ delegate the per-site reading to parallel general-purpose subagents over DISJOIN
   **DROP the "hide" variant when the ctor is actually instantiated** (`grep "new Foo("` across the
   reactor) — e.g. factory classes exposing instance methods, `new XxxFactory()` called from a service.
   Purely additive → the safest, highest-yield of the three; near-0 drops for the "add" variant.
+  **Revapi gotcha:** reducing a previously-public (or implicit-public) ctor to `private` on an API class
+  is a breaking change → `-Pquality` fails with `java.method.visibilityReduced`, needing a revapi ignore.
+  Legacy modules RE-EXPORT oldcore's public classes, so the SAME change trips the `*-legacy-*` module's
+  revapi too — add the ignore in BOTH that module and oldcore. An S1118 PR that skips this leaves the
+  affected module (esp. `xwiki-platform-legacy-oldcore`) failing revapi on a clean build for everyone.
 - **`S1185`** remove an override whose body is ONLY `super.x(sameArgs)` (optionally `return`ed). Delete
   the whole method incl. Javadoc + `@Override`. DROP if it does anything else, changes
   return/throws/visibility meaningfully, or adds a behaviour-bearing annotation. Removing the sole

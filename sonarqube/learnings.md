@@ -161,7 +161,19 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   artifact org.xwiki.platform:<sibling>:jar:X.Y.0-SNAPSHOT` (a resolution error, NOT your code), add
   `-am` (also-make) so Maven builds the missing local siblings from source — already-installed modules
   are reused, so only the failing sub-tree rebuilds. Prefer building the fix modules alone (no `-am`)
-  once the upstream tree is already installed, to keep `-Pquality` fast.
+  once the upstream tree is already installed, to keep `-Pquality` fast. **A fully cold `~/.m2`
+  (fresh-cloned container, 0 platform artifacts) does NOT need `-am`** — a ~30-module `-pl` reactor
+  resolves every SNAPSHOT sibling as a downloaded jar from the remote repos and builds green; `-am`
+  is only for a sibling that is genuinely unpublished. Datapoint: a 29-module `-pl` reactor WITH tests
+  under `-Plegacy,quality` on a cold `.m2` ran ~19 min.
+- **A wide reactor that fails on ONE module for a reason UNRELATED to your edit → drop that module,
+  keep the rest.** The reactor summary marks every other module `SUCCESS` (they're independently
+  verified — build order means a leaf failing last doesn't taint earlier ones). Common cause:
+  another agent's already-landed S1118 private-ctor change left `xwiki-platform-legacy-oldcore` (or
+  another module) failing revapi `java.method.visibilityReduced` on classes YOU never touched. Confirm
+  it's not yours (`git diff --name-only` doesn't list the flagged classes), `git checkout --` your one
+  file in that module, and ship the other modules' fixes — no rebuild needed. Don't try to fix the
+  unrelated revapi failure (out of scope; skill rule "if hard, drop it").
 - **Session plugin cache can be STALE vs the xwiki-dev-llm source.** The build recipe / profiles are
   authoritative in the plugin *repo* (`xwiki/skills/xwiki-build/SKILL.md`, `instructions/xwiki-org.md`),
   which may be several versions ahead of the cached plugin loaded this session. When a reviewer cites
