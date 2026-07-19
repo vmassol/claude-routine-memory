@@ -20,12 +20,28 @@ delegate the per-site reading to parallel general-purpose subagents over DISJOIN
   empty body just trades S1118 for a fresh `S1186` (empty method) and a reviewer WILL flag it.
   **DROP the "hide" variant when the ctor is actually instantiated** (`grep "new Foo("` across the
   reactor) — e.g. factory classes exposing instance methods, `new XxxFactory()` called from a service.
-  Purely additive → the safest, highest-yield of the three; near-0 drops for the "add" variant.
+  **`FinalClass` follow-on (build-breaker, not optional):** a class whose only ctor is now `private`
+  trips checkstyle `FinalClass` ("Class X should be declared as final") → `-Pquality` FAILS. Always add
+  `final` to the class in the SAME edit, after confirming it has no subclasses (`grep "extends Foo" == 0`);
+  applies to inner holder classes too (`static class Holder` → `static final class Holder`, the
+  init-on-demand idiom). Do this pre-emptively for every "add" fix.
+  **NOT near-0 drops on leaf modules** — expect heavy drops: (a) **abstract base classes** that hold only
+  static members but are DESIGNED FOR EXTENSION (`public abstract class AbstractX` with subclasses) — a
+  private ctor breaks the subclasses' `super()`, and any ctor on a *public* abstract class risks revapi →
+  DROP (it's a false positive; the class is already non-instantiable). (b) **public-API holder classes in
+  a NON-`internal` package** (e.g. an enum's `public static class Constants`) — adding a private ctor
+  REMOVES the implicit-public ctor → revapi `java.method.visibilityReduced` → DROP unless you add the
+  ignore. PREFER S1118 sites in `internal` packages / package-private inner holders (revapi ignores
+  `internal`, so those are the clean ones). The purely-additive "add private ctor + final" on an
+  internal/inner utility class is the safe subset.
   **Revapi gotcha:** reducing a previously-public (or implicit-public) ctor to `private` on an API class
   is a breaking change → `-Pquality` fails with `java.method.visibilityReduced`, needing a revapi ignore.
   Legacy modules RE-EXPORT oldcore's public classes, so the SAME change trips the `*-legacy-*` module's
   revapi too — add the ignore in BOTH that module and oldcore. An S1118 PR that skips this leaves the
-  affected module (esp. `xwiki-platform-legacy-oldcore`) failing revapi on a clean build for everyone.
+  affected module (esp. `xwiki-platform-legacy-oldcore`) failing revapi on a clean build for everyone —
+  a still-present master-wide breakage: when your batch touches `legacy-oldcore` for an UNRELATED rule and
+  its revapi fails on `<init>()` of classes you never edited (XWikiConstant/Utils/TOCGenerator/i18n),
+  that's this pre-existing debt — drop your `legacy-oldcore` file and ship the rest (per learnings.md).
 - **`S1185`** remove an override whose body is ONLY `super.x(sameArgs)` (optionally `return`ed). Delete
   the whole method incl. Javadoc + `@Override`. DROP if it does anything else, changes
   return/throws/visibility meaningfully, or adds a behaviour-bearing annotation. Removing the sole

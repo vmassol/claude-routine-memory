@@ -44,8 +44,14 @@
   the file. A plain `import java.util.stream.Collectors;` and a `import static
   ...Collectors.joining;` can COEXIST — the static one being used does NOT keep the plain one alive.
 - `S2093` try-with-resources: `R r = new ...(); try {...} finally { r.close() }` → `try (R r = new
-  ...()) {...}`. ~half of hits are NOT real closes (push/pop, `reset()`, semaphore release, resource
-  created mid-body) — verify the finally actually CLOSES an `AutoCloseable` declared just before `try`.
+  ...()) {...}`. **In XWiki most hits are NOT real closes — a whole batch can be 100% drops.** The
+  `finally` is overwhelmingly a context/state RESTORE, not a `close()`: `pop()`/`push()` on a
+  MutableRenderingContext, `semaphore.release()`, `param.reset()`, `scriptContext.removeAttribute(...)` /
+  attribute restore on a SHARED script context, `xcontext.setWikiReference(previous)` /
+  `xcontext.put(key, previousSkin)`, or the "resource" is a method PARAMETER / created mid-body and never
+  actually closed. Verify the finally CLOSES an `AutoCloseable` declared JUST BEFORE the `try`; if it
+  restores shared state or acts on something not declared right before the try, DROP. Triage cheaply and
+  expect to reject the batch — this rule is low-yield in XWiki.
   Implicit `close()` throws `IOException`; if the surrounding catch is narrower and the method doesn't
   declare it, add a `catch (IOException)`. Removing `IOUtils.closeQuietly` may orphan the `IOUtils` import.
 - `S2119` reuse Random: extract `new Random()`/`new SecureRandom()` to a `private static final` field.

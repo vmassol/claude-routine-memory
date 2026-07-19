@@ -241,6 +241,12 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
 - **Reset the designated feature branch to master FIRST — it persists across runs.** `git fetch origin
   master` then `git checkout -B <branch> origin/master` before editing, or the new PR bundles old
   already-merged commits. (A stale local `origin/master` hides this — always fetch before judging.)
+  **The local `origin/master` ref can LAG even right after `git fetch origin master`** (served a stale
+  tip). When the feature branch looks like it carries unmerged sonar commits "ahead of master", DON'T
+  trust the local ref — cross-check the REAL master HEAD via GitHub MCP (`list_commits` `sha=master`,
+  read `[0].sha`). If the branch tip EQUALS the real master HEAD, the prior run's PR was already MERGED
+  (squash-merged, so the local commits look distinct) → `git checkout -B <branch> <realMasterSha>` and
+  start fresh. If it's genuinely ahead, rebase the unmerged commits onto the real HEAD.
 - **Recording learnings (memory repo → `main`).** The xwiki-platform fix lives on a feature branch but
   learnings go to the memory repo's `main`. Do NOT edit on the feature branch then stash/checkout/pop
   (main has diverged; the pop bakes `<<<<<<<` markers into the commit). Instead `git checkout main &&
