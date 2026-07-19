@@ -218,8 +218,18 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   (uncommitted) — don't re-do the fix; check `git status`/`git diff`, confirm the branch, re-launch the
   same `mvn` build. Don't panic-commit unverified.
 
-## GitHub (`gh` is NOT available — use the GitHub MCP tools)
+## GitHub (use the GitHub MCP tools — `gh` porcelain does NOT work here)
 
+- **Why not `gh`:** the `gh` binary may be installed (a setup script can `apt install gh`), but the
+  high-level porcelain (`gh pr create/list/view`, `gh issue`) still FAILS in this environment for two
+  independent reasons: (1) the session proxy BLOCKS GraphQL — `gh pr`/`gh issue` are GraphQL-backed and
+  return `HTTP 403: This GraphQL query is not enabled for this session — only the pinned set of
+  PR-review operations is served. Use REST via gh api repos/{owner}/{repo}/... instead`; (2) the git
+  remote points to a local proxy (`127.0.0.1:.../git/...`), not github.com, so repo-context commands
+  can't resolve the repo (`none of the git remotes ... point to a known GitHub host`). `gh auth status`
+  also mis-reports the token invalid. Only `gh api repos/{owner}/{repo}/...` (REST, explicit repo) works
+  — but there is no reason to shell out to it: use the **GitHub MCP tools** for all PR/issue operations.
+  (The skill text says "open the PR with `gh`" — ignore that here; use `create_pull_request` etc.)
 - Check existing agent PRs once up front with `search_pull_requests` (`is:pr is:open label:llm-agent
   repo:xwiki/xwiki-platform`). Do NOT use `list_pull_requests` (~660KB). The `search_pull_requests`
   result can itself exceed the token limit → parse it from the saved file with python.
