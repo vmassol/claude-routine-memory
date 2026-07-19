@@ -75,8 +75,13 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
 
 Cross-cutting mechanics shared by all rules; each rule's detail file notes only its *deltas*.
 
-- **The repo is at the exact scan commit** → line numbers don't drift, so line-number-keyed editing
-  is safe (process each file bottom-up, or map over ORIGINAL indices).
+- **Verify the checkout is at the scan commit BEFORE trusting line numbers.** The container is often
+  reset to the *latest* master (not the scanned one) — compare the last-analysis date
+  (`api/project_analyses/search?project=…&ps=1` → `analyses[0].date`) against `git log -1 --format=%ci`.
+  When they match, line numbers don't drift and line-keyed editing is safe. When the checkout is AHEAD
+  (e.g. 3 days), lines DO drift and a line-keyed `old` silently won't match — tell subagents to LOCATE
+  each site by the code pattern / Sonar `message` (method/field/constant name), not the line number.
+  Brace-delta cross-check (S1066/S6201/S3878) still validates the edits regardless of drift.
 - **Apply a many-file mechanical batch in ONE assert-guarded script**, not dozens of `Edit` calls: for
   each `(file, old, new)` assert `content.count(old) == 1` FIRST (catches stale/drifted/ambiguous) and
   write NOTHING if any assertion fails. (`Edit`'s `replace_all` matches only the exact indentation you

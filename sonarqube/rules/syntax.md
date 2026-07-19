@@ -31,6 +31,10 @@ A wide reactor cleanly satisfies the override. Apply by line number in one asser
   "Disambiguate by casting as Object/Object[]" (the latter is typically `MessageFormat.format`, SLF4J
   `LOGGER.x`, `Arrays.asList`, or reflection `getMethod`/`getConstructor`/`newInstance` — spreading is
   equivalent and preferred). DROP the genuinely ambiguous ones: an EMPTY-array delegation `foo(x, new
-  Object[]{})` (overload-resolution / self-recursion risk) and a single `new Object[]{y}` where `y` could
-  itself be an array. Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
+  Object[]{})` and a single `new Object[]{y}` where `y` could itself be an array. **Empty-array nuance:**
+  reducing `new T[]{}` to no-args is SAFE for external-class reflection (`getConstructor()`/
+  `newInstance()` have unambiguous no-arg forms — a clean fix); it is a DROP only when a fixed-arity
+  overload of the SAME method name exists, because `serialize(x, new Object[]{})`→`serialize(x)` then
+  binds the non-varargs `serialize(x)` overload — often the enclosing method itself → INFINITE RECURSION
+  (grep the class for a same-name overload before reducing an empty-array self-call). Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
   `}`), then normalize any over-indented continuation to +4. Concentrated in oldcore + legacy.

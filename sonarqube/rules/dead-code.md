@@ -52,7 +52,11 @@ delegate the per-site reading to parallel general-purpose subagents over DISJOIN
   function name only if that method is DECLARED on the plugin class, so any `com.xpn.xwiki.plugin.*`
   class (extends `XWikiDefaultPlugin` / implements `XWikiPluginInterface`, incl. all `skinx` plugins)
   must redeclare `endParsing`/`virtualInit`/… even to just call super, or the callback stops firing.
-  **DROP every S1185 hit in a plugin class.** More generally: **an explicit "we must override…"/"do not
+  **DROP every S1185 hit in a plugin class.** The open S1185 pool is DOMINATED by these
+  `com.xpn.xwiki.plugin.*` classes (skinx/fileupload/packaging/jodatime), so a whole S1185 batch is
+  frequently 100% drops (like S2093) — triage the class type FIRST and don't commit a build to it before
+  confirming any non-plugin survivors. (Similarly a whole S1118 batch is often all drops: instantiated
+  factories `new XxxFactory()`, abstract bases, and public nested holder classes.) More generally: **an explicit "we must override…"/"do not
   remove" Javadoc on the method is a HARD STOP — never delete a method whose own comment explains why it
   exists**; treat that comment as authoritative and drop the issue (Sonar can't see runtime dispatch,
   and the build/tests won't catch a lost reflective callback). Non-plugin classes with no such dispatch
