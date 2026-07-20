@@ -13,7 +13,12 @@
   it**" (a reviewer WILL push back on this — it is the #1 objection). Convert only when the result stays
   confined: returned/iterated/`isEmpty`/`size`/`get`/`toArray` locally, or used as an `addAll` SOURCE
   (elements copied out, the unmodifiable list discarded); a test-code list built only for
-  `assertEquals`/iteration is likewise safe (near-0 drops in tests). **"Passed to a setter/ctor" is NOT
+  `assertEquals`/iteration is likewise safe (near-0 drops in tests). **Sibling-branch heuristic (strong
+  SAFE signal, even for a public/role method):** if ANOTHER return branch of the SAME method already
+  returns an unmodifiable list (`Collections.emptyList()`/`List.of()`), the method's contract is ALREADY
+  read-only — a caller doing `getX().add(...)` would already break on that branch — so converting the
+  other branch to `.toList()` is consistent with the existing contract, not a regression, regardless of
+  how public the method is (a reviewer accepts this reasoning). **"Passed to a setter/ctor" is NOT
   automatically safe** — if the setter stores the list BY REFERENCE (`this.x = x;`) on a non-`internal`
   public model class whose getter returns it directly (`return x;`), the unmodifiable list becomes the
   live backing list of a public getter and an extension doing `obj.getX().add(...)` breaks at runtime →
