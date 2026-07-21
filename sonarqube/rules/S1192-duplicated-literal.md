@@ -31,7 +31,14 @@ need no javadoc.
 
 **"Use already-defined constant" variant** is FIXABLE when the named constant is declared BEFORE the
 duplicating line; UNFIXABLE (forward ref) when after. DROP when the value match is COINCIDENTAL and
-semantics differ (a `DefaultPluginName="package"` vs an XML root-element `"package"`).
+semantics differ (a `DefaultPluginName="package"` vs an XML root-element `"package"`). **Reviewer
+preference when the two usages are conceptually DIFFERENT even though the value coincides** (e.g. a
+script-context binding key vs an async-cache id component): a reviewer may prefer you introduce a NEW,
+semantically-named constant whose value REFERENCES the existing one (`private static final String
+MACRO_ASYNC_ID = MACRO_BINDING;`) rather than reusing the existing constant's name directly at the new
+site — this documents intent and still avoids a duplicated literal (referencing the constant introduces
+no new string, so no S1192 regression). Cheap round-trip fix if flagged; the reuse is not "wrong", just
+less expressive.
 
 **Reviewer preferences (apply pre-emptively):**
 1. A literal used ONLY in a log-message concat → don't introduce a constant; convert to slf4j
