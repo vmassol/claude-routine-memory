@@ -126,9 +126,16 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   long-fixed; a high count there means residue, not cheap fixes, and building oldcore's large test suite
   for 1-3 survivors is poor ROI. Triage a few oldcore candidates with targeted greps (`new Foo(`, the
   class's `extends`, `.hbm.xml`, the constant's decl line) BEFORE committing to it; for the small clean
-  rules PREFER leaf feature modules. (S6201 is the exception — oldcore S6201 is still ~98% clean, per
-  its rule file.) This tempers the dead-code.md "oldcore is FAIR GAME for S1118/S1144/S1185" framing:
-  fair game to *query*, but expect heavy drops there now.
+  rules PREFER leaf feature modules — but note the leaf residue is now ALSO drop-heavy for those rules
+  (S6201 is the exception — oldcore S6201 is still ~98% clean, per its rule file). Datapoint: a run where
+  the ENTIRE mechanical allowlist (S1118/S1144/S1185/S1192/S1066/S6201/S6204/S3878/S2093/S1128…) held
+  only ~56 issues project-wide yielded just 4 clean fixes across leaf modules — S1118 leaf sites were all
+  `Abstract*` bases with subclasses or public (non-`internal`) holder classes (revapi), all 9 S2093 leaf
+  sites were state-restore false positives, S3878 empty-array self-calls risked recursion, and two S6204
+  sites escaped via a public builder-model getter (`*AnalysisResult`). So when the allowlist total is
+  small, expect a low clean yield even from leaf modules and don't force the 20-50 target. This tempers
+  the dead-code.md "oldcore is FAIR GAME for S1118/S1144/S1185" framing: fair game to *query*, but expect
+  heavy drops there now.
 - **When a rule's small pool sits below 20 alone, MIX zero-PR pure-mechanical rules** (S1612 + S1125 +
   S2864 + S1155 + S1197 + S1128, all zero-dataflow single-line edits) across ~20 modules into one
   green reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve
