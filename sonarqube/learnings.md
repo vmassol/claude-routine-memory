@@ -242,6 +242,10 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   also mis-reports the token invalid. Only `gh api repos/{owner}/{repo}/...` (REST, explicit repo) works
   — but there is no reason to shell out to it: use the **GitHub MCP tools** for all PR/issue operations.
   (The skill text says "open the PR with `gh`" — ignore that here; use `create_pull_request` etc.)
+  **`gh api` REST is the fallback for the FEW operations with NO MCP tool** — notably LOCKING a PR
+  conversation (Vincent's override, collaborators-only comments): `gh api --method PUT
+  repos/{owner}/{repo}/issues/{pr}/lock -f lock_reason=resolved` (verify with the PR's `locked:true`).
+  `GH_TOKEN` is set in-env, so `gh api` (REST, not the GraphQL-backed porcelain) authenticates fine.
 - Check existing agent PRs once up front with `search_pull_requests` (`is:pr is:open label:llm-agent
   repo:xwiki/xwiki-platform`). Do NOT use `list_pull_requests` (~660KB). The `search_pull_requests`
   result can itself exceed the token limit → parse it from the saved file with python.
