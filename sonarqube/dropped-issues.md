@@ -30,10 +30,6 @@ history — merge/trim in place, don't append dated anecdotes.
 - `AW5-S9J01Yj5qvzeRoVe` DefaultHTMLConverter L207 — finally does rendering-context `pop()`.
 - `AW5-S-oQ1Yj5qvzeRo5E` ZipExplorerPlugin L301 — finally does `filecontent.reset()` on a parameter InputStream.
 
-### java:S1144 (unused private method) — Hibernate-mapped
-- `AX-N4fWt2gSgI3Rl_5uE` XWikiDocument.getOriginalMetadataAuthorReference — mapped `<property name="originalMetadataAuthorReference">` in every hbm.xml.
-- `AX-N4fWt2gSgI3Rl_5uF` XWikiDocument.setOriginalMetadataAuthorReference — same Hibernate mapping.
-
 ### java:S1185 (remove super-only override) — reflective plugin dispatch / intent comment
 - Plugin classes (`com.xpn.xwiki.plugin.*`, XWikiPluginManager.initPlugin reflective dispatch — must redeclare): `AW5-S6sU1Yj5qvzeRnm5`, `AW5-S6sU1Yj5qvzeRnm6` (FileUploadPlugin), `AW5-S6st1Yj5qvzeRnnJ` (PackagePlugin), `AW5-S-Ec1Yj5qvzeRouz`, `AW5-S-DR1Yj5qvzeRouJ`, `AW5-S-EL1Yj5qvzeRouf`, `AW5-S-EL1Yj5qvzeRoug`, `AW5-S-ED1Yj5qvzeRoue`, `AW5-S-DB1Yj5qvzeRouE`, `AW5-S-DJ1Yj5qvzeRouF`, `AW5-S-DJ1Yj5qvzeRouI`, `AW5-S-Dy1Yj5qvzeRouU` (skinx plugins), `AW5-S-pB1Yj5qvzeRo5O` (JodaTimePlugin).
 - `AZwedJQk7L5XoT2tQWhQ` EmbeddedClient.queryAndStreamResponse — a TODO comment documents it as a deliberate workaround placeholder.
