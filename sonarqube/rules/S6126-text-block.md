@@ -33,7 +33,13 @@ exact content is NOT asserted anywhere — there a subtle whitespace slip ships 
   literal (they existed to protect the manual concatenation layout). KEEP them when they wrap a whole
   statement (e.g. a multi-arg `registerWikiMacro(...)` call).
 
-**DROP conditions (expect ~30-40% drops):**
+**DROP conditions (expect ~30-40% drops; a drained-pool run netted 25/41 ≈ 61% converted).**
+The >120 drops CLUSTER on predictable content — triage these fast: DOCTYPE declarations
+(`<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "...dtd">` ≈ 109 chars → 121 at the usual
+12-space text-block indent), Velocity `{{info}}$services.localization.render(...)` / `{{/info}}`
+markup rows, `$services.model.resolveObject*('xwiki:...[0]')` reference lines, and any two no-`\n`
+fragments the author deliberately split to stay ≤120 (merging them re-breaches). All-whitespace rows
+(`"      \n"`) hit BOTH the trailing-whitespace AND >120 rules.
 - **A resulting content line > 120 chars** — the #1 drop cause. Long `beginMetaData [[...]...]` event
   lines routinely exceed 120 once un-concatenated onto a single text-block line and cannot be split
   (splitting would insert a newline into the string). DROP.

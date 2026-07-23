@@ -192,6 +192,14 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   resolves every SNAPSHOT sibling as a downloaded jar from the remote repos and builds green; `-am`
   is only for a sibling that is genuinely unpublished. Datapoint: a 29-module `-pl` reactor WITH tests
   under `-Plegacy,quality` on a cold `.m2` ran ~19 min.
+- **Test-file-only batch: drop a heavy dependency module from `-pl` and let a dependent pull it as a
+  remote SNAPSHOT.** For a batch that ONLY edits `src/test` (e.g. S6126 text blocks), a module you'd
+  otherwise build just for 1-2 sites but whose test suite is enormous (oldcore) is bad ROI. Leave it out
+  of `-pl` entirely: a dependent you DO keep (e.g. `legacy-oldcore`) resolves oldcore as a downloaded
+  SNAPSHOT jar from the remote repos (no `-am`, no oldcore test run), and you drop that module's 1-2
+  conversions. Net: keep the cheap dense modules, skip the one slow suite. (`-Pquality`'s `jacoco:check`
+  runs the FULL module suite — you cannot `-Dtest=` your way to a fast partial verify without failing
+  the coverage gate, so excluding the module is the only lever.)
 - **A wide reactor that fails on ONE module for a reason UNRELATED to your edit → drop that module,
   keep the rest.** The reactor summary marks every other module `SUCCESS` (they're independently
   verified — build order means a leaf failing last doesn't taint earlier ones). Common cause:
