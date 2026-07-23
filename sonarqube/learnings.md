@@ -12,7 +12,9 @@ every run. Per-rule detail lives in separate files under `rules/` and is loaded 
 - **READ:** Always read THIS file first. Then, for each rule you actually decide to fix this run,
   ALSO read its detail file from the *Rule index* below. Do NOT read detail files for rules you are
   not fixing — that is where the token savings come from. `token-cost-report.md` is loaded only when
-  asked to report token cost.
+  asked to report token cost. **`dropped-issues.md`** is a skip-index of issue KEYS already analyzed
+  and rejected (with reason) — consult it in the find phase and SKIP those keys instead of re-triaging;
+  add every new analyzed-but-not-fixed key to it (see *Recording learnings*).
 - **WRITE (recording learnings):** put a new learning in the SMALLEST file that owns it — a
   rule-specific gotcha → that rule's file under `rules/`; a cross-cutting technique, build/PR/process
   fact → the matching core section HERE. Merge and trim in place; do not append. Re-synthesize only
@@ -34,6 +36,7 @@ open the detail file only once committed to fixing that rule.
 | Structural (deepest pool) | S6201 instanceof pattern matching | `rules/S6201-instanceof.md` |
 | Other clean | S6204/S6211 `.toList()`, S2093 try-with-resources, S2119 reuse Random, S1143+S1163 finally-throws, S5361 replaceAll→replace, S2147 combine catch, S3626 redundant jump | `rules/other-clean.md` |
 | Test-code | S5786 JUnit5 package-private, S5785 assertEquals/assertSame, S3415 swap expected/actual | `rules/test-code.md` |
+| Text block (judgment/churn — own PR) | S6126 String concat → text block | `rules/S6126-text-block.md` |
 
 **Denylist — skip these** (bad ROI / risky / not one-liners): `S3776` (cognitive complexity),
 `S3252`/`S1845` (API/backward-compat), `S1186` (empty methods), `S115` (naming), `S2447` (null from
@@ -261,6 +264,16 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
 
 - Commit + PR title (no JIRA): `[Misc] <desc; mention SonarCloud/SonarQube>`. Security issues: keep the
   description cryptic (public logs).
+- **Multi-repo runs (Vincent's "also check xwiki-commons / xwiki-rendering") depend on the session's
+  scope.** Each sibling repo needs BOTH a local clone AND that repo in the session's GitHub access
+  scope. A session scoped to `xwiki/xwiki-platform` only (no commons/rendering clone, GitHub calls to
+  them denied) can't touch them — do the platform work and report the scope limit; don't try to clone
+  out-of-scope repos (the proxy blocks them). Each sibling repo also has its OWN designated feature
+  branch + its own `SONARQUBE_PROJECT_KEY`.
+- **Separate-PR override (safe vs unsure):** when asked to isolate risky fixes, ship the safe
+  mechanical batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks)
+  on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the easy PR without
+  the hard one blocking it. Both PRs still get the label/assignee/lock treatment.
 - **Author override:** `git config user.email <email>` AND `git commit --author="Name <email>"` AND a
   `Co-Authored-By: Name <email>` trailer — verify with `git log -1 --format='%an <%ae>'`. (This
   routine's override email differs from the git userEmail context — use the override.)

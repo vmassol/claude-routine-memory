@@ -10,6 +10,8 @@ Structured for **lazy loading** so a run reads only what it needs instead of one
   cost control, GitHub, process). Read this first, every run.
 - **`rules/*.md`** — per-rule-family detail (fixes, gotchas, drop conditions). One file per family;
   the Rule index in `learnings.md` maps each rule key to its file.
+- **`dropped-issues.md`** — skip-index of SonarCloud issue keys already analyzed and rejected (with
+  reason); consult it in the find phase to skip re-triaging, and add new rejected keys to it.
 - **`token-cost-report.md`** — how to produce a token-cost report; loaded only when asked.
 
 ## How the routine uses it
