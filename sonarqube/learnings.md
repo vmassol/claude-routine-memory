@@ -29,6 +29,7 @@ open the detail file only once committed to fixing that rule.
 |---|---|---|
 | Pure syntax/annotation (safest, zero dataflow) | S1128 unused import, S1197 array designator, S1116 empty statement, S1161 missing `@Override`, S1611 redundant lambda parens, S1124 modifier order, S3878 redundant varargs array, S1118 add private ctor | `rules/syntax.md` (S1118 also in `rules/dead-code.md`) |
 | Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return | `rules/simplification.md` |
+| Modernization (mid-size safe pools) | S1640 HashMap→EnumMap, S1604 anon class→lambda, S1643 String `+=` in loop→StringBuilder | `rules/S1640-enummap.md`, `rules/S1604-lambda.md`, `rules/S1643-stringbuilder.md` |
 | Constant extraction | S1192 duplicated literal | `rules/S1192-duplicated-literal.md` |
 | Unused-code removal (light dataflow) | S1068 field, S1481 local, S1854 dead store | `rules/unused-code.md` |
 | Utility/dead-code | S1118 private ctor, S1144 unused private method, S1185 remove super-only override | `rules/dead-code.md` |
@@ -73,6 +74,13 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
 - Rule families and where the deep pools are: see the *Rule index* above (families ordered
   easiest/safest first). Reliable go-to deep pools when small mechanical rules are drained: S6201,
   then S6204/S6211, then the S1118/S1144/S1185 dead-code trio, then S1066.
+- **When the whole tiny pure-mechanical allowlist (S1118/S1128/S1192/S2093/S3626/S6201/S6204/S1068/…)
+  is drained AND its residue is already in `dropped-issues.md`, pivot to the MODERNIZATION pool:**
+  S1640 (EnumMap ~35), S1604 (lambda ~20), S1643 (StringBuilder ~9). These are undocumented-by-prior-runs,
+  behaviour-neutral, and spread across many leaf modules (notifications/ratings/security/office/
+  refactoring) — a S1640+S1604+S1643 batch clears 60+ sites in one reactor and easily hits a 30-fix
+  target. See their rule files for the drop conditions. (A whole-project rule-distribution query where
+  the classic allowlist totals <40 is the signal to pivot here.)
 
 ## General batch-fix techniques (apply to every rule)
 
