@@ -29,6 +29,7 @@ open the detail file only once committed to fixing that rule.
 |---|---|---|
 | Pure syntax/annotation (safest, zero dataflow) | S1128 unused import, S1197 array designator, S1116 empty statement, S1161 missing `@Override`, S1611 redundant lambda parens, S1124 modifier order, S3878 redundant varargs array, S1118 add private ctor | `rules/syntax.md` (S1118 also in `rules/dead-code.md`) |
 | Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return | `rules/simplification.md` |
+| Empty-check (zero-dataflow, VERY safe) | S7158 `length()==0`→`isEmpty()` (String + StringBuilder/StringBuffer) | `rules/S7158-isempty.md` |
 | Modernization (mid-size safe pools) | S1640 HashMap→EnumMap, S1604 anon class→lambda, S1643 String `+=` in loop→StringBuilder | `rules/S1640-enummap.md`, `rules/S1604-lambda.md`, `rules/S1643-stringbuilder.md` |
 | Constant extraction | S1192 duplicated literal | `rules/S1192-duplicated-literal.md` |
 | Unused-code removal (light dataflow) | S1068 field, S1481 local, S1854 dead store | `rules/unused-code.md` |
@@ -81,6 +82,20 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
   refactoring) — a S1640+S1604+S1643 batch clears 60+ sites in one reactor and easily hits a 30-fix
   target. See their rule files for the drop conditions. (A whole-project rule-distribution query where
   the classic allowlist totals <40 is the signal to pivot here.)
+
+- **When the ENTIRE classic allowlist AND the modernization pool are already in `dropped-issues.md`
+  (every open key for S1118/S1185/S2093/S3626/S1192/S6204/S6201/S1640/S1643/S3878/S1068 matches a
+  dropped key — a common steady state now), do NOT conclude "nothing safe left". PIVOT to the broad
+  rule-distribution facet and scan for fresh *safe mechanical* rules not yet in the allowlist.** The
+  proven pivot target is **S7158** (`length()==0`→`isEmpty()`, ~72 sites, zero-dataflow, cleared 35
+  in one run — see `rules/S7158-isempty.md`). When scanning the facet for more such rules, read the
+  first issue's `message` to classify: SAFE mechanical candidates look like S7158/S1155/S1602 (useless
+  lambda braces). AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
+  needs the deprecating version, judgment), S5993 (constructor→protected — REDUCES visibility → revapi
+  `visibilityReduced`), S5411 (boxed→primitive boolean — null-unbox behaviour change), S1168 (return
+  empty vs null — behaviour change), S1172 (remove param — signature/override risk), S2143/S2160/S1141
+  (java.time / equals / nested-try — refactors). S8714 (try/catch/fail→assertThrows) and S6068 (drop
+  Mockito `eq()`) are test-only and structural — safe-ish but more effort, own PR if attempted.
 
 ## General batch-fix techniques (apply to every rule)
 
