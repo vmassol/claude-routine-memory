@@ -6,6 +6,18 @@ changes). When a listed file is later edited, its keys may go stale — that is 
 won't match an open issue). Group by rule; keep the reason to one line. This is a skip-index, not run
 history — merge/trim in place, don't append dated anecdotes.
 
+Sections are per REPO — issue keys are unique per SonarCloud project, so a key from
+`org.xwiki.commons:xwiki-commons` never collides with a platform one. Repos with no drops yet are
+listed as such rather than omitted, so a future run knows the absence is real and not an oversight.
+
+## xwiki-commons
+
+No dropped issues yet. (A 37-site `java:S7158` sweep was analyzed in full and every site was fixed.)
+
+## xwiki-rendering
+
+No dropped issues yet. (A 40-site `java:S7158` sweep was analyzed in full and every site was fixed.)
+
 ## xwiki-platform
 
 ### java:S1118 (add/hide private constructor) — instantiated factories & abstract bases

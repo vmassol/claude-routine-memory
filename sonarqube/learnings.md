@@ -87,8 +87,11 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
   (every open key for S1118/S1185/S2093/S3626/S1192/S6204/S6201/S1640/S1643/S3878/S1068 matches a
   dropped key — a common steady state now), do NOT conclude "nothing safe left". PIVOT to the broad
   rule-distribution facet and scan for fresh *safe mechanical* rules not yet in the allowlist.** The
-  proven pivot target is **S7158** (`length()==0`→`isEmpty()`, ~72 sites, zero-dataflow, cleared 35
-  in one run — see `rules/S7158-isempty.md`). When scanning the facet for more such rules, read the
+  proven pivot target was **S7158** (`length()==0`→`isEmpty()`, zero-dataflow) — now DRAINED in all
+  three repos (114 fixed, 0 drops; see `rules/S7158-isempty.md`) but it regenerates, so re-query it.
+  **The other lever once a rule is drained in platform is the SAME rule in commons/rendering** — the
+  siblings are rarely swept, so a rule at 0 in platform often still has 30-40 sites in each of them
+  (see *Process / conventions → Multi-repo mechanics*). When scanning the facet for more such rules, read the
   first issue's `message` to classify: SAFE mechanical candidates look like S7158/S1155/S1602 (useless
   lambda braces). AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
   needs the deprecating version, judgment), S5993 (constructor→protected — REDUCES visibility → revapi
@@ -108,6 +111,15 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   (e.g. 3 days), lines DO drift and a line-keyed `old` silently won't match — tell subagents to LOCATE
   each site by the code pattern / Sonar `message` (method/field/constant name), not the line number.
   Brace-delta cross-check (S1066/S6201/S3878) still validates the edits regardless of drift.
+- **For a regex-expressible rule, locate sites by per-file MATCH COUNT instead of line numbers** — the
+  cheapest and most robust anti-drift technique, and it needs no `issue_snippets` call. Per flagged
+  file: count pattern matches in the working copy and compare with that file's issue count from
+  `issues/search`. Equal ⇒ transform every match (that IS the flagged set, whatever the drift).
+  Unequal ⇒ inspect only those few files. Assert the equality per file and the total against the
+  project `total`, and write nothing unless every file passes. Datapoint: 114 sites / 66 files across
+  3 repos, only 2 files needed inspection (both a receiver shape the regex didn't cover — a fixable
+  regex gap, not a bad site). Run it as a DRY RUN first, printing `- old` / `+ new` per site plus a
+  `>120` line-length warning, then re-run with a `write` flag.
 - **Apply a many-file mechanical batch in ONE assert-guarded script**, not dozens of `Edit` calls: for
   each `(file, old, new)` assert `content.count(old) == 1` FIRST (catches stale/drifted/ambiguous) and
   write NOTHING if any assertion fails. (`Edit`'s `replace_all` matches only the exact indentation you
@@ -242,6 +254,12 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   oldcore's suite is large): small leaf modules ~10-45s warm; oldcore ~3.5 min warm / ~6.5 cold;
   feed-api ~5 min. Pick the smallest leaf modules; avoid Solr submodules and feed-api. Now that tests
   run, prefer a few dense modules over a wide reactor — fewer test suites to execute.
+- **oldcore is NOT the build-ROI blocker it was thought to be.** Datapoint (cold `~/.m2`, no `-am`,
+  `-Plegacy,quality` WITH tests): a 5-module platform reactor of oldcore + feed-api +
+  filter-stream-xar + search-solr-api + tool-provision-plugin ran **7:25 total** (206 test suites,
+  green). Compare: 16-module commons reactor 6:26, 7-module rendering reactor 2:11. So do NOT drop
+  oldcore sites purely for "its test suite is huge" — a ~7 min background build is cheap in tokens.
+  (Keep dropping oldcore *sites* on ROI only when the whole reactor exists for 1-2 fixes.)
 - Run the build in the **background**, letting the tool capture stdout to its own `tasks/<id>.output`.
   Do NOT add your own `> build.log` redirect, do NOT `nohup … &`, NO `| tail` (a `| tail -N` on the
   backgrounded `mvn` DISCARDS all but the last N lines from the captured file — you then can't grep
@@ -301,6 +319,23 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   them denied) can't touch them — do the platform work and report the scope limit; don't try to clone
   out-of-scope repos (the proxy blocks them). Each sibling repo also has its OWN designated feature
   branch + its own `SONARQUBE_PROJECT_KEY`.
+- **Multi-repo mechanics when all three ARE in scope** (the good case — it is the cheapest way to blow
+  past a 30-fix target, since ONE rule usually has a pool in each repo):
+  - `SONARQUBE_PROJECT_KEY` is only set for the session's primary repo. The siblings' keys are
+    `org.xwiki.commons:xwiki-commons` and `org.xwiki.rendering:xwiki-rendering` (enumerate with
+    `api/projects/search?organization=xwiki&ps=50`). Query each with `componentKeys=<key>`.
+  - Do the whole find/apply phase for all three repos FIRST (cheap, no builds), then build them
+    **SEQUENTIALLY in dependency order commons → rendering → platform**. They share one `~/.m2`, so
+    concurrent `install`s race; and building commons first means rendering/platform verify against
+    your *modified* commons jars rather than a downloaded SNAPSHOT.
+  - Ship each repo as its own commit + branch + PR (label + assignee + lock each). Cross-link the
+    sibling PRs in a "Related" section so a reviewer sees it is one sweep.
+  - Check open agent PRs per repo (`repo:xwiki/xwiki-commons`, …) — the siblings are usually at 0.
+- **Holding the turn open during a build avoids the "uncommitted changes" stop-hook ping-pong.** Ending
+  the turn while a background build runs trips that hook every time. Arming a `Monitor` with
+  `until grep -qE "BUILD SUCCESS|BUILD FAILURE" <task output>; do sleep 15; done` keeps the turn alive
+  for ~one extra turn's cost and reads the outcome in the same wake-up. Never commit unverified just to
+  silence the hook.
 - **Separate-PR override (safe vs unsure):** when asked to isolate risky fixes, ship the safe
   mechanical batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks)
   on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the easy PR without
