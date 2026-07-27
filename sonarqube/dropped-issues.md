@@ -12,11 +12,22 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
-No dropped issues yet. (A 37-site `java:S7158` sweep was analyzed in full and every site was fixed.)
+No dropped issues yet. (A 37-site `java:S7158` sweep and a 34-site `java:S6201` sweep of
+`xwiki-commons-xml` + `xwiki-commons-filter-xml` were each analyzed in full and every site was fixed.)
 
 ## xwiki-rendering
 
-No dropped issues yet. (A 40-site `java:S7158` sweep was analyzed in full and every site was fixed.)
+### java:S1118 (add private constructor) — public utility classes in the `wikimodel` public API
+All six are `public final class XxxUtil` with only static members, in the exported
+`org.xwiki.rendering.wikimodel.*` packages: adding a private ctor removes the implicit PUBLIC one →
+revapi `java.method.visibilityReduced`.
+- `AV2j0WlOpvRVEt3bvRma` WikiPageUtil, `AV2j0WmYpvRVEt3bvRnJ` ImageUtil, `AV2j0WmypvRVEt3bvRn1`
+  WikiScannerUtil, `AV2j0WndpvRVEt3bvRpt` HtmlEntityUtil, `AV2j0WoGpvRVEt3bvRqD` WikiEntityUtil,
+  `AV2j0WsMpvRVEt3bvRsp` XWikiScannerUtil.
+
+### java:S1066 (merge nested if) — comment between the two ifs
+- `AZFHCq1E-4lPKEDZswFl` AbstractBoxMacro L261 — a MULTI-line `//` comment sits between the outer and
+  inner `if` (a single-line one would be recoverable).
 
 ## xwiki-platform
 

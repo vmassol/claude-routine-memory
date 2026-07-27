@@ -1,4 +1,4 @@
-# Pure-simplification rules — S1125 / S1488 / S1858 / S2864 / S1612 / S1155 / S1126
+# Pure-simplification rules — S1125 / S1488 / S1858 / S2864 / S1612 / S1155 / S1126 / S1602
 
 > Load only when fixing one of these. Cross-cutting mechanics live in `learnings.md` → *General
 > batch-fix techniques*. Best batch fodder — no dataflow check.
@@ -20,6 +20,13 @@ modules (a ~10-module reactor of 3-5 each clears the target).
   imported, build fails `cannot find symbol`; add the import. (`Type.class::isInstance`/`::cast` need NO
   new import.)
 - `S1155` `size()>0`/`==0` → `!isEmpty()`/`isEmpty()`.
+- `S1602` useless curly braces around a single-statement lambda body: `x -> { stmt; }` → `x -> stmt`;
+  the "…and then remove useless return keyword" message variant is `x -> { return expr; }` → `x -> expr`.
+  Pairs naturally with `S1611` (`(x) ->` → `x ->`) — the SAME lambda is often flagged by both, so
+  combine them into ONE edit rather than two line-keyed ones. DROP when the body statement is a `throw`
+  (not an expression). A multi-line body collapses onto the call line; if that breaches 120, break
+  BEFORE the lambda argument (`foo(a,\n    x -> expr)`). A `//` comment inside the braces moves above
+  the enclosing statement. Thin-spread (3-4 per repo) — pure filler for a mixed batch.
 - `S1126` if-then-else returning boolean literals → single return: `if (c) {return true;} else
   {return false;}` → `return c;`; the `false`/`true` shape → `return !c;`; the equals-style tail
   `if (!c) {return false;} ... return true;` also collapses to `return c;`. When the flagged condition

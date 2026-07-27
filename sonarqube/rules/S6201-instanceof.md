@@ -23,6 +23,13 @@ variable and delete the redundant cast:
   **When that decl line was followed by a blank line, deleting it leaves a stray leading blank right
   after the pattern-`if {`** — remove that blank too (grep the changed files for `{\n\n` / eyeball the diff).
 
+**The pool is far deeper in the SIBLING repos than in platform** — when platform's S6201 is down to a
+handful, xwiki-commons can still hold ~260 (densest: `extension-api` ~45, `crypto-password` ~31,
+`filter-xml` ~20, `filter-api` ~17, `crypto-common`/`crypto-pkix`/`xml` ~14 each) and xwiki-rendering
+~52 (mostly `wikimodel`), with ZERO open agent PRs on them. Datapoint: `xwiki-commons-xml` +
+`xwiki-commons-filter-xml` = 34 sites, **34 fixed / 0 drops**, two parallel subagents, one ~3.5-min
+`-Plegacy,quality` build. Commons/rendering S6201 is the single best lever for a 30+-fix target.
+
 **Module choice.** oldcore's ~90-140 make a single-module batch (`-pl xwiki-platform-oldcore
 install`) — you can clear ALL of oldcore's S6201 in ONE PR: split the sites across ~6 PARALLEL
 general-purpose subagents (~15 sites/agent) over DISJOINT files, one ~7.5-min build-with-tests, ~0

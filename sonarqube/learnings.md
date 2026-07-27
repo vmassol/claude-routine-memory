@@ -28,7 +28,7 @@ open the detail file only once committed to fixing that rule.
 | Family | Rules | Detail file |
 |---|---|---|
 | Pure syntax/annotation (safest, zero dataflow) | S1128 unused import, S1197 array designator, S1116 empty statement, S1161 missing `@Override`, S1611 redundant lambda parens, S1124 modifier order, S3878 redundant varargs array, S1118 add private ctor | `rules/syntax.md` (S1118 also in `rules/dead-code.md`) |
-| Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return | `rules/simplification.md` |
+| Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1602 useless lambda braces, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return | `rules/simplification.md` |
 | Empty-check (zero-dataflow, VERY safe) | S7158 `length()==0`→`isEmpty()` (String + StringBuilder/StringBuffer) | `rules/S7158-isempty.md` |
 | Modernization (mid-size safe pools) | S1640 HashMap→EnumMap, S1604 anon class→lambda, S1643 String `+=` in loop→StringBuilder | `rules/S1640-enummap.md`, `rules/S1604-lambda.md`, `rules/S1643-stringbuilder.md` |
 | Constant extraction | S1192 duplicated literal | `rules/S1192-duplicated-literal.md` |
@@ -140,7 +140,10 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   line-number-keyed edit's `old` isn't found there, grep the file for the actual token to get the real line.
 - **Line length is the #1 drop cause:** a rewritten line can breach 120 — first drop redundant parens,
   then pick a SHORTER in-scope name; a pre-existing long line with no slack is an unavoidable drop.
-  Grep the diff for >120 after every batch.
+  Grep the diff for >120 after every batch. **Assert the length on the CHANGED lines only** — a
+  whole-file `all(len(l)<=120)` check aborts the script on PRE-EXISTING >120 lines that exist even in
+  `src/main` (checkstyle excludes them); worse, if the assert fires mid-loop some files are already
+  written. Validate every edit FIRST (count + new-line lengths), then write.
 - **Deleting code orphans its import** → remove the now-unused import too, but ONLY IF the type's
   SIMPLE NAME is absent from the FINAL content, matched with a WORD-BOUNDARY regex (`\bLogger\b`, else
   a plain substring sees `Logger` inside `LoggerFactory`).
@@ -284,26 +287,29 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
 
 ## GitHub (use the GitHub MCP tools — `gh` porcelain does NOT work here)
 
-- **Why not `gh`:** the `gh` binary may be installed (a setup script can `apt install gh`), but the
-  high-level porcelain (`gh pr create/list/view`, `gh issue`) still FAILS in this environment for two
-  independent reasons: (1) the session proxy BLOCKS GraphQL — `gh pr`/`gh issue` are GraphQL-backed and
-  return `HTTP 403: This GraphQL query is not enabled for this session — only the pinned set of
-  PR-review operations is served. Use REST via gh api repos/{owner}/{repo}/... instead`; (2) the git
-  remote points to a local proxy (`127.0.0.1:.../git/...`), not github.com, so repo-context commands
-  can't resolve the repo (`none of the git remotes ... point to a known GitHub host`). `gh auth status`
-  also mis-reports the token invalid. Only `gh api repos/{owner}/{repo}/...` (REST, explicit repo) works
-  — but there is no reason to shell out to it: use the **GitHub MCP tools** for all PR/issue operations.
-  (The skill text says "open the PR with `gh`" — ignore that here; use `create_pull_request` etc.)
-  **`gh api` REST is the fallback for the FEW operations with NO MCP tool** — notably LOCKING a PR
-  conversation (Vincent's override, collaborators-only comments): `gh api --method PUT
-  repos/{owner}/{repo}/issues/{pr}/lock -f lock_reason=resolved` (verify with the PR's `locked:true`).
-  `GH_TOKEN` is set in-env, so `gh api` (REST, not the GraphQL-backed porcelain) authenticates fine.
-- Check existing agent PRs once up front with `search_pull_requests` (`is:pr is:open label:llm-agent
-  repo:xwiki/xwiki-platform`). Do NOT use `list_pull_requests` (~660KB). The `search_pull_requests`
-  result can itself exceed the token limit → parse it from the saved file with python.
-- Create the PR with `create_pull_request` (base `master`); add the label + assignee with `issue_write`
-  (method=update, `labels:["llm-agent"]`, `assignees:[...]`). Include the SonarCloud issue link(s) in
-  the body. (Vincent's override: assign the PR to him — GitHub user `vmassol`.)
+- **Why not `gh` porcelain:** the `gh` binary may be installed, but `gh pr create/list/view` and
+  `gh issue` FAIL here for two independent reasons: (1) the session proxy BLOCKS GraphQL (`HTTP 403:
+  This GraphQL query is not enabled for this session`); (2) the git remote points to a local proxy
+  (`127.0.0.1:.../git/...`), not github.com, so repo-context commands can't resolve the repo.
+  `gh auth status` also mis-reports the token invalid. **`gh api` with a REPO-SCOPED REST path DOES
+  work** (`GH_TOKEN` is in-env) and is the CHEAPEST channel for everything with a big response —
+  cross-repo `gh api search/issues` is BLOCKED though (`sessions are bound to their configured
+  repositories`), so scope every path as `repos/{owner}/{repo}/...`.
+- **Prefer `gh api` REST over the GitHub MCP tools whenever the response or the request body is large**
+  — MCP results land in context verbatim and `--jq` does not:
+  - Open agent PRs per repo: `gh api "repos/xwiki/<repo>/pulls?state=open&per_page=100" --jq
+    '.[]|select(.labels[]?.name=="llm-agent")|"\(.number) \(.title)"'`. `search_pull_requests` dumps
+    every PR *body* (a batch PR body is huge); `list_pull_requests` is ~660KB. Both are last resorts.
+  - **NEVER call `pull_request_read` `get_files` to learn which files a PR claims** — it returns the
+    FULL PATCH of every file (tens of KB). Use `gh api "repos/…/pulls/N/files?per_page=100" --jq
+    '.[].filename'`.
+  - Create the PR from a FILE so a long body never passes through context:
+    `gh api repos/{o}/{r}/pulls -X POST -f title=… -f head=<branch> -f base=master -F body=@pr.md
+    --jq '.number,.html_url'`. Same for editing it (`-X PATCH -F body=@pr.md`).
+  - Label + assignee in one call: `gh api repos/{o}/{r}/issues/{n} -X PATCH -f 'labels[]=llm-agent'
+    -f 'assignees[]=vmassol'`. Lock (Vincent's override): `gh api --method PUT
+    repos/{o}/{r}/issues/{n}/lock -f lock_reason=resolved`.
+  (The skill text says "open the PR with `gh pr create`" — ignore that; use `gh api` REST as above.)
 - Creating the PR auto-subscribes the session to PR webhooks. XWiki CI is Jenkins and reports later, so
   `get_status` is `pending`/`total_count:0` right after creation — NOT a failure. Webhooks don't deliver
   CI-success / new-push / merge-conflict transitions; for long watches schedule a ~1h self check-in and
@@ -327,7 +333,17 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   - Do the whole find/apply phase for all three repos FIRST (cheap, no builds), then build them
     **SEQUENTIALLY in dependency order commons → rendering → platform**. They share one `~/.m2`, so
     concurrent `install`s race; and building commons first means rendering/platform verify against
-    your *modified* commons jars rather than a downloaded SNAPSHOT.
+    your *modified* commons jars rather than a downloaded SNAPSHOT. Chain all three in ONE background
+    subshell with an explicit `cd /home/user/<repo> &&` before EACH `mvn` (a bare `cd /home/user`
+    start makes the first `mvn` run where there is no pom) and an `echo ###### <REPO> ######` marker
+    between them, then grep the markers + `BUILD SUCCESS`. Datapoint: 2 commons modules 3:31 +
+    6 rendering modules 2:24 + 4 platform modules incl. oldcore 7:12 ≈ **13 min for 94 fixes**.
+  - **The mechanical pool is usually drained in PLATFORM but untouched in the siblings** — platform's
+    whole classic allowlist can total <60 (nearly all already in `dropped-issues.md`) while commons
+    holds ~260 S6201 / 30 S3878 / 25 S1066 and rendering ~52 S6201 / 24 S1124 / 30 S5785. So on a
+    multi-repo run, spend the effort in commons+rendering and treat platform as the small remainder;
+    rendering in particular has a deep unclaimed NON-S6201 mechanical pool (S1124/S1488/S1611/S1602/
+    S1197/S5361/S1192/S1066), most of it concentrated in the single `xwiki-rendering-wikimodel` module.
   - Ship each repo as its own commit + branch + PR (label + assignee + lock each). Cross-link the
     sibling PRs in a "Related" section so a reviewer sees it is one sweep.
   - Check open agent PRs per repo (`repo:xwiki/xwiki-commons`, …) — the siblings are usually at 0.

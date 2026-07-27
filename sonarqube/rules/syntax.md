@@ -21,11 +21,17 @@ A wide reactor cleanly satisfies the override. Apply by line number in one asser
   `(x) -> body`, not the bare `(x)` (which recurs); a `.thenAnswer((invocation) -> ...)` shape is common
   in Mockito test setup. Assert the per-file count (a file can hold >1 flagged lambda with the same body).
 - `S1124` modifier order: reorder the LEADING modifier run to canonical JLS order (public/protected/
-  private → abstract → static → final → transient → volatile → synchronized → native → strictfp). Almost
+  private → abstract → default → static → final → transient → volatile → synchronized → native →
+  strictfp). Almost
   always `final static`→`static final` or `static public`→`public static`. FULLY scriptable: regex-consume
   the leading run of modifier keywords, sort by canonical index, keep the type+rest verbatim. Zero
   behaviour/visibility change → NO `@since` even on public constants. Usually ZERO open PRs (cleanup waves
   skip it); dense in oldcore + spread across many leaf modules — a solid unclaimed backbone batch.
+  **Datapoint: 24/24 sites in xwiki-rendering applied by one ~20-line script with zero drops and zero
+  subagents** — the regex `^(\s*)((?:(?:MOD)\s+)+)(.*)$`, sort the captured run, reassemble; assert the
+  sorted run DIFFERS from the original (a NOCHANGE means drift — Sonar's line now points elsewhere).
+  Sites cluster many-per-file (a constants block gives 13 in one file), so one file often clears a
+  dozen keys. Also unswept in commons/rendering while drained in platform.
 - `S3878` arrays created for varargs: remove the `new T[]{...}` wrapper and pass the elements. TWO message
   variants, both usually clean spreads: "Remove this array creation / and simply pass the elements" AND
   "Disambiguate by casting as Object/Object[]" (the latter is typically `MessageFormat.format`, SLF4J
