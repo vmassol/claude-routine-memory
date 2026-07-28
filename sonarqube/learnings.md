@@ -344,10 +344,28 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   that KIND of code, not that the transformation is broken.** Verify the mechanism (so the record is
   accurate — cite bytecode/source if you can), then judge whether the objection is about *intent
   clarity*; if it is, it stands even when the change is provably behaviour-preserving. Withdraw rather
-  than argue: reply with the clarification, close the PR, leave the Sonar issues ACCEPTED (that IS
-  SonarCloud's "won't fix"), post a CORRECTION comment on each issue (the original "Fixed by <PR>"
-  comment is now wrong), add the keys to `dropped-issues.md`, and narrow the rule's entry in `rules/` to
-  the code shape that provoked it — don't blanket-denylist a rule that is fine elsewhere.
+  than argue: reply with the clarification and close the PR. Then see the next bullet for what to do
+  with the issues — do NOT stop at closing them.
+- **THE RIGHT WAY TO RETIRE A "WON'T FIX" ISSUE IS IN THE CODE, NOT IN SONARCLOUD.** Vincent's standing
+  preference, and XWiki's documented practice (the SonarQube section of
+  `https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/`): add
+  `@SuppressWarnings("java:SXXXX")` on the concerned class/method/field, **immediately preceded by a
+  `//` comment stating WHY** — so the next developer reads the reason next to the code and isn't tempted
+  to "fix" it again. Marking the issue *Accepted* in SonarCloud alone hides the reasoning from readers
+  and is NOT sufficient on its own. Conventions, all verifiable by `grep -rn -B4 '@SuppressWarnings("java:S'`:
+  the argument is the RULE KEY (`java:S5785`), the justifying `//` comment goes directly above the
+  annotation (after `@Override`/`@Test` if present, i.e. the annotation is last before the declaration),
+  and method-level scope is preferred over class-level so the rest of the file stays covered. Ideal
+  template to copy: `RegexEntityReferenceTest` in `xwiki-platform-model-api` (class-level
+  `@SuppressWarnings("java:S3415")` + a 5-line rationale). Workflow: revert the conversions, add
+  suppression+comment, rebuild, ship as its own PR, and `do_transition transition=reopen` the issues with
+  a comment saying the suppression is what will close them on the next analysis. Note the dev.xwiki.org
+  page itself sits behind Cloudflare (403 to both WebFetch and curl) — derive the convention by grepping
+  the repos instead.
+- After such a reversal: post a CORRECTION comment on each Sonar issue (the original "Fixed by <PR>"
+  comment is now wrong), and narrow the rule's entry in `rules/` to the code shape that provoked the
+  objection — don't blanket-denylist a rule that is fine elsewhere. Only list keys in
+  `dropped-issues.md` when there is genuinely no fix AND no suppression to add.
 - Creating the PR auto-subscribes the session to PR webhooks. XWiki CI is Jenkins and reports later, so
   `get_status` is `pending`/`total_count:0` right after creation — NOT a failure. Webhooks don't deliver
   CI-success / new-push / merge-conflict transitions; for long watches schedule a ~1h self check-in and
