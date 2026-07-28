@@ -26,10 +26,13 @@ Pure test-code edits (production untouched, low review risk). The module's tests
   mechanically safe (see below) but the reviewer's objection is about intent, and it is right: in a test
   whose PURPOSE is to pin the equals contract, `assertTrue(a.equals(b))` shows at the call site which
   object's `equals` runs, while `assertEquals(a, b)` hides it in JUnit internals — and Sonar's own
-  `java:S3415` would later tell someone to swap the arguments, which WOULD break it. So the SITE decides,
+  `java:S3415` would later tell someone to swap the arguments, which WOULD break it. **Resolution is NOT
+  to accept the issues in SonarCloud — put `@SuppressWarnings("java:S5785")` + a `//` rationale on each
+  contract test METHOD** (`xwiki/xwiki-rendering#390`; see `learnings.md` → GitHub, the in-code
+  suppression bullet, for the convention). So the SITE decides,
   not the shape: skip any assertion inside a `testEquals`/`equality`/`nonEquality`/`hashCode` test method
-  (especially `equals(null)`, `equals("other class")`, self-equality), and DROP the whole file when that
-  is all it contains. Remaining fair game: assertions in ordinary tests that merely happen to use
+  (especially `equals(null)`, `equals("other class")`, self-equality), and suppress the whole method when
+  that is all it contains. Remaining fair game: assertions in ordinary tests that merely happen to use
   `assertTrue(x.equals(y))` to compare two values.
   Useful fact for that argument (verified against `junit-jupiter-api` bytecode): both `assertEquals` and
   `assertNotEquals` route through `AssertionUtils.objectsAreEqual(a, b)` = `a == null ? b == null :
