@@ -357,7 +357,9 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   annotation (after `@Override`/`@Test` if present, i.e. the annotation is last before the declaration),
   and method-level scope is preferred over class-level so the rest of the file stays covered. Ideal
   template to copy: `RegexEntityReferenceTest` in `xwiki-platform-model-api` (class-level
-  `@SuppressWarnings("java:S3415")` + a 5-line rationale). Workflow: revert the conversions, add
+  `@SuppressWarnings("java:S3415")` + a 5-line rationale). This route is VALIDATED, not speculative:
+  `xwiki/xwiki-rendering#390` (6 method-level suppressions, no assertion touched) was MERGED as-is,
+  right after the conversion PR for the same issues was closed on review. Workflow: revert the conversions, add
   suppression+comment, rebuild, ship as its own PR, and `do_transition transition=reopen` the issues with
   a comment saying the suppression is what will close them on the next analysis. Note the dev.xwiki.org
   page itself sits behind Cloudflare (403 to both WebFetch and curl) — derive the convention by grepping
