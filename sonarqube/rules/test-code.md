@@ -21,7 +21,21 @@ Pure test-code edits (production untouched, low review risk). The module's tests
   <thisModule>` — the risk is only `abstract`/base test classes (a class NAMED `Abstract*Test` is often
   not abstract — read the decl). Open S5786 PRs usually sit on SIBLING modules (distinct, no file
   overlap) — scope off-limits by exact module path.
-- **`S5785` use assertEquals/assertNotEquals/assertNull/assertSame — fully SCRIPTABLE by line number**
+- **`S5785` — DO NOT apply it inside `equals()`/`hashCode()` CONTRACT tests. Reviewer-rejected (a whole
+  30-site xwiki-rendering PR was closed on review, `xwiki/xwiki-rendering#389`).** The rule is
+  mechanically safe (see below) but the reviewer's objection is about intent, and it is right: in a test
+  whose PURPOSE is to pin the equals contract, `assertTrue(a.equals(b))` shows at the call site which
+  object's `equals` runs, while `assertEquals(a, b)` hides it in JUnit internals — and Sonar's own
+  `java:S3415` would later tell someone to swap the arguments, which WOULD break it. So the SITE decides,
+  not the shape: skip any assertion inside a `testEquals`/`equality`/`nonEquality`/`hashCode` test method
+  (especially `equals(null)`, `equals("other class")`, self-equality), and DROP the whole file when that
+  is all it contains. Remaining fair game: assertions in ordinary tests that merely happen to use
+  `assertTrue(x.equals(y))` to compare two values.
+  Useful fact for that argument (verified against `junit-jupiter-api` bytecode): both `assertEquals` and
+  `assertNotEquals` route through `AssertionUtils.objectsAreEqual(a, b)` = `a == null ? b == null :
+  a.equals(b)`, so with the receiver kept FIRST the original `equals` call — including
+  `a.equals(null)` — really is still made. Mechanically safe, but that guarantee is invisible in the test.
+- **`S5785` mechanics (when a site does qualify) — fully SCRIPTABLE by line number**
   (the message names the exact target). **Default RECEIVER-FIRST for `.equals()` shapes (universally
   safe):** `assertTrue(a.equals(b))`→`assertEquals(a, b)`, `assertFalse(a.equals(b))`→`assertNotEquals(a,
   b)` — JUnit's `assertEquals(expected, actual)` calls `expected.equals(actual)`, so keeping the

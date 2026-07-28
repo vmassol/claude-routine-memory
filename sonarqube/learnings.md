@@ -332,6 +332,18 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
     -f 'assignees[]=vmassol'`. Lock (Vincent's override): `gh api --method PUT
     repos/{o}/{r}/issues/{n}/lock -f lock_reason=resolved`.
   (The skill text says "open the PR with `gh pr create`" — ignore that; use `gh api` REST as above.)
+- **Vincent's PR lock blocks YOUR OWN comments too** (`403 issue is locked`), so a reviewer reply needs
+  `DELETE …/issues/{n}/lock` → post the comment → `PUT …/issues/{n}/lock -f lock_reason=resolved` again.
+  Do the unlock/re-lock in ONE command so the window stays short. Reviewers can still leave reviews on a
+  locked PR, so expect to need this.
+- **A reviewer saying "this feels wrong" about a MECHANICAL rule usually means the rule is a bad fit for
+  that KIND of code, not that the transformation is broken.** Verify the mechanism (so the record is
+  accurate — cite bytecode/source if you can), then judge whether the objection is about *intent
+  clarity*; if it is, it stands even when the change is provably behaviour-preserving. Withdraw rather
+  than argue: reply with the clarification, close the PR, leave the Sonar issues ACCEPTED (that IS
+  SonarCloud's "won't fix"), post a CORRECTION comment on each issue (the original "Fixed by <PR>"
+  comment is now wrong), add the keys to `dropped-issues.md`, and narrow the rule's entry in `rules/` to
+  the code shape that provoked it — don't blanket-denylist a rule that is fine elsewhere.
 - Creating the PR auto-subscribes the session to PR webhooks. XWiki CI is Jenkins and reports later, so
   `get_status` is `pending`/`total_count:0` right after creation — NOT a failure. Webhooks don't deliver
   CI-success / new-push / merge-conflict transitions; for long watches schedule a ~1h self check-in and

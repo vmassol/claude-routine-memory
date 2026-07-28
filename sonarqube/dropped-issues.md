@@ -53,6 +53,19 @@ revapi `java.method.visibilityReduced`.
 - `AZFHCq1E-4lPKEDZswFl` AbstractBoxMacro L261 — a MULTI-line `//` comment sits between the outer and
   inner `if` (a single-line one would be recoverable).
 
+### java:S5785 (use dedicated JUnit assertion) — equals()/hashCode() contract tests, REJECTED in review
+All 30 open rendering S5785 issues sit in dedicated equality-contract test methods. A PR converting
+them (`xwiki/xwiki-rendering#389`) was CLOSED on review: `assertTrue(a.equals(b))` makes it explicit
+which object's `equals` is exercised, and converting makes that depend on JUnit internals + argument
+order (and invites a later `java:S3415` swap that would break it). See `rules/test-code.md`. Do not
+retry these.
+- LinkStateTest (4): `AZjxN4MMydzFhytemtU1`, `AZjxN4MMydzFhytemtU2`, `AZjxN4MMydzFhytemtU3`, `AZjxN4MMydzFhytemtU4`.
+- MacroContentSourceReferenceTest (5): `AYYHPo7DWD-yte4e8LeC`, `AYYHPo7DWD-yte4e8LeD`, `AYYHPo7DWD-yte4e8LeE`, `AYYHPo7DWD-yte4e8LeF`, `AYYHPo7DWD-yte4e8LeG`.
+- MacroIdTest (14): `AXj0YJhnfft_IP7n5aq_`, `AXj0YJhnfft_IP7n5arA`, `AXj0YJhnfft_IP7n5arB`, `AXj0YJhnfft_IP7n5arC`, `AXj0YJhnfft_IP7n5arD`, `AXj0YJhnfft_IP7n5arE`, `AXj0YJhnfft_IP7n5arF`, `AXj0YJhnfft_IP7n5arG`, `AXj0YJhnfft_IP7n5arH`, `AXj0YJhnfft_IP7n5arI`, `AXj0YJhnfft_IP7n5arJ`, `AXj0YJhnfft_IP7n5arK`, `AXj0YJhnfft_IP7n5arL`, `AXj0YJhnfft_IP7n5arM`.
+- ResourceReferenceTest (3): `AXInk9JjfCbQNqY0fR2-`, `AXInk9JjfCbQNqY0fR28`, `AXInk9JjfCbQNqY0fR29`.
+- SyntaxTest (2): `AXInk9L3fCbQNqY0fR3g`, `AXInk9L3fCbQNqY0fR3h`.
+- SyntaxTypeTest (2): `AXYPy2uwq9YfDBN_rAfb`, `AXYPy2uwq9YfDBN_rAfc`.
+
 ## xwiki-platform
 
 ### java:S1118 (add/hide private constructor) — instantiated factories & abstract bases
