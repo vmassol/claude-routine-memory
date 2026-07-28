@@ -12,8 +12,32 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
-No dropped issues yet. (A 37-site `java:S7158` sweep and a 34-site `java:S6201` sweep of
-`xwiki-commons-xml` + `xwiki-commons-filter-xml` were each analyzed in full and every site was fixed.)
+(A 37-site `java:S7158` sweep, a 34-site `java:S6201` sweep of `xwiki-commons-xml` +
+`xwiki-commons-filter-xml`, and a 28-site `java:S7476`+`java:S3706` sweep were each analyzed in full
+and every site was fixed.)
+
+### java:S3878 (varargs array) — SLF4J Logger delegation, spreading the array recurses infinitely
+Every one of the 30 open commons S3878 issues is an SLF4J `Logger` override
+`xxx(Marker, String, Object[, Object])` delegating to the varargs sibling via `new Object[] { … }`.
+Removing the wrapper re-binds the call to the fixed-arity overload = the enclosing method. The whole
+rule is a permanent DROP in `xwiki-commons-logging-*`.
+- `logging-api` LogQueue (10): `AWgZSTmjUMkE2J58eTVe`, `AWgZSTmjUMkE2J58eTVf`, `AWgZSTmjUMkE2J58eTVg`,
+  `AWgZSTmjUMkE2J58eTVh`, `AWgZSTmjUMkE2J58eTVi`, `AWgZSTmjUMkE2J58eTVj`, `AWgZSTmjUMkE2J58eTVk`,
+  `AWgZSTmjUMkE2J58eTVl`, `AWgZSTmjUMkE2J58eTVm`, `AWgZSTmjUMkE2J58eTVn`.
+- `logging-api` LogTree (10): `AWgZSTmHUMkE2J58eTVQ`, `AWgZSTmHUMkE2J58eTVR`, `AWgZSTmHUMkE2J58eTVS`,
+  `AWgZSTmHUMkE2J58eTVT`, `AWgZSTmHUMkE2J58eTVU`, `AWgZSTmHUMkE2J58eTVV`, `AWgZSTmHUMkE2J58eTVW`,
+  `AWgZSTmHUMkE2J58eTVX`, `AWgZSTmHUMkE2J58eTVY`, `AWgZSTmHUMkE2J58eTVZ`.
+- `logging-common` AbstractLogger (10): `AW2vdi1BKOCjNAOnQHTl`, `AW2vdi1BKOCjNAOnQHTm`,
+  `AW2vdi1BKOCjNAOnQHTn`, `AW2vdi1BKOCjNAOnQHTo`, `AW2vdi1BKOCjNAOnQHTp`, `AW2vdi1BKOCjNAOnQHTq`,
+  `AW2vdi1BKOCjNAOnQHTr`, `AW2vdi1BKOCjNAOnQHTs`, `AW2vdi1BKOCjNAOnQHTt`, `AW2vdi1BKOCjNAOnQHTu`.
+
+### java:S7476 / java:S3706 — module `xwiki-commons-extension-api` is red on master
+The fixes themselves are valid, but the module fails its own `revapi` check on master (JSpecify
+`@Nullable` migration, see `learnings.md` → Building / verifying), so it cannot be shipped green.
+Re-try once master's revapi is fixed.
+- `AZ3fPeNCs6Hfl3oG5jGp` (AbstractExtensionHandlerTest, S3706); `AZcvxNEwTKQ4AEDhZogt`,
+  `AZcvxNEwTKQ4AEDhZogu`, `AZcvxNEwTKQ4AEDhZogv`, `AZcvxNEwTKQ4AEDhZogw`, `AZcvxNEwTKQ4AEDhZogx`,
+  `AZcvxNEwTKQ4AEDhZogy`, `AZcvxNEwTKQ4AEDhZogz` (DefaultCoreExtensionScanner, S7476).
 
 ## xwiki-rendering
 
@@ -96,3 +120,10 @@ revapi `java.method.visibilityReduced`.
 - Line >120 once un-concatenated (merged no-`\n` fragments / markup / DOCTYPE lines): `AY974mAwKZk1650DhyFT`, `AY974mAwKZk1650DhyFV` (PdfExportImplTest DOCTYPE); `AY974mCgKZk1650DhyGd`, `AY974mCgKZk1650DhyGe`, `AY974mCgKZk1650DhyGf` (InvitationInternalDocumentParameterEscapingFixerTest `{{info}}` markup); `AY974pdXKZk1650DhyQq`, `AY974pdXKZk1650DhyQr` (HierarchyMacrosPageTest `resolveObject*` merge); `AY974pcbKZk1650DhyQi` (NotificationRssDefaultPageTest); `AY974p0EKZk1650DhyRh` (RssMentionPageTest); `AY974rMZKZk1650DhyVl` (XMLScriptServiceTest DOCTYPE); `AY974qb3KZk1650DhyTg` (StackTraceLogParserTest:45).
 - Trailing whitespace on content line (text blocks strip it): `AY974qb3KZk1650DhyTh`, `AY974qb3KZk1650DhyTj` (StackTraceLogParserTest — `"date - \tat "` / space before `\n`); `AY974peMKZk1650DhyQ1`, `AY974peMKZk1650DhyQ2` (NotificationMailDefaultHtmlTest — all-whitespace `"      \n"` rows, also >120).
 - Valid conversion skipped for build-ROI (not a fix defect): `AY974l35KZk1650DhyAE` (HibernateStoreTest:98) — byte-safe, but shipping it means building oldcore's full test suite for one site.
+
+### java:S7476 / java:S3706 — valid fixes skipped for build ROI (`xwiki-platform-search-solr-api`)
+Not defects: the conversions are clean, but Solr submodules are slow to build and this was the only
+reason to add the module to the reactor. Pick them up in a batch that already builds solr-api.
+- `AZ5GtE2Xwxx8uFGPms3i`, `AZ5GtE2Xwxx8uFGPms3j` (ObjectSolrMetadataExtractorTest, S7476);
+  `AZcwcqCH8IL3Wg1vzZyz`, `AZcwcqCH8IL3Wg1vzZy0`, `AZcwcqCH8IL3Wg1vzZy1`, `AZcwcqCH8IL3Wg1vzZy2`
+  (AbstractSolrCoreInitializer, S7476); `AZ3geiByzLZemL-okY2L` (SolrIndexEventListener, S3706).

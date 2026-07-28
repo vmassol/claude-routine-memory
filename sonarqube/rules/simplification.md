@@ -1,4 +1,4 @@
-# Pure-simplification rules — S1125 / S1488 / S1858 / S2864 / S1612 / S1155 / S1126 / S1602
+# Pure-simplification rules — S1125 / S1488 / S1858 / S2864 / S1612 / S1155 / S1126 / S1602 / S3706 / S2130
 
 > Load only when fixing one of these. Cross-cutting mechanics live in `learnings.md` → *General
 > batch-fix techniques*. Best batch fodder — no dataflow check.
@@ -35,3 +35,16 @@ modules (a ~10-module reactor of 3-5 each clears the target).
   script with the exact block, never `replace_all`. A `// comment` between the `if` and the final `return`
   survives above the merged return (same as S1066). Concentrated in oldcore (equals()/boolean getters) —
   a DIFFERENT rule from any open oldcore S6201 PR, so oldcore stays fair game for it.
+- `S3706` `.stream().forEach()` → `.forEach()` — one-line, zero-dataflow, 0 drops observed (19/19 across
+  platform+commons). Two shapes, both scriptable off the flagged line alone: the flagged line ENDS with
+  `.stream()` (fluent, `.forEach(` on the next line) → strip the trailing `.stream()`; otherwise it holds
+  `.stream().forEach(` inline → replace with `.forEach(`. Gotcha: stripping a trailing `.stream()` can
+  leave a bare receiver alone on its line (`xobjects` / `.forEach(...)`); it compiles, but re-join it as
+  `recv.forEach(` + a `+4` continuation for the lambda when the one-liner would breach 120.
+- `S2130` boxing-then-unboxing parse: `Boolean.valueOf(s)` / `new Boolean(s).booleanValue()` /
+  `Integer.valueOf(s)` / `Long.valueOf(s)` in a primitive context → `Boolean.parseBoolean(s)` /
+  `Integer.parseInt(s)` / `Long.parseLong(s)`. Identical semantics (same `NumberFormatException`,
+  `parseBoolean(null)`/`"null"` is `false` just like `valueOf`), and it retires deprecated
+  `new Boolean(...)` calls. Fully scriptable by line number; the only check is line length
+  (`parseBoolean` is +6 chars over `valueOf`). 11/11, 0 drops. Convert an unflagged identical
+  construct on the adjacent line too, so the method doesn't end up half-converted.

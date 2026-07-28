@@ -1,4 +1,4 @@
-# Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 / S1611 / S1124 / S3878
+# Pure-syntax/annotation group — S1128 / S1197 / S1116 / S1161 / S1611 / S1124 / S3878 / S7476
 
 > Load only when fixing one of these. Cross-cutting mechanics live in `learnings.md` → *General
 > batch-fix techniques*. Safest fodder — zero dataflow, deep regenerating pools.
@@ -42,5 +42,23 @@ A wide reactor cleanly satisfies the override. Apply by line number in one asser
   `newInstance()` have unambiguous no-arg forms — a clean fix); it is a DROP only when a fixed-arity
   overload of the SAME method name exists, because `serialize(x, new Object[]{})`→`serialize(x)` then
   binds the non-varargs `serialize(x)` overload — often the enclosing method itself → INFINITE RECURSION
-  (grep the class for a same-name overload before reducing an empty-array self-call). Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
+  (grep the class for a same-name overload before reducing an empty-array self-call). **The recursion
+  trap is NOT limited to empty arrays and is the dominant shape in `xwiki-commons-logging-*`: an SLF4J
+  `Logger` implementation's `trace/debug/info/warn/error(Marker, String, Object[, Object])` overrides
+  delegate to the varargs sibling via `new Object[] { arg }` / `new Object[] { arg1, arg2 }`. Spreading
+  the elements re-binds each call to the fixed-arity overload = the enclosing method → infinite
+  recursion. ALL 30 commons sites (LogQueue / LogTree / logging-common AbstractLogger, 10 each) are
+  DROPS — the array is deliberate disambiguation, which is exactly what the "Disambiguate this call by
+  either casting as Object/Object[]" message variant is warning about.** Rule of thumb: before touching
+  any `new Object[]{...}` argument, check whether the ENCLOSING method has the same name — if so, drop.
+  Multi-line arrays: edit the open line (drop `new T[]{`) and the close line (drop one
   `}`), then normalize any over-indented continuation to +4. Concentrated in oldcore + legacy.
+- `S7476` "a single-line comment should start with exactly two slashes" — the safest rule seen so far
+  (comments only, cannot change behaviour) and a solid fresh pool once the classic allowlist is drained
+  (34 platform / 27 commons on first sweep, 0 drops in 48 applied). In XWiki it is essentially ALWAYS a
+  decorative banner line of pure slashes (`//////`, `////////////////`, sometimes a lone `///`) framing
+  a real comment. Fix = DELETE the banner line and keep the comment (turning it into `//` would leave a
+  meaningless empty comment). Locate by per-file MATCH COUNT of `^\s*/{3,}\s*$` vs that file's issue
+  count — every file matched exactly on a 22-file sweep, so no snippet reads are needed. **Gotcha:** a
+  STANDALONE separator (blank line / banner / blank line, common in tests) leaves two consecutive blank
+  lines once deleted — collapse the pair. Always diff-check changed files for an introduced `\n\n\n`.

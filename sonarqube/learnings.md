@@ -27,8 +27,9 @@ open the detail file only once committed to fixing that rule.
 
 | Family | Rules | Detail file |
 |---|---|---|
+| Comment-only (safest of all, cannot change behaviour) | S7476 `///…` banner comment | `rules/syntax.md` |
 | Pure syntax/annotation (safest, zero dataflow) | S1128 unused import, S1197 array designator, S1116 empty statement, S1161 missing `@Override`, S1611 redundant lambda parens, S1124 modifier order, S3878 redundant varargs array, S1118 add private ctor | `rules/syntax.md` (S1118 also in `rules/dead-code.md`) |
-| Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1602 useless lambda braces, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return | `rules/simplification.md` |
+| Pure simplification (no use-verification) | S1125 boolean literal, S1488 inline return, S1858 pointless `toString()`, S2864 iterate `entrySet()`, S1612 lambda→method ref, S1602 useless lambda braces, S1155 `size()>0`→`!isEmpty()`, S1126 if-else→single return, S3706 `.stream().forEach()`, S2130 `valueOf`→`parseX` | `rules/simplification.md` |
 | Empty-check (zero-dataflow, VERY safe) | S7158 `length()==0`→`isEmpty()` (String + StringBuilder/StringBuffer) | `rules/S7158-isempty.md` |
 | Modernization (mid-size safe pools) | S1640 HashMap→EnumMap, S1604 anon class→lambda, S1643 String `+=` in loop→StringBuilder | `rules/S1640-enummap.md`, `rules/S1604-lambda.md`, `rules/S1643-stringbuilder.md` |
 | Constant extraction | S1192 duplicated literal | `rules/S1192-duplicated-literal.md` |
@@ -93,7 +94,16 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
   siblings are rarely swept, so a rule at 0 in platform often still has 30-40 sites in each of them
   (see *Process / conventions → Multi-repo mechanics*). When scanning the facet for more such rules, read the
   first issue's `message` to classify: SAFE mechanical candidates look like S7158/S1155/S1602 (useless
-  lambda braces). AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
+  lambda braces). **PROVEN second-generation pivot trio, all confirmed 0-drop and all present in every
+  repo — go here FIRST when the classic allowlist is 100% dropped (the current platform steady state:
+  its whole allowlist totalled 54 keys and every one already sat in `dropped-issues.md`):**
+  `S7476` (`///` banner comments — comment-only, safest rule there is), `S3706` (`.stream().forEach()`)
+  and `S2130` (`valueOf`→`parseX`). One sweep of the three cleared 48 platform + 28 commons + 0 drops.
+  Cheap way to find the NEXT such rule: pull the broad facet, then batch one `ps=2` query per candidate
+  rule and read just the `message` — one turn classifies ten rules. From that scan, still-unswept
+  candidates worth triaging (not yet validated): `S2065` (remove `transient` from a non-Serializable
+  field — check nothing XStream-serializes it), `S6485` (`new HashMap<>(n)`→`HashMap.newHashMap(n)`),
+  `S8924` (static-import `mock`), `S6397` (redundant regex character class). AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
   needs the deprecating version, judgment), S5993 (constructor→protected — REDUCES visibility → revapi
   `visibilityReduced`), S5411 (boxed→primitive boolean — null-unbox behaviour change), S1168 (return
   empty vs null — behaviour change), S1172 (remove param — signature/override risk), S2143/S2160/S1141
@@ -253,6 +263,18 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
 - **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn ...`): the shell cwd can
   silently reset to `/home/user` between turns; a `-pl <relative>` build from the wrong cwd fails fast
   with "Could not find the selected project in the reactor" (a path error, not code — relaunch from root).
+  **Write the multi-repo chain to a SCRIPT FILE and run `bash build.sh`, never as an inline heredoc.**
+  In a chain, `cd repoA && mvn …` newline `mvn …` leaves the SECOND mvn in repoA — and re-typing a long
+  heredoc to fix one `cd` reproduces the same bug verbatim (it happened three times in a row). A file
+  you can `Edit` makes the per-`mvn` `cd` visible and fixable.
+- **A pre-existing red module on master will fail YOUR reactor: confirm, drop the module, keep the rest.**
+  Live example: `xwiki-commons-extension-api` fails `revapi` `java.annotation.removed` on
+  `IndexedExtension#isCompatible` / `WrappingIndexedExtension#isCompatible` — fallout from the
+  javax→JSpecify `@Nullable` migration on master, nothing to do with any sonar fix. Diagnose in one
+  step: `git log -1 -- <the flagged class's file>` (a recent unrelated commit, and your `git diff
+  --name-only` doesn't list it) ⇒ not yours. `git checkout --` your files in that module, drop it from
+  `-pl`, and note the exclusion in the PR body. Modules the reactor SKIPPED after the failure still need
+  a build — re-run them alone afterwards (they resolve the dropped module as a remote SNAPSHOT).
 - Rough datapoints (build only; running the modules' unit tests adds substantially more time —
   oldcore's suite is large): small leaf modules ~10-45s warm; oldcore ~3.5 min warm / ~6.5 cold;
   feed-api ~5 min. Pick the smallest leaf modules; avoid Solr submodules and feed-api. Now that tests

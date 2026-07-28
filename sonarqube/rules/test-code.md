@@ -28,14 +28,22 @@ Pure test-code edits (production untouched, low review risk). The module's tests
   original receiver first reproduces the exact call (correct even for custom/asymmetric equals or a
   different-typed `b`). Never flip operands (a flip caused a real test failure). Other shapes:
   `assertTrue(LIT == x)`→`assertEquals(LIT, x)`; `assertTrue(x != LIT)`→`assertNotEquals(LIT, x)` (covers
-  `hashCode() != 0`); `assertTrue(null == x)`→`assertNull(x)`; degenerate `assertFalse(x.equals(null))`/
+  `hashCode() != 0`); `assertTrue(null == x)`→`assertNull(x)`; `assertTrue(a.hashCode() == b.hashCode())`
+  →`assertEquals(a.hashCode(), b.hashCode())` (both `int`, the primitive overload); degenerate `assertFalse(x.equals(null))`/
   `assertTrue(x.equals(x))` convert too (JUnit uses `Objects.equals`). **`==`/`!=` between REFERENCES** is
   a distinct message → `assertSame`/`assertNotSame` (order cosmetic; TRUST the message). Only convert
   FLAGGED lines (`assertTrue(x instanceof Y)` siblings stay). A message arg moves to the end. **Imports:**
   add the new static imports (alphabetical), remove `assertTrue`/`assertFalse` only when the file no
   longer uses them (grep after). Duplicate-line gotcha: identical assert lines can recur — a
   `count==1` assert then trips, diagnose. Already-half-fixed site: a flagged line directly above an
-  existing equivalent → DELETE the redundant flagged line. **Run the changed test classes as the
+  existing equivalent → DELETE the redundant flagged line. **Write it as a real mini-parser, not a
+  regex** — ~60 lines: match `assert(True|False)\(` at the flagged line, gather continuation lines until
+  the statement's trailing `;`, paren-match to the outer close, then split the inner text at the
+  DEPTH-0 `.equals(` / `==` / `!=`. That handles the multi-line shape (`assertTrue(new Foo(a, b)\n
+  .equals(new Foo(a, b)))`) for free, and re-emits one line when ≤120 else `fn(recv,` + a `+4`
+  continuation. Cross-check the derived function against the one Sonar's message names and ABORT on any
+  mismatch — that assertion is what makes the whole batch trustworthy (30/30 sites, 6 files, 0 drops in
+  xwiki-rendering). Compute negation as `assertFalse XOR (op == '!=')`. **Run the changed test classes as the
   operand-correctness net:** `install ... -Dtest=<flagged classes> -DfailIfNoTests=false`. Since ONLY
   test code changed, the flagged classes are exactly the tests that can break — this RUNS them, it does
   not skip tests (Checkstyle + full test-compile still run, ~5s even in oldcore). For production-code
