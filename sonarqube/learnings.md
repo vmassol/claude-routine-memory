@@ -196,6 +196,10 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count
   (a triple-nest S1066 merge or a class-level S5786 flag resolves more keys than edited sites).
+- **`while read` silently DROPS the last key of a file with no trailing newline** — `python3` writing
+  `'\n'.join(keys)` produces exactly that, so a 106-key loop processes 105 and the miss looks like a
+  transient API failure. End the file with a newline (`+'\n'`) or iterate in Python; either way
+  re-verify the count afterwards.
 - **Accept all issues in a loop** (per issue: `add_comment` + `do_transition accept`). Each issue is
   ~2 curls ≈ 4s, so 20+ issues blow a 2-min timeout — run the accept loop as a BACKGROUND task, and/or
   make it idempotent (re-query which keys are still OPEN). `do_transition`'s response does NOT reliably
