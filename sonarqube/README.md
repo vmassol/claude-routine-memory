@@ -1,28 +1,46 @@
 # SonarQube routine memory
 
 Learnings for the "fix one (or a batch of) SonarQube issues in xwiki-platform" Claude Code routine.
-Structured for **lazy loading** so a run reads only what it needs instead of one large file.
+
+## What lives here vs. in the xwiki plugin
+
+**Rule-fix correctness moved to the OKF** in the `xwiki-dev-llm` plugin, under
+[`xwiki/okf/sonarqube/`](https://github.com/xwiki/xwiki-dev-llm/tree/master/xwiki/okf/sonarqube).
+That is where "what is the correct fix for `java:SXXXX`, and which sites must be dropped" now lives —
+one file per rule family, loaded lazily by the `xwiki-fix-sonarqube-issue` skill. It ships to every
+XWiki developer, so it holds only **durable, generic** knowledge.
+
+**This repo keeps what the OKF must not hold:**
+
+- **Volatile state** — how deep each rule's pool is, which modules it clusters in, observed drop
+  rates, build-time datapoints. Stale within days.
+- **Routine-environment facts** — this container's GitHub/`gh` restrictions, background-build and
+  turn-cost discipline, branch and author overrides. True here, and *false* in a normal dev session —
+  which is exactly why they must not ship to other developers.
+- **Run history** — the index of issue keys already analyzed and rejected.
+
+**Deciding where a new learning goes:** if it would still be true next year, in any session, on any
+machine → it belongs in the OKF (offer it via the `xwiki-knowledge` EXTEND flow, which opens a
+reviewed PR). Otherwise it belongs here.
 
 ## Layout
 
-- **`learnings.md`** — the always-load core (~4k tokens): read/write protocol, the **Rule index**
-  (rule → detail file), the denylist, and cross-cutting mechanics (find phase, batch mode, building,
-  cost control, GitHub, process). Read this first, every run.
-- **`rules/*.md`** — per-rule-family detail (fixes, gotchas, drop conditions). One file per family;
-  the Rule index in `learnings.md` maps each rule key to its file.
+- **`learnings.md`** — the always-load core: read/write protocol, find-phase strategy, batch
+  composition, building, cost control, GitHub, process. Read this first, every run.
+- **`pool-state.md`** — volatile per-rule state: where each rule's pool is deep or drained, module
+  densities, observed drop rates. Consult it in the find phase; re-query before trusting it.
 - **`dropped-issues.md`** — skip-index of SonarCloud issue keys already analyzed and rejected (with
   reason); consult it in the find phase to skip re-triaging, and add new rejected keys to it.
 - **`token-cost-report.md`** — how to produce a token-cost report; loaded only when asked.
 
 ## How the routine uses it
 
-- **Read:** load `learnings.md`, pick a rule in the find phase from the Rule index, then read ONLY
-  that rule's `rules/*.md` file (and any others you commit to fixing this run). Skip the rest — that
-  is the whole point of the split.
-- **Record learnings:** write each learning into the **smallest file that owns it** — a rule-specific
-  gotcha → that rule's file under `rules/`; a cross-cutting technique or build/PR/process fact → the
-  matching section in `learnings.md`. Merge and trim in place (never append dated anecdotes), and
-  re-synthesize only the file(s) you changed. Adding a new rule's file? Add its row to the Rule index.
-  Learnings are committed and pushed on `main`.
+- **Read:** load `learnings.md`, pick a rule in the find phase (using `pool-state.md` plus a fresh
+  facet query), then read that rule's family file **from the OKF** — not from here.
+- **Record learnings:** rule-correctness learning → OKF PR. Volatile pool observation →
+  `pool-state.md`. Cross-cutting routine/build/GitHub/process fact → the matching section in
+  `learnings.md`. Merge and trim in place (never append dated anecdotes), and re-synthesize only the
+  file(s) you changed. Learnings are committed and pushed on `main`.
 
-Keep everything **generic and reusable** — techniques and gotchas, not run history or PR logs.
+Keep everything here **generic and reusable** — techniques and observed state, not run history or PR
+logs.
