@@ -24,11 +24,27 @@ variable and delete the redundant cast:
   after the pattern-`if {`** — remove that blank too (grep the changed files for `{\n\n` / eyeball the diff).
 
 **The pool is far deeper in the SIBLING repos than in platform** — when platform's S6201 is down to a
-handful, xwiki-commons can still hold ~260 (densest: `extension-api` ~45, `crypto-password` ~31,
-`filter-xml` ~20, `filter-api` ~17, `crypto-common`/`crypto-pkix`/`xml` ~14 each) and xwiki-rendering
-~52 (mostly `wikimodel`), with ZERO open agent PRs on them. Datapoint: `xwiki-commons-xml` +
-`xwiki-commons-filter-xml` = 34 sites, **34 fixed / 0 drops**, two parallel subagents, one ~3.5-min
-`-Plegacy,quality` build. Commons/rendering S6201 is the single best lever for a 30+-fix target.
+handful (2), xwiki-commons can still hold ~226 and xwiki-rendering ~52, with ZERO open agent PRs on
+them. Commons densest: `extension-api` ~45 (**but that module is red on master — see
+`dropped-issues.md`, don't pick it**), the whole `crypto` tree ~77, `filter-api` ~17,
+`logging-api` ~12, `job-api` ~10. Rendering is NOT mostly `wikimodel` (1 site) — it is
+`xwiki-rendering-api` 24 (the `Block` hierarchy's `equals()`), `transformation-macro` 10,
+`xdomxml10` 7, rest 1-3 each. Datapoints: `xwiki-commons-xml` + `filter-xml` = 34 sites 34 fixed /
+0 drops; the **commons crypto tree = 77 sites, 73 fixed / 4 dropped** (all 4 drops in one module,
+for coverage — see below); **all 52 rendering sites fixed / 0 drops**. Commons/rendering S6201 is
+the single best lever for a 30+-fix target.
+
+**Coverage is the real drop cause on this rule, not correctness.** Removing a COVERED `CHECKCAST`
+lowers the module's JaCoCo instruction ratio — `(c-k)/(t-k) < c/t` whenever `c<t` — so a module
+pinned just above its ratio goes red under `-Pquality` even though nothing else changed. Live case:
+`xwiki-commons-crypto-cipher`, 4 sites, ratio 0.70 → 0.69, `jacoco:check` fails. Don't lower the
+pinned ratio; DROP that module from the batch (`git checkout -- <module>/`, remove it from `-pl`)
+and ship the rest. Expect this on small modules with few sites; big modules absorb it fine.
+
+**Equals()-heavy files are the cleanest fodder there is.** `if (obj instanceof XBlock && super.equals(obj))`
++ several `((XBlock) obj).getY()` in an `EqualsBuilder` chain = one edit resolving 1-3 issues, zero
+dataflow. Name the pattern var `otherBlock`/`otherSource` (not the type name) to avoid colliding with
+a field. A whole `Block`-style hierarchy converts in one script.
 
 **Module choice.** oldcore's ~90-140 make a single-module batch (`-pl xwiki-platform-oldcore
 install`) — you can clear ALL of oldcore's S6201 in ONE PR: split the sites across ~6 PARALLEL
@@ -50,8 +66,12 @@ near-100% 0-drop fodder: **event-listener `onEvent(Event event, ...)` guards**
 return; X x=(X)o;`, servlet-filter `request/response instanceof HttpServlet*`, and internal
 `*Reference`/`*Resolver`/`*Serializer` + AST-visitor converters (near-0-drop fodder).
 
-**Mechanics & drops.** STRUCTURAL → delegate to PARALLEL general-purpose subagents (disjoint files,
-~13 sites each), splitting BY module/submodule; verify full coverage after. A pattern var can be a
+**Mechanics & drops.** STRUCTURAL, but it does NOT require subagents — a single assert-guarded
+`(file, old, new, nb_issues)` script (see `learnings.md` → *General batch-fix techniques*) handles
+120+ sites reliably and beats delegation on accuracy, since each `old` is a verbatim multi-line
+block asserted to occur exactly once. Read the sites in ONE batched `±6 lines` snippet dump per
+module group, then write the whole script. Track `nb_issues` per edit (an edit often resolves
+2-7 issues) and assert the sum against the Sonar `total`. A pattern var can be a
 try-with-resources resource (effectively final). **Naming:** idiomatic camelCase (NOT Sonar's
 all-lowercase); no collision with an in-scope name. **Replace EVERY cast within the pattern var's
 scope**; a cast OUTSIDE scope (else branch, later statement, or to a DIFFERENT type) is a separate
@@ -60,5 +80,23 @@ with no early exit whose cast is under a separate positive instanceof; or a nega
 a ternary/`&&` CONDITION whose cast is in the `:`/else branch — `x != null && !(x instanceof Y) ? ...
 : ((Y) x)...` short-circuits via `x==null` too, so the var isn't definitely assigned); name collision;
 unrelated expression. **Line length** is the #1 drop cause in dense feature modules — a long
-pre-existing line (lambda-field initializer, tight decl) with no slack is an unavoidable drop.
-Fix rate ~95-100% (oldcore ~98%, dense feature modules ~90-93%).
+pre-existing line (lambda-field initializer, tight decl) with no slack is an unavoidable drop; it is
+usually RECOVERABLE by re-wrapping the condition, and when you do, XWiki style puts the `{` **on its
+own line** for a multi-line `if` condition (copy the shape already in the file). Fix rate ~95-100%
+(oldcore ~98%, dense feature modules ~90-93%, commons/rendering ~95-100%).
+
+**Sonar reports one issue PER CAST, all keyed to the `instanceof` line** — so a single line can carry
+2, 4, even 7 issues (`if (password instanceof KeyWithIVParameters)` with 4 casts in its block = 4
+keys on that line). Don't read a repeated line number as a duplicate; count the casts in the block to
+reconcile. Casts to a DIFFERENT type inside the same block are NOT flagged (they're a separate check),
+and `(Map<?, ?>) x` style **generic** casts are never flagged — leave both alone.
+
+**Flow-scoping shapes that DO work** (Sonar flags them, and they compile):
+- `if (!(x instanceof T t)) { … } else { /* t is in scope here */ }` — no early exit needed; the
+  `else` branch is exactly the "true" case.
+- `if (obj instanceof T t) { return t; }` followed by a later `T2 t2 = …` — when the then-block
+  completes ABRUPTLY the pattern var leaks into the enclosing scope, so a later declaration with the
+  SAME name is a compile error. Give the two different names (this is a real trap in the
+  `getInstance(Object obj)` ASN.1 converters, which chain 2-3 such ifs).
+- `if (a instanceof T t) { … } else if (a instanceof U u) { … }` — reusing the same name in both
+  branches is legal (the first is not in scope in the else), but distinct names read better.

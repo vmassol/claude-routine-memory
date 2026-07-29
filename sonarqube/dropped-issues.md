@@ -31,6 +31,14 @@ rule is a permanent DROP in `xwiki-commons-logging-*`.
   `AW2vdi1BKOCjNAOnQHTn`, `AW2vdi1BKOCjNAOnQHTo`, `AW2vdi1BKOCjNAOnQHTp`, `AW2vdi1BKOCjNAOnQHTq`,
   `AW2vdi1BKOCjNAOnQHTr`, `AW2vdi1BKOCjNAOnQHTs`, `AW2vdi1BKOCjNAOnQHTt`, `AW2vdi1BKOCjNAOnQHTu`.
 
+### java:S6201 (instanceof pattern) — module `xwiki-commons-crypto-cipher` fails the coverage gate
+The 4 conversions are valid and compile, but removing the covered `CHECKCAST` instructions takes the
+module's JaCoCo instruction ratio from 0.70 to 0.69 → `jacoco:check` fails under `-Pquality`. Re-try
+only together with tests that raise the module's coverage; do not lower the pinned ratio.
+- `AYyDaUiBjVDzm496Abeh` AbstractBcAsymmetricCipherFactory L142; `AYyDaUiKjVDzm496Abei`
+  BcRc2CbcPaddedCipherFactory L47; `AYyDaUiOjVDzm496Abej` BcRc5b128CbcPaddedCipherFactory L53;
+  `AYyDaUiTjVDzm496Abek` BcRc5b64CbcPaddedCipherFactory L52.
+
 ### java:S7476 / java:S3706 — module `xwiki-commons-extension-api` is red on master
 The fixes themselves are valid, but the module fails its own `revapi` check on master (JSpecify
 `@Nullable` migration, see `learnings.md` → Building / verifying), so it cannot be shipped green.

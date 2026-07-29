@@ -39,6 +39,7 @@ open the detail file only once committed to fixing that rule.
 | Structural (deepest pool) | S6201 instanceof pattern matching | `rules/S6201-instanceof.md` |
 | Other clean | S6204/S6211 `.toList()`, S2093 try-with-resources, S2119 reuse Random, S1143+S1163 finally-throws, S5361 replaceAll→replace, S2147 combine catch, S3626 redundant jump | `rules/other-clean.md` |
 | Test-code | S5786 JUnit5 package-private, S5785 assertEquals/assertSame, S3415 swap expected/actual | `rules/test-code.md` |
+| Test-code, fully scriptable (zero coverage risk) | S8924 static-import Mockito methods | `rules/S8924-static-import.md` |
 | Text block (judgment/churn — own PR) | S6126 String concat → text block | `rules/S6126-text-block.md` |
 
 **Denylist — skip these** (bad ROI / risky / not one-liners): `S3776` (cognitive complexity),
@@ -100,10 +101,17 @@ often breaks order-dependent tests, see `rules/test-code.md`). Verify before "fi
   `S7476` (`///` banner comments — comment-only, safest rule there is), `S3706` (`.stream().forEach()`)
   and `S2130` (`valueOf`→`parseX`). One sweep of the three cleared 48 platform + 28 commons + 0 drops.
   Cheap way to find the NEXT such rule: pull the broad facet, then batch one `ps=2` query per candidate
-  rule and read just the `message` — one turn classifies ten rules. From that scan, still-unswept
-  candidates worth triaging (not yet validated): `S2065` (remove `transient` from a non-Serializable
-  field — check nothing XStream-serializes it), `S6485` (`new HashMap<>(n)`→`HashMap.newHashMap(n)`),
-  `S8924` (static-import `mock`), `S6397` (redundant regex character class). AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
+  rule and read just the `message` — one turn classifies ten rules. **`S8924` (static-import Mockito
+  methods) is now VALIDATED** — test-only, zero coverage risk, fully scriptable, 27/27 in platform;
+  see `rules/S8924-static-import.md`. It is the best platform fallback when the classic allowlist there
+  is 100% dropped. Still-unswept candidates worth triaging: `S6397` (redundant regex character class,
+  ~9 platform / 8 rendering). **Verdicts on the other two:** `S6485`
+  (`new HashMap<>(n)`→`HashMap.newHashMap(n)`) is *safe and compiles* (repos are Java 21, `newHashMap`
+  is Java 19+) but its 29 platform sites are spread over 14 modules incl. solr-api → poor build ROI;
+  take it only as a rider on a reactor you're already building (oldcore holds 9). `S2065`
+  (remove `transient`) — AVOID: the platform pool is job-status classes (`IndexerJob`,
+  `PDFExportJobStatus`) that XWiki's job-status store serializes with XStream, so `transient` is load-bearing.
+  AVOID from the broad list: S6355/S1123 (`@Deprecated since=` / add `@Deprecated` —
   needs the deprecating version, judgment), S5993 (constructor→protected — REDUCES visibility → revapi
   `visibilityReduced`), S5411 (boxed→primitive boolean — null-unbox behaviour change), S1168 (return
   empty vs null — behaviour change), S1172 (remove param — signature/override risk), S2143/S2160/S1141
@@ -135,9 +143,16 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   write NOTHING if any assertion fails. (`Edit`'s `replace_all` matches only the exact indentation you
   typed and SILENTLY leaves the same pattern at other depths — so prefer the script, and grep for the
   residual pattern after any batch replace.)
-- **Delegate STRUCTURAL rules** (reindent/brace surgery — S1066/S6201) and **per-site dataflow rules**
-  (S6204/S1068/…) to PARALLEL general-purpose subagents (NOT Explore — they must Edit) over DISJOINT
-  files. **Never trust a subagent's self-reported "CONVERTED"** — it routinely reports (with a
+- **The assert-guarded script scales to STRUCTURAL rules too — prefer it over subagents.** A single
+  `(file, old, new, nb_issues)` table where each `old` is a verbatim MULTI-LINE block asserted to occur
+  exactly once handled 152 S6201/S8924 sites across 3 repos in one run with zero mis-edits, and it
+  needs no post-hoc coverage cross-check because the assertions are the check. Workflow: ONE batched
+  snippet dump (`±6` lines around every flagged line, grouped per module) → write the script → dry run
+  → `write`. Track `nb_issues` per edit (one edit often resolves 2-7 issues) and assert the sum against
+  the Sonar `total`. Reach for subagents only when the site count is far beyond what you can hold.
+- If you DO delegate STRUCTURAL rules (reindent/brace surgery — S1066/S6201) or **per-site dataflow
+  rules** (S6204/S1068/…) to PARALLEL general-purpose subagents (NOT Explore — they must Edit) over
+  DISJOINT files: **never trust a subagent's self-reported "CONVERTED"** — it routinely reports (with a
   plausible rationale) editing a file it never touched, and a missed dataflow site still COMPILES so
   the build won't catch it. After any delegated batch: cross-check the EXACT expected file set against
   `git diff --name-only`, open every expected-but-absent file and apply the missed sites yourself, and
@@ -233,6 +248,17 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
   and do NOT run bare `-Plegacy` — always `-Plegacy,quality`. (If JaCoCo then fails, the change
   genuinely lowered coverage: prefer a smaller/behaviour-neutral edit, or use the
   `xwiki-increase-test-coverage` skill — do NOT just lower the pinned ratio to go green.)
+  **The cheapest resolution is usually to DROP the offending MODULE, not to fix its coverage:**
+  `git checkout -- <module>/`, remove it from `-pl`, note the exclusion in the PR body, re-run. Removing
+  COVERED instructions always lowers the ratio (`(c-k)/(t-k) < c/t`), so any module pinned just above
+  its threshold will fail — this is a property of the module, not a defect in your edit. Live case:
+  `xwiki-commons-crypto-cipher`, 4 S6201 sites, 0.70 → 0.69.
+- **A module failing mid-reactor SKIPS every module after it** — the ones before are genuinely verified
+  (`SUCCESS` in the summary), the rest were never built. After dropping the failing module, re-run a
+  reactor containing the SKIPPED ones; don't assume the first run covered them.
+- **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
+  repos B and C from building, since each ships its own PR. One failed repo then costs one short re-run
+  instead of a full re-chain.
 - **Do NOT use the `snapshot` profile** — it was dropped from the org build recipe (not needed in
   general). Transitive `X.Y.0-SNAPSHOT` deps resolve from the local `~/.m2` (siblings you already
   built, or a prior full build) and the standard XWiki repos. If a `-pl` build hits `Could not find
@@ -396,6 +422,10 @@ Cross-cutting mechanics shared by all rules; each rule's detail file notes only 
     start makes the first `mvn` run where there is no pom) and an `echo ###### <REPO> ######` marker
     between them, then grep the markers + `BUILD SUCCESS`. Datapoint: 2 commons modules 3:31 +
     6 rendering modules 2:24 + 4 platform modules incl. oldcore 7:12 ≈ **13 min for 94 fixes**.
+  - Datapoint (this shape is the reliable way to blow past a 30-fix target): **152 fixes in one session
+    — commons 73 `S6201` (crypto tree), rendering 52 `S6201` (all of them), platform 27 `S8924`** — 3
+    PRs, ~25 min of background builds with tests, 4 drops (one module, coverage). Zero open agent PRs in
+    all three repos is the common starting state; check it, then go wide.
   - **The mechanical pool is usually drained in PLATFORM but untouched in the siblings** — platform's
     whole classic allowlist can total <60 (nearly all already in `dropped-issues.md`) while commons
     holds ~260 S6201 / 30 S3878 / 25 S1066 and rendering ~52 S6201 / 24 S1124 / 30 S5785. So on a
