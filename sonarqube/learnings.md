@@ -66,6 +66,23 @@ location, subagent verification, the accept loop).
   + S1155 + S1197 + S1128 — all zero-dataflow single-line edits) across ~20 modules into one green
   reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve mixed
   *dataflow*-rule batches for when unavoidable (each rule multiplies the edit-error surface).
+- **A scripted transform beats hand-editing above ~20 sites, but only with these guards** (learned
+  converting 53 S6201 sites in one pass; the same guards apply to any regex batch edit):
+  - **Assert length ≤120 on the MODIFIED lines only.** A whole-file `all(len(l)<=120)` assert fails on
+    pre-existing over-long lines in Sonar-heavy files (which are often Checkstyle-excluded) and
+    silently blocks the whole file.
+  - **Scope name-collision checks to the enclosing region + the class's field declarations, never the
+    whole file** — the license header ("the NOTICE **file**") vetoes `file`, and a name already used in
+    *another method* is still free here. Reserve a mangled fallback name (`xValue`, `theX`) for real
+    collisions, then normalise the names in a second pass so the reviewer sees idiomatic ones.
+  - **When the first pass reveals a script bug, `git checkout -- .` and re-run from clean.** Chasing
+    line numbers that earlier deletions have shifted is where the real errors get introduced.
+  - **Print an APPLIED/SKIPPED table with a reason per skipped site.** Two of my "safe" skip reasons
+    were script bugs, not real drops — a skip list you can read is how you find them (the `} else if`
+    scope bug alone hid 12 of 53 sites).
+  - **Review the generated `git diff` before building.** One bad regex (a cast pattern matching a
+    method-call paren, turning `equals((String) o)` into `equalsstring`) is obvious in the diff and
+    invisible in the summary counts.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
@@ -106,8 +123,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `-Dtest=` your way to a fast partial verify; excluding the module is the only lever. The exception is
   a batch where ONLY test code changed — then `-Dtest=<flagged classes> -DfailIfNoTests=false` runs
   exactly the tests that can break.)
-- **Always run mvn from the repo root** (`cd /home/user/xwiki-platform && mvn …`): the shell cwd can
-  silently reset to `/home/user` between turns. **Write a multi-repo chain to a SCRIPT FILE and run
+- **Always `cd` explicitly before EVERY per-repo command, mvn or not** (`cd /home/user/xwiki-platform
+  && mvn …`): the shell cwd can silently reset to `/home/user` between turns, and within one call it
+  persists into the next command. This bites `git commit` in a three-repo chain exactly as it bites
+  `mvn` — a second `git add -A && git commit` with no `cd` runs in the FIRST repo and reports "nothing
+  to commit", which reads like "already committed". **Write a multi-repo chain to a SCRIPT FILE and run
   `bash build.sh`, never as an inline heredoc.** In a chain, `cd repoA && mvn …` newline `mvn …` leaves
   the SECOND mvn in repoA — and re-typing a long heredoc to fix one `cd` reproduces the bug verbatim
   (it happened three times in a row). A file you can `Edit` makes the per-`mvn` `cd` visible and fixable.

@@ -33,7 +33,10 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 | Rule | Last-seen pool & clustering | Observed drop rate |
 |---|---|---|
-| **S6201** instanceof | The deepest pool by far, and it barely regenerates down. Commons has held ~226 (crypto tree ~77, `extension-api` ~45, `filter-api` ~17, `logging-api` ~12, `job-api` ~10); rendering ~52 (`rendering-api` 24 — the `Block` hierarchy's `equals()`, `transformation-macro` 10, `xdomxml10` 7); platform oldcore ~90-140. Concurrent sessions routinely leave 9-10 feature-module PRs open at once. | ~95-100%. oldcore ~98%, dense feature modules ~90-93%. Drops are coverage, not correctness. |
+| **S6201** instanceof | The deepest pool by far, and it barely regenerates down. Commons has held ~226 then ~153 (crypto tree ~77, `extension-api` ~45, `filter-api` ~17, `logging-api` ~12, `job-api` ~10, `component-default` 8, `velocity` 8, `properties` 6); rendering ~52 (`rendering-api` 24 — the `Block` hierarchy's `equals()`, `transformation-macro` 10, `xdomxml10` 7); platform oldcore ~90-140 but only ~2 left in the platform allowlist after the sweeps. Concurrent sessions routinely leave 9-10 feature-module PRs open at once. | ~95-100%, and **0/53** across a 5-module commons batch (component-default + filter-api + job-api + logging-api + properties) — a *scripted* pass gets every site including the `} else if` chains. Drops are coverage, not correctness. |
+| **S6397** regex `[x]`→`x` | Swept: platform 9 (8 of them one transliteration table in `XWiki.java`) + rendering 8 (the same table duplicated in `XWikiSerializer2`). Comment-free one-token edit, on par with S7476 for safety. | **0 drops (16/16).** |
+| **S6485** `new HashMap<>(n)` | Swept in oldcore (9: `XWikiDocument` 4, `XWikiStatsReader` 3, `XWikiGroupServiceImpl`, `MySQLHibernateAdapter`) and rendering (3). ~20 platform sites remain, spread thin over ~13 modules; commons ~13. Good *rider* on a reactor you already build. | **0 drops (12/12).** |
+| **S6208** comma-separated case labels | Rendering 4 (`TagStack` 3 — one group has 32 labels, `BlockNavigator` 1), commons ~10, platform 0. Pure syntax; the only care is wrapping a long label list and leaving an intervening `// fallthrough` group alone. | 0 drops (4/4). |
 | **S6204/S6211** `.toList()` | ~100 open, rarely PR-touched, thin-spread; the 3 livedata modules once held 25. Go-to pivot when the small families are all drained. | Near-0 in tests; real drops on escape analysis in oldcore/feature code. |
 | **S7158** `isEmpty()` | **Drained in all three repos** by one multi-repo run (platform 37, commons 37, rendering 40 = 114). Regenerates. When it comes back: commons `xml`/`extension-api`/`repository-api`, rendering `wikimodel` whitespace filters + `syntax-xwiki20` printers, platform oldcore. | **0 drops in 114 sites.** Nothing about this rule disqualifies a site. |
 | **S7476** `///` banner | 34 platform / 27 commons on first sweep. Comment-only, the safest rule there is. | 0 drops in 48 applied. |
@@ -57,12 +60,20 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## Candidates not yet swept
 
-- **`S6397`** redundant regex character class — ~9 platform / 8 rendering. Worth triaging.
-- **`S6485`** `new HashMap<>(n)` → `HashMap.newHashMap(n)` — *safe and compiles*, but its ~29 platform
-  sites are spread over 14 modules including solr-api → poor build ROI. Take it only as a rider on a
-  reactor you are already building (oldcore holds 9).
 - **`S8714`** try/catch/fail → `assertThrows` and **`S6068`** drop Mockito `eq()` — test-only and
   structural; safe-ish but more effort, own PR if attempted.
+- **`S6213`** "rename this method/variable to not match a restricted identifier" (`record`, `yield`,
+  `var`) — **rejected**: renaming a method or field is an API change, and the pool sits on public
+  `record(…)` methods (`*QuestionRecorder`, `ExtensionJobHistory`). Not a mechanical fix.
+- **`S4144`** "implementation is identical to method X" — **rejected**: deduplicating two methods that
+  legitimately mean different things is a design decision, not a cleanup.
+
+## The platform allowlist is now thin
+
+A whole-allowlist query (~40 mechanical rules) totalled **144** in platform vs 306 in commons, and it
+is dominated by two rules only (S6126 39, S6485 29). oldcore held 30 of those 144 but 12 were already
+in `dropped-issues.md`, so the *fresh* oldcore yield was 18. Budget the effort accordingly: platform is
+the small remainder, commons the deep pool (S6201 alone ~150).
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.
