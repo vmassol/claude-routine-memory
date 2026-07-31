@@ -112,6 +112,17 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **When a commons batch touches >~25 modules, build the WHOLE repo** (`cd /home/user/xwiki-commons
+  && mvn install -Plegacy,quality`) instead of a long `-pl` list: 35 touched modules ran 16:36 with
+  2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
+  supply Checkstyle/Spoon rules as *plugin* dependencies to later modules. Rendering (2 modules) and
+  platform (13 modules) stay on `-pl`: 1:26 and 9:35. Whole three-repo chain ≈ 28 min.
+- **A "module is red on master" drop goes STALE — re-probe it before writing off its pool.**
+  `mvn package revapi:check -Pquality -DskipTests -pl <module>` costs ~2 min and settles it.
+  (`xwiki-commons-extension-api`'s recorded revapi failure was fixed upstream; that one probe
+  re-opened ~100 issues.) Same idea for a compile question you can answer in seconds: write a 10-line
+  file and run plain `javac` on it rather than guessing (that is how the `doPrivileged` lambda
+  ambiguity was settled).
 - **Do NOT use the `snapshot` profile** — it was dropped from the org build recipe. Transitive
   `X.Y.0-SNAPSHOT` deps resolve from the local `~/.m2` and the standard XWiki repos. A fully cold
   `~/.m2` does NOT need `-am` — a ~30-module `-pl` reactor resolves every SNAPSHOT sibling as a
@@ -188,6 +199,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `DELETE …/issues/{n}/lock` → post the comment → `PUT …/issues/{n}/lock -f lock_reason=resolved` again.
   Do the unlock/re-lock in ONE command so the window stays short. Reviewers can still leave reviews on a
   locked PR, so expect to need this.
+- **All three repos ship `.github/pull_request_template.md`** — mirror its headings (`# Jira URL`,
+  `# Changes` / `## Description` / `## Clarifications`, `# Screenshots & Video`, `# Executed Tests`,
+  `# Expected merging strategy`). For a Sonar sweep: "None — this is a `[Misc]` SonarQube cleanup
+  commit" under Jira URL, the per-rule table under Description, the *dropped* sites and why under
+  Clarifications, the exact `mvn` line + test counts under Executed Tests, and squash / no backport.
 - Creating the PR auto-subscribes the session to PR webhooks. XWiki CI is Jenkins and reports later, so
   `get_status` is `pending`/`total_count:0` right after creation — NOT a failure. Webhooks don't deliver
   CI-success / new-push / merge-conflict transitions; for long watches schedule a ~1h self check-in and

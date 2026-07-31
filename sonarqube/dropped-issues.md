@@ -17,8 +17,8 @@ listed as such rather than omitted, so a future run knows the absence is real an
 ## xwiki-commons
 
 (A 37-site `java:S7158` sweep, a 34-site `java:S6201` sweep of `xwiki-commons-xml` +
-`xwiki-commons-filter-xml`, and a 28-site `java:S7476`+`java:S3706` sweep were each analyzed in full
-and every site was fixed.)
+`xwiki-commons-filter-xml`, a 28-site `java:S7476`+`java:S3706` sweep, and a 105-site 14-rule sweep
+of every non-`extension` module were each analyzed in full; only the sites listed below were dropped.)
 
 ### java:S3878 (varargs array) — SLF4J Logger delegation, spreading the array recurses infinitely
 Every one of the 30 open commons S3878 issues is an SLF4J `Logger` override
@@ -43,13 +43,23 @@ only together with tests that raise the module's coverage; do not lower the pinn
   BcRc2CbcPaddedCipherFactory L47; `AYyDaUiOjVDzm496Abej` BcRc5b128CbcPaddedCipherFactory L53;
   `AYyDaUiTjVDzm496Abek` BcRc5b64CbcPaddedCipherFactory L52.
 
-### java:S7476 / java:S3706 — module `xwiki-commons-extension-api` is red on master
-The fixes themselves are valid, but the module fails its own `revapi` check on master (JSpecify
-`@Nullable` migration, see `learnings.md` → Building / verifying), so it cannot be shipped green.
-Re-try once master's revapi is fixed.
-- `AZ3fPeNCs6Hfl3oG5jGp` (AbstractExtensionHandlerTest, S3706); `AZcvxNEwTKQ4AEDhZogt`,
-  `AZcvxNEwTKQ4AEDhZogu`, `AZcvxNEwTKQ4AEDhZogv`, `AZcvxNEwTKQ4AEDhZogw`, `AZcvxNEwTKQ4AEDhZogx`,
-  `AZcvxNEwTKQ4AEDhZogy`, `AZcvxNEwTKQ4AEDhZogz` (DefaultCoreExtensionScanner, S7476).
+### java:S6204 (Stream.toList()) — unmodifiable list escapes a public API
+- `AYyDaUxcjVDzm496Abgb` AbstractJobStatus L554 — `getLog(LogLevel)` is a public (deprecated) API
+  returning the list to arbitrary callers, and no sibling branch already returns an unmodifiable one.
+
+### java:S1604 (anonymous class → lambda) — `AccessController.doPrivileged` is ambiguous
+The four `URIClassLoader` sites are `doPrivileged(new PrivilegedAction<T>(){…}, this.acc)`. A lambda
+there does not compile: `doPrivileged(PrivilegedAction, AccessControlContext)` and
+`doPrivileged(PrivilegedExceptionAction, AccessControlContext)` both match an implicitly-typed lambda
+(verified with `javac`). Permanent drop for every `doPrivileged` site.
+- `AWgZSU4oUMkE2J58eTbH` L278, `AWgZSU4oUMkE2J58eTbI` L298, `AWgZSU4oUMkE2J58eTbJ` L357,
+  `AWgZSU4oUMkE2J58eTbK` L405 (legacy-classloader `URIClassLoader`).
+
+### java:S7476 / java:S3706 in `xwiki-commons-extension-api` — NO LONGER DROPPED
+The former blocker (the module was red on master on its own `revapi` check, JSpecify `@Nullable`
+migration) is **fixed**: `mvn package revapi:check -Pquality -DskipTests -pl <module>` now passes.
+The seven `DefaultCoreExtensionScanner` S7476 keys and the `AbstractExtensionHandlerTest` S3706 key
+are fair game again — do not skip them.
 
 ## xwiki-rendering
 
