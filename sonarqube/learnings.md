@@ -266,9 +266,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 - **Reset the designated feature branch to master FIRST — it persists across runs.** `git fetch origin
   master` then `git checkout -B <branch> origin/master` before editing, or the new PR bundles old
   already-merged commits. **The local `origin/master` ref can LAG even right after `git fetch origin
-  master`.** When the feature branch looks like it carries unmerged sonar commits "ahead of master",
-  DON'T trust the local ref — cross-check the REAL master HEAD via the GitHub API (`list_commits`
-  `sha=master`, read `[0].sha`). If the branch tip EQUALS the real master HEAD, the prior run's PR was
+  master`.** `git ls-remote --heads origin` is the cheapest ground truth (one call, no API scope
+  worries); the GitHub API (`list_commits` `sha=master`, read `[0].sha`) also works. **Check BEFORE
+  the `-B`, not after** — resetting to a stale `origin/master` silently deleted a whole tracked
+  directory from the working copy (the entire `okf/sonarqube/` corpus), and it only looked like "the
+  files were never committed". Recover from `git reflog`, then re-point at the real HEAD.
+  If the branch tip EQUALS the real master HEAD, the prior run's PR was
   already MERGED (squash-merged, so the local commits look distinct) → `git checkout -B <branch>
   <realMasterSha>` and start fresh. If it's genuinely ahead, rebase the unmerged commits onto the real
   HEAD.
