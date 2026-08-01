@@ -75,6 +75,32 @@ revapi `java.method.visibilityReduced`.
 - `AZFHCq1E-4lPKEDZswFl` AbstractBoxMacro L261 — a MULTI-line `//` comment sits between the outer and
   inner `if` (a single-line one would be recoverable).
 
+### java:S6126 (text block) — the whole `xwiki-rendering-wikimodel` parser-test pool is a drop
+All 13 rendering S6126 issues are parser-test fixtures that a text block cannot reproduce byte for
+byte. Do not re-triage them one by one; the rule is closed in this repo until those tests change.
+- Meaningful trailing whitespace on content lines (wiki table/heading fixtures — `"| Multi \n"`,
+  `"header \n"`, `"))) "`, `"…</span> \n"`): `AY98gWSIeYJJhSa54Ik8` (GWikiParserTest:133 — also an
+  all-whitespace first line), `AY98gWRBeYJJhSa54Iiz` (JspWikiParserTest:184),
+  `AY98gWRyeYJJhSa54Ijr`, `AY98gWRyeYJJhSa54Ijt`, `AY98gWRyeYJJhSa54IkU`, `AY98gWRyeYJJhSa54IkV`,
+  `AY98gWRyeYJJhSa54Ikj`, `AY98gWRyeYJJhSa54Ikk`, `AZ018OgzZ_dZP7ZB0yJr` (XWiki20ParserTest
+  165/177/673/676/866×2/890).
+- `\r\n` line terminators — a text block always normalises to `\n`: `AY98gWRUeYJJhSa54IjL`
+  (XHtmlParserTest:370).
+- Leading-indent ladder with no line at the baseline, so the minimum-indent strip eats one space
+  (only `\s` escapes could reproduce it, which is worse than the concatenation):
+  `AY98gWSueYJJhSa54IlE`, `AY98gWSueYJJhSa54IlF`, `AY98gWSueYJJhSa54IlG` (ListBuilderTest 75/101/135).
+
+### java:S6035 (alternation → character class) — public constant value change breaks Revapi
+- `AXZl7LuPr56YxuFA79Xv` ReferenceHandler L32 (`PREFIX_DOWNLOAD`), `AXZl7LuPr56YxuFA79Xu` L36
+  (`PREFIX_IMAGE`) — both `public static final String` compile-time constants;
+  `java.field.constantValueChanged` fails `-Pquality` even though `"^(?:d|F)ownload:.*"` and
+  `"^[dF]ownload:.*"` match identically.
+
+### java:S3824 (computeIfAbsent) — guarded block does more than the put
+- `AX-cPTwWIdY56kbgh63l` AbstractXHTMLImageTypeRenderer L119 — the `if` also runs
+  `computeIfPresent`/`putIfAbsent` on the `CLASS` attribute, so `computeIfAbsent(ID, …)` is not an
+  equivalent rewrite.
+
 ### java:S5785 — NOT dropped, suppressed in code
 The 30 rendering S5785 issues sit in equals()/hashCode() contract tests. They are handled by
 `@SuppressWarnings("java:S5785")` + an in-code rationale on the 6 concerned test methods

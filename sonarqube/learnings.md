@@ -66,6 +66,17 @@ location, subagent verification, the accept loop).
   + S1155 + S1197 + S1128 — all zero-dataflow single-line edits) across ~20 modules into one green
   reactor. Pivoting to zero-PR rules beats threading the gaps in a PR-saturated rule. Reserve mixed
   *dataflow*-rule batches for when unavoidable (each rule multiplies the edit-error surface).
+- **Split a large batch into a TABLE-DRIVEN script for the repetitive rule and an exact-string
+  script for the long tail.** A 99-site commons PR was three artefacts: a table of
+  `(file, flagged line, pattern-variable name)` for the 47 scriptable S6201 sites, a list of
+  `(file, old_text, new_text)` triples with `assert count == 1` for the 27 one-off edits across nine
+  other rules, and four hand-edits for the shapes with nested scopes or re-wrapped conditions. The
+  `count == 1` assertion is what makes the second form safe — a stale or ambiguous snippet fails
+  loudly instead of editing the wrong place.
+- **Re-run the whole script from `git checkout -- .` after EVERY fix to it.** Three successive bugs
+  (a `} else if` brace-count, a `\b` that will not match after `]`, and a paren-greedy cast pattern)
+  were each found by reading the compact diff `git diff -U0 | grep '^[+-]'` — a full-file diff is
+  too big to scan and hides exactly this kind of damage.
 - **A scripted transform beats hand-editing above ~20 sites, but only with these guards** (learned
   converting 53 S6201 sites in one pass; the same guards apply to any regex batch edit):
   - **Assert length ≤120 on the MODIFIED lines only.** A whole-file `all(len(l)<=120)` assert fails on
@@ -167,6 +178,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `until grep -qE "BUILD SUCCESS|BUILD FAILURE" <task output>; do sleep 15; done` keeps the turn alive
   for ~one extra turn's cost and reads the outcome in the same wake-up. Never commit unverified just to
   silence the hook.
+- **A cold `~/.m2` spends 10+ minutes downloading the plugin tree before the first `Compiling`
+  line.** A build log that shows only `Downloading from xwiki-releases:` is healthy, not stuck —
+  don't re-launch it. The whole three-repo chain (4 commons + 3 rendering + 7 platform modules) ran
+  green from cold in one pass.
+- **Commit locally (do NOT push) while the verification build runs.** That silences the
+  uncommitted-changes stop hook without shipping anything unverified: if the build goes red you
+  amend, and the push + PR only happen after `BUILD SUCCESS`. This is strictly better than either
+  ending the turn dirty or pushing early.
 - **A container restart can kill the background build mid-run.** Working-copy edits PERSIST
   (uncommitted) — don't re-do the fix; check `git status`/`git diff`, confirm the branch, re-launch the
   same `mvn` build. Don't panic-commit unverified.
