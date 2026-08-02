@@ -96,6 +96,23 @@ byte. Do not re-triage them one by one; the rule is closed in this repo until th
   `java.field.constantValueChanged` fails `-Pquality` even though `"^(?:d|F)ownload:.*"` and
   `"^[dF]ownload:.*"` match identically.
 
+### java:S4973 (compare with equals) — the `==` is a deliberate identity check
+- `AYs84zH_g8eGkQKScd9o` DefaultMacroContentParser L124 — `getCurrentMacroBlock().getContent() == content`
+  asks "is this the very same content object?"; the comment above it says so. `equals()` changes behaviour.
+
+### java:S5976 (merge into a parameterized test) — test-design decision
+- `AZX7pGrRm8lh03R4YlFO` XWikiReferenceParserTest L77 — merging 3 tests into one parameterized test is
+  a design call, not a mechanical cleanup.
+
+### java:S6878 (record pattern) — hurts readability in `equals()`
+- `AZp8c-o9eyVFKzl0_wpi` MacroTransformation L132 — deconstructing `MacroItem` into its three
+  components inside `equals()` collides with the record's own accessor names.
+
+### java:S2094 (empty class) — deliberately empty, documented
+- `AWgjJiye1_eUtAp8ETP3` FootnoteMacroParameters — Javadoc: "None at the moment, but the rendering
+  engine requires specifying a class for parameters." (The sibling `AbstractXWikiSyntaxResourceRenderer`
+  was NOT dropped: empty, `internal`, zero references → deleted.)
+
 ### java:S3824 (computeIfAbsent) — guarded block does more than the put
 - `AX-cPTwWIdY56kbgh63l` AbstractXHTMLImageTypeRenderer L119 — the `if` also runs
   `computeIfPresent`/`putIfAbsent` on the `CLASS` attribute, so `computeIfAbsent(ID, …)` is not an
@@ -109,6 +126,12 @@ listed as dropped keys here. If they resurface, add the suppression rather than 
 assertions; see `rules/test-code.md`.
 
 ## xwiki-platform
+
+### java:S9016 (extract nested mock creation) — type-inferred `mock()` with no class literal
+Not defects: the extraction is valid, but Sonar's `textRange` gives no type to name in the declaration,
+so a scripted batch cannot do it. Recoverable by hand by reading the stubbed method's return type.
+- `AZ-5kehz8JWMl105u6eb` (L305), `AZ-5kehz8JWMl105u6ed` (L334) DefaultModelBridgeTest;
+  `AZ-5kZa38JWMl105u6dV` InternalTemplateManagerTest L90.
 
 ### java:S1118 (add/hide private constructor) — instantiated factories & abstract bases
 - `AW5-S6zG1Yj5qvzeRnt9` DurationFactory — instantiated via `new DurationFactory()` in XWikiCriteriaServiceImpl.

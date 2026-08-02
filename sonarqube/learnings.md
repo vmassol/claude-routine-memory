@@ -94,6 +94,20 @@ location, subagent verification, the accept loop).
   - **Review the generated `git diff` before building.** One bad regex (a cast pattern matching a
     method-call paren, turning `equals((String) o)` into `equalsstring`) is obvious in the diff and
     invisible in the summary counts.
+- **Drive the edit off the issue's `textRange`, not a regex over the flagged line.** `issues/search`
+  returns `textRange: {startLine, endLine, startOffset, endOffset}`, which pinpoints the exact
+  expression Sonar flagged. Slicing `line[startOffset:endOffset]` and asserting the slice looks like
+  what you expect (`expr.startswith('mock(')`) is both simpler and far more robust than pattern-matching
+  the line — a line with two `mock(` calls, or an FQN, or a nested call just works. Keep the FQN when
+  you re-emit the type (`org.hibernate.query.Query queryMock = mock(org.hibernate.query.Query.class)`):
+  a file that spells a type out usually does so because the simple name is already imported from
+  another package.
+- **When a batch invents variable names, do TWO passes: reserve names top-down, apply edits
+  bottom-up.** Editing bottom-up is required (earlier edits must not shift later line numbers), but if
+  you also *name* bottom-up the numbered suffixes come out reversed (the first site in the file gets
+  `fooMock3`). Reserve in source order into a `taken` set first, then apply in reverse. Prefer one
+  consistent scheme (`<type>Mock`, `<type>Mock2`, …) over "plain name, suffix only on collision" —
+  the latter makes one file read three different ways.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
@@ -128,6 +142,27 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
   supply Checkstyle/Spoon rules as *plugin* dependencies to later modules. Rendering (2 modules) and
   platform (13 modules) stay on `-pl`: 1:26 and 9:35. Whole three-repo chain ≈ 28 min.
+- **A repo-wide cleanup wave landed in the last day or two is the likeliest cause of a build failure
+  you did not cause.** Before assuming your batch broke something, check the failing file's history
+  (`git log -1 --format='%h %ad %s' --date=short -- <file>`) and confirm your diff does not touch it
+  (`git diff origin/master..HEAD -- <file>` / compare the failing line numbers with your hunk headers).
+  Two independent failures in one run both traced back to the same "logging best practices" commit
+  from the previous day: a `MultipleStringLiterals` Checkstyle error in an untouched `src/main` file,
+  and a test in *another module* asserting a log message that the wave had reworded. **A test-only
+  batch cannot cause a Checkstyle error in `src/main` or an assertion failure in a test you did not
+  edit** — that reasoning is enough to keep the fixes rather than dropping the module.
+- **Do not repair unrelated master breakage inside a Sonar cleanup PR.** Ship the batch, and state the
+  breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
+  the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
+  would muddle the review and can conflict with whoever is already repairing it.
+- **`-Dcheckstyle.skip=true` does NOT disable XWiki's Checkstyle gate** — the plugin configuration
+  wins over the user property and `checkstyle:check` still fails the build. Useful consequence: you
+  cannot skip past a pre-existing violation. The tests still run *before* Checkstyle, so a failed run
+  of this kind still gives you the full `Tests run:` figures — grep them; they are the real
+  verification for a test-only batch.
+- **Use `-fae` (fail-at-end) when one module is expected to fail for a pre-existing reason.** Without
+  it a single early failure marks every later module `SKIPPED` and you learn nothing about the rest of
+  the reactor; with it every module runs and you can check that the only failures are the known ones.
 - **A "module is red on master" drop goes STALE — re-probe it before writing off its pool.**
   `mvn package revapi:check -Pquality -DskipTests -pl <module>` costs ~2 min and settles it.
   (`xwiki-commons-extension-api`'s recorded revapi failure was fixed upstream; that one probe
@@ -257,9 +292,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     sibling PRs in a "Related" section so a reviewer sees it is one sweep.
   - Check open agent PRs per repo — the siblings are usually at 0.
 - **Separate-PR override (safe vs unsure):** when asked to isolate risky fixes, ship the safe mechanical
-  batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks) on a SIBLING
-  branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the easy PR without the hard one
-  blocking it. Both PRs still get the label/assignee/lock treatment.
+  batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks, S8714
+  assertThrows) on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the
+  easy PR without the hard one blocking it. Both PRs still get the label/assignee/lock treatment.
+  - **Verify the pair in ONE reactor, then split by file.** Apply both batches to the same working
+    tree, build once, and only then separate them: commit batch A (`git add <its files>`), commit
+    batch B (`git add -A`), then `git checkout -B <sibling> <masterSha> && git cherry-pick <commitB>`
+    and `git checkout <designated> && git reset --hard <commitA>`. Legitimate because the two file
+    sets are disjoint — say so in both PR bodies ("the reactor also contained the sibling branch's
+    changes"). Halves the build bill versus verifying each branch separately.
+  - `git cherry-pick` has **no `-q` flag** (it prints usage and the branch silently stays at base).
+    Redirect its output instead, and if a commit goes dangling, recover the SHA from `git reflog
+    --format='%H %gs'`.
 - **Author override:** `git config user.email <email>` AND `git commit --author="Name <email>"` AND a
   `Co-Authored-By: Name <email>` trailer — verify with `git log -1 --format='%an <%ae>'`. (This
   routine's override email differs from the git userEmail context — use the override.)

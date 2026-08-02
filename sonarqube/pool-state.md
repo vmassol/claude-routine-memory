@@ -22,10 +22,11 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   the 39-rule allowlist reads: commons ~15 (scattered singletons + the 4 crypto-cipher and 4
   legacy-classloader permanent drops), rendering **1** (a dropped key), platform **18** and nearly
   all of those are already in `dropped-issues.md`.
-- **The next generation of pools is the TEST-CODE rules and the small "new" mechanical rules.**
-  Platform holds `S9016` 101 (extract nested mock creation), `S6068` 102→35 (useless Mockito `eq()`),
-  `S8714` 49 (assertThrows). Rendering has no volume at all — its only viable fodder is a handful of
-  one-off mechanical rules (S2209/S3012/S3024/S1264 gave 9 in one PR).
+- **The next generation of pools is the TEST-CODE rules** and they are proving to be the best fodder
+  since the classic allowlist dried up: `S9016`, `S6068` and `S8714` are all zero-risk (test sources
+  only, the module's own suite is the complete verification) and all three are scriptable. Rendering
+  has no volume at all — its only viable fodder is a handful of one-off mechanical rules
+  (S2209/S3012/S3024/S1264 gave 9 in one PR; S1117/S2094/S4719/S8714 gave 5 in another).
 - **Classifying an unswept rule costs one turn:** batch one `ps=2` query per candidate rule key and
   read only `message`. Ten rules per turn; then check the OKF denylist before committing.
 - **Query a whole ~28-rule allowlist in ONE call per repo and group by module** (`&rules=a,b,c…&ps=500`)
@@ -50,8 +51,9 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | Rule | Last-seen pool & clustering | Observed drop rate |
 |---|---|---|
 | **S6201** instanceof | **Drained**: the last 54 (the whole `xwiki-commons-extension` tree) went in one PR. Commons keeps only the 4 permanently-dropped crypto-cipher sites; rendering 0; platform 2 (both dropped). Concurrent sessions routinely leave 9-10 feature-module PRs open at once. | ~95-100%: **54/54** in the extension tree, **0/53** on an earlier 5-module commons batch, **42/42** across 26 non-extension files. Drops are coverage or flow-scope, not correctness. The `equals()`-with-explicit-local shape is ~a third of any pool and is a pure delete-the-declaration edit. |
-| **S6068** Mockito `eq()` | Platform 102 → 35 after a 67-site sweep of the dense modules (security-authentication-default 15, wiki-creationjob 10, wiki-template-default 10, wiki-default 9, wiki-script 8, wiki-user-default 8, security-authorization-bridge 7). Zero in commons/rendering. The remainder is thin-spread across ~20 modules. | **0 drops (67/67, 120 `eq()` wrappers).** Fully scriptable and test-only, so the module tests are the whole verification. |
-| **S9016** nested mock creation | Platform **101**, unswept: oldcore 15, notifications-notifiers-api 7, rest-server 7, user-default 6, mail-send-default 5, refactoring-default 5. Test-only. | Untried. |
+| **S6068** Mockito `eq()` | Platform 102 → 35 → **17** after a second 18-site pass; the remainder is thin-spread one-or-two per module across ~11 modules (wiki-workspaces-migrator 3, legacy-events-hibernate-api 3, notifications-preferences-api 2, icon-default 2, …). Commons had 4, all in `job-default`/`DefaultJobExecutorTest` — now done. Zero in rendering. | **0 drops (89/89).** Fully scriptable and test-only, so the module tests are the whole verification. |
+| **S9016** nested mock creation | Platform 101 → **~49** after sweeping the 10 densest modules (oldcore 14, notifiers-api 7, rest-server 7, user-default 6, mail-send-default 5, refactoring-default 3, eventstream-default 4, ratings-api 4, filters-api/-default 1+1). Commons 6 (1 extension-api + 5 store-blob-s3). Rendering 0. Test-only, best current volume rule. | **~5%: only the type-inferred `mock()` form drops** (no class literal → the extracted declaration has no type to name; recoverable by hand if you read the stubbed method's return type, which is how the 5 `S3CopyOperationsTest` sites were converted). Everything with `mock(X.class)` converts. |
+| **S8714** try/catch/fail→`assertThrows` | Platform **49** unswept; commons 12 (websocket 7, extension-handler-jar 2, extension-api 2, groovy 1) — all done; rendering 1 — done. | **0 drops (13/13).** Structural but safe: `assertThrows` fails exactly where `fail()` did. Worth its own PR (see `learnings.md` "Separate-PR override"). |
 | **S2209 / S3012 / S3024 / S1264** rendering one-offs | Rendering's only remaining mechanical fodder once the allowlist is dry: 4 + 2 + 2 + 1 = 9 in one PR. `S2209` was 4 `this.PARAMETERS_PRINTER` reads of a `protected static` parent field in syntax-xwiki21. | 0 drops (9/9). |
 | **S6397** regex `[x]`→`x` | Swept: platform 9 (8 of them one transliteration table in `XWiki.java`) + rendering 8 (the same table duplicated in `XWikiSerializer2`). Comment-free one-token edit, on par with S7476 for safety. | **0 drops (16/16).** |
 | **S6485** `new HashMap<>(n)` | Swept in oldcore (9), rendering (3), then **all 20 remaining platform sites** (13 modules — a wide but cheap reactor) and **10 commons sites**. Commons keeps ~3 in the extension tree. Good *rider* on a reactor you already build. | **0 drops (42/42).** Raw (`new HashSet(n)`) and explicitly-parameterised (`new HashSet<String>(4)`) constructors convert too — target typing infers the factory's type argument. |
@@ -81,8 +83,21 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## Candidates not yet swept
 
-- **`S8714`** try/catch/fail → `assertThrows` and **`S6068`** drop Mockito `eq()` — test-only and
-  structural; safe-ish but more effort, own PR if attempted.
+- **`S8924`** Mockito static import, **`S5786`** JUnit5 visibility — the remaining unswept test-code
+  rules. Commons `S5786` is 5 singletons in 5 different modules (a bad reactor-to-fix ratio unless
+  each file expands to many removals).
+- **`S6878`** "use the record pattern instead of this pattern match variable" — **rejected**:
+  deconstructing a record into its components inside an `equals()` collides with the record's own
+  accessor names and makes the method harder to read. A style judgement, not a cleanup.
+- **`S5976`** "replace these N tests with a single Parameterized one" — **rejected**: a test-design
+  decision, well over the 15-minute mechanical bar.
+- **`S4973`** "compare Strings/boxed types with equals()" — read the site first: in XWiki the flagged
+  `==` is sometimes a deliberate **identity** check (e.g. "is this the very same content object we
+  were given?") with a comment saying so. Drop those.
+- **`S2094`** empty class — split verdict. Fair game when the class is empty, `abstract`, in an
+  `internal` package and has **zero references** in the repo (grep to prove it). Drop when the Javadoc
+  says the emptiness is required (`FootnoteMacroParameters`: "the rendering engine requires specifying
+  a class for parameters").
 - **`S6213`** "rename this method/variable to not match a restricted identifier" (`record`, `yield`,
   `var`) — **rejected**: renaming a method or field is an API change, and the pool sits on public
   `record(…)` methods (`*QuestionRecorder`, `ExtensionJobHistory`). Not a mechanical fix.
@@ -100,8 +115,14 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 A 39-rule allowlist query now reads **commons 125 → ~15 residue, rendering 1 (a dropped key),
 platform 18 (nearly all already dropped)**. The allowlist is genuinely exhausted: a future run must
-open with the *distribution facet*, not the allowlist, and pivot to the test-code pools
-(`S9016` 101, `S6068` 35, `S8714` 49 — all platform) or classify a not-yet-swept rule.
+open with the *distribution facet*, not the allowlist, and pivot to the test-code pools. After the
+S9016/S6068/S8714 sweep the deepest remaining ones are **platform `S8714` 49 and `S9016` ~49**, both
+still worth a full PR each; commons and rendering test-code pools are drained.
+
+**Rendering is effectively closed.** Everything mechanical is done or dropped; what remains is
+S127 (assign to loop counter), S135 (multiple break/continue), S2589, S1452, S2176, S8786 — all
+refactors or renames, plus the standing denylist. Expect a rendering PR to be 5 issues, not 50, and
+budget accordingly rather than hunting for volume there.
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.
