@@ -27,6 +27,13 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   only, the module's own suite is the complete verification) and all three are scriptable. Rendering
   has no volume at all — its only viable fodder is a handful of one-off mechanical rules
   (S2209/S3012/S3024/S1264 gave 9 in one PR; S1117/S2094/S4719/S8714 gave 5 in another).
+  **Platform `S8714` (49, dense in 6 modules) is now the single deepest clean pool left** — S9016 is
+  spent (45 of its 49 went in one PR).
+- **When the deep pools are gone, a repo's LONG TAIL of one-per-rule mechanical singletons is still a
+  viable batch**: commons yielded 17 in one PR from seven rules (`S4719` 9, `S1905` 3, then one each of
+  `S2147`/`S1596`/`S1481`/`S1264`/`S1126`) and rendering 4 from three rules. Pull the whole
+  distribution facet, take every rule whose *message* is a one-line mechanical instruction, and read
+  the ~15 sites; the drop rate on this shape has been 0.
 - **Classifying an unswept rule costs one turn:** batch one `ps=2` query per candidate rule key and
   read only `message`. Ten rules per turn; then check the OKF denylist before committing.
 - **Query a whole ~28-rule allowlist in ONE call per repo and group by module** (`&rules=a,b,c…&ps=500`)
@@ -52,8 +59,12 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 |---|---|---|
 | **S6201** instanceof | **Drained**: the last 54 (the whole `xwiki-commons-extension` tree) went in one PR. Commons keeps only the 4 permanently-dropped crypto-cipher sites; rendering 0; platform 2 (both dropped). Concurrent sessions routinely leave 9-10 feature-module PRs open at once. | ~95-100%: **54/54** in the extension tree, **0/53** on an earlier 5-module commons batch, **42/42** across 26 non-extension files. Drops are coverage or flow-scope, not correctness. The `equals()`-with-explicit-local shape is ~a third of any pool and is a pure delete-the-declaration edit. |
 | **S6068** Mockito `eq()` | Platform 102 → 35 → **17** after a second 18-site pass; the remainder is thin-spread one-or-two per module across ~11 modules (wiki-workspaces-migrator 3, legacy-events-hibernate-api 3, notifications-preferences-api 2, icon-default 2, …). Commons had 4, all in `job-default`/`DefaultJobExecutorTest` — now done. Zero in rendering. | **0 drops (89/89).** Fully scriptable and test-only, so the module tests are the whole verification. |
-| **S9016** nested mock creation | Platform 101 → **~49** after sweeping the 10 densest modules (oldcore 14, notifiers-api 7, rest-server 7, user-default 6, mail-send-default 5, refactoring-default 3, eventstream-default 4, ratings-api 4, filters-api/-default 1+1). Commons 6 (1 extension-api + 5 store-blob-s3). Rendering 0. Test-only, best current volume rule. | **~5%: only the type-inferred `mock()` form drops** (no class literal → the extracted declaration has no type to name; recoverable by hand if you read the stubbed method's return type, which is how the 5 `S3CopyOperationsTest` sites were converted). Everything with `mock(X.class)` converts. |
-| **S8714** try/catch/fail→`assertThrows` | Platform **49** unswept; commons 12 (websocket 7, extension-handler-jar 2, extension-api 2, groovy 1) — all done; rendering 1 — done. | **0 drops (13/13).** Structural but safe: `assertThrows` fails exactly where `fail()` did. Worth its own PR (see `learnings.md` "Separate-PR override"). |
+| **S9016** nested mock creation | Platform 101 → 49 → **4** (one 45-site PR across 26 modules; the pool was thin-spread — 1-4 per module — and a 26-module platform reactor still builds in 18 min). Commons 6 (1 extension-api + 5 store-blob-s3) still unswept. Rendering 0. | **~8%: only the type-inferred `mock()` form drops.** 39 of the 45 were scripted off `textRange`; 6 of the 7 `mock()` sites were still recoverable by hand (the stubbed getter's return type was already imported). The one real drop needed a *new foreign* import (Hibernate `Configuration`) — that is the drop line for this rule. |
+| **S8714** try/catch/fail→`assertThrows` | Platform **49** unswept and now the deepest clean pool: security-authorization-api 11, rest-server 8, export-pdf-default 7, model-api 7, oldcore 5, export-pdf-api 4, livedata-livetable 2 = 44 in SEVEN modules (a cheap reactor for a big count). Commons 12 and rendering 1 — all done. | **0 drops (13/13).** Structural but safe: `assertThrows` fails exactly where `fail()` did. Worth its own PR (see `learnings.md` "Separate-PR override"). |
+| **S4719** charset name → `StandardCharsets` | Commons 9 — **drained** (filter-test 5, crypto-common 2, component-default 1, legacy-classloader-api 1). Not yet counted in platform/rendering. | **0 drops (9/9).** Two shapes: a `private static final String X = "UTF-8"` used only as a charset (retype the constant to `Charset` — one-line diff, no call-site change), and a literal/foreign-API call site (`IOUtils.toString(byte[], String)` → `new String(bytes, UTF_8)`, which then orphans the constant and the `IOUtils` import). |
+| **S1905** unnecessary cast | Commons 3 — drained. | 0 drops (3/3). Includes the `(List<String>) null` in a conditional (the other branch already fixes the poly-expression type) and a `(G)` cast on a raw return type. |
+| **S2147 / S1596 / S1481 / S1264 / S1126** commons singletons | One each; all done. `S1450` 1, `S1121` 1, `S1192` 5, `S1144` 4, `S3012` 2, `S5786` 5 remain. | 0 drops. Ideal riders on a batch you are already building. |
+| **S1450 / S1121 / S2589** rendering one-offs | The last mechanical rendering fodder: 1 + 1 + 2 = 4 in one PR (ParametersPrinter field→local, TagStack `put(k, v = new …)`, and two provably-negated conditions). | 1 drop of 3 on `S2589`: a `queueItem != null` guard in a concurrent-queue poll loop is dead but reads as deliberate defensiveness — leave those. |
 | **S2209 / S3012 / S3024 / S1264** rendering one-offs | Rendering's only remaining mechanical fodder once the allowlist is dry: 4 + 2 + 2 + 1 = 9 in one PR. `S2209` was 4 `this.PARAMETERS_PRINTER` reads of a `protected static` parent field in syntax-xwiki21. | 0 drops (9/9). |
 | **S6397** regex `[x]`→`x` | Swept: platform 9 (8 of them one transliteration table in `XWiki.java`) + rendering 8 (the same table duplicated in `XWikiSerializer2`). Comment-free one-token edit, on par with S7476 for safety. | **0 drops (16/16).** |
 | **S6485** `new HashMap<>(n)` | Swept in oldcore (9), rendering (3), then **all 20 remaining platform sites** (13 modules — a wide but cheap reactor) and **10 commons sites**. Commons keeps ~3 in the extension tree. Good *rider* on a reactor you already build. | **0 drops (42/42).** Raw (`new HashSet(n)`) and explicitly-parameterised (`new HashSet<String>(4)`) constructors convert too — target typing infers the factory's type argument. |
@@ -83,6 +94,17 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## Candidates not yet swept
 
+- **`S1117`** "rename this local variable which hides the field declared at line N" (commons 15, mostly
+  test files; platform 107) — **rejected**: renaming a shadowing local is the one rename where a *missed*
+  occurrence still compiles, because it silently re-binds to the field of the same name. Only worth it
+  with a guard that asserts zero bare occurrences of the old name between the declaration and the end of
+  the method, and even then the payoff is one issue per rename.
+- **`S2925`** `Thread.sleep()` in a test (rendering 3, all `LinkCheckerTransformationTest`) —
+  **rejected**: replacing the sleeps means introducing Awaitility and rewriting the test's timing
+  contract, well past the mechanical bar.
+- **`S3457`** `\n` → `%n` in a `String.format` — **read the whole message first**: rendering's site is
+  one `format` call of a multi-part exception message whose sibling `format` keeps `\n`, so "fixing" the
+  flagged one produces inconsistent output rather than platform-correct output.
 - **`S8924`** Mockito static import, **`S5786`** JUnit5 visibility — the remaining unswept test-code
   rules. Commons `S5786` is 5 singletons in 5 different modules (a bad reactor-to-fix ratio unless
   each file expands to many removals).
@@ -119,10 +141,11 @@ open with the *distribution facet*, not the allowlist, and pivot to the test-cod
 S9016/S6068/S8714 sweep the deepest remaining ones are **platform `S8714` 49 and `S9016` ~49**, both
 still worth a full PR each; commons and rendering test-code pools are drained.
 
-**Rendering is effectively closed.** Everything mechanical is done or dropped; what remains is
-S127 (assign to loop counter), S135 (multiple break/continue), S2589, S1452, S2176, S8786 — all
-refactors or renames, plus the standing denylist. Expect a rendering PR to be 5 issues, not 50, and
-budget accordingly rather than hunting for volume there.
+**Rendering is closed.** Its last mechanical singletons (S1450, S1121, two S2589) are done; what
+remains is S127 (assign to loop counter), S135 (multiple break/continue), S1452, S2176, S8786, S2925,
+S3457, S4274, S1182, S1700 — all refactors, renames or behaviour changes, plus the standing denylist.
+Expect a rendering PR to be 4 issues, not 50, and budget accordingly rather than hunting for volume
+there. The one place volume may return is `javabugs:S2259` (94 open, never triaged).
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.

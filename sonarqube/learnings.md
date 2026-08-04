@@ -108,6 +108,11 @@ location, subagent verification, the accept loop).
   `fooMock3`). Reserve in source order into a `taken` set first, then apply in reverse. Prefer one
   consistent scheme (`<type>Mock`, `<type>Mock2`, …) over "plain name, suffix only on collision" —
   the latter makes one file read three different ways.
+- **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
+  are removing.** Recurring traps when a fix *adds* code: a declaration for a generic type written raw
+  (`MultivaluedMap x = mock(MultivaluedMap.class)`) trades the fixed issue for `S3740` "raw types" — write
+  the type arguments and let the factory infer (`MultivaluedMap<String, String> x = mock();`); and a
+  removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those in the same edit.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
@@ -141,6 +146,10 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **Datapoints for a three-repo chain** (warm `~/.m2`, all green, tests on): whole commons repo
+  (130 modules) **17:46**, rendering 3 modules **1:59**, platform **26**-module `-pl` reactor **18:25**
+  — ≈38 min end to end for one background run. A 26-module platform reactor is NOT expensive: prefer it
+  over dropping thin-spread sites.
 - **When a commons batch touches >~25 modules, build the WHOLE repo** (`cd /home/user/xwiki-commons
   && mvn install -Plegacy,quality`) instead of a long `-pl` list: 35 touched modules ran 16:36 with
   2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
@@ -188,7 +197,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   && mvn …`): the shell cwd can silently reset to `/home/user` between turns, and within one call it
   persists into the next command. This bites `git commit` in a three-repo chain exactly as it bites
   `mvn` — a second `git add -A && git commit` with no `cd` runs in the FIRST repo and reports "nothing
-  to commit", which reads like "already committed". **Write a multi-repo chain to a SCRIPT FILE and run
+  to commit", which reads like "already committed" — so verify each one with `git -C <repo> log -1`
+  (and `git -C <repo> status --porcelain`), never by reading the commit command's own output. **Write a
+  multi-repo chain to a SCRIPT FILE and run
   `bash build.sh`, never as an inline heredoc.** In a chain, `cd repoA && mvn …` newline `mvn …` leaves
   the SECOND mvn in repoA — and re-typing a long heredoc to fix one `cd` reproduces the bug verbatim
   (it happened three times in a row). A file you can `Edit` makes the per-`mvn` `cd` visible and fixable.

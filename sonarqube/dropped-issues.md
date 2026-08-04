@@ -118,6 +118,24 @@ byte. Do not re-triage them one by one; the rule is closed in this repo until th
   `computeIfPresent`/`putIfAbsent` on the `CLASS` attribute, so `computeIfAbsent(ID, …)` is not an
   equivalent rewrite.
 
+### java:S2589 (condition always true) — deliberate defensive check in concurrent code
+- `AWgjJi6N1_eUtAp8ETQL` DefaultLinkCheckerThread L176 — `shouldBeChecked && queueItem != null`: the
+  null test is provably dead (an earlier line would already have NPE'd), but it guards a
+  `linkQueue.poll()` result and reads as intentional. Removing it changes nothing except the intent.
+
+### java:S3457 (use %n instead of \n) — would make one half of a message inconsistent
+- `AXWJW7i3MJOM0yBUZBxP` DefaultTransformationManager L101 — the exception message is built from two
+  `String.format` calls and only this one is flagged; converting it alone mixes `%n` and `\n`.
+
+### java:S2925 (Thread.sleep in a test) — needs Awaitility + a timing rewrite
+- `AWgjJi7D1_eUtAp8ETQO` (L189), `AWgjJi7D1_eUtAp8ETQP` (L256), `AWgjJi7D1_eUtAp8ETQQ` (L350)
+  LinkCheckerTransformationTest.
+
+### java:S4274 / java:S1182 / java:S1700 — behaviour or API changes, not cleanups
+- `AWgjJjTX1_eUtAp8ETRK` WikiReference L98 (replace `assert` with a real check — changes runtime
+  behaviour); `AV2j0WWopvRVEt3bvRjR` AbstractBlock L537 (`clone()` should call `super.clone()` — real
+  design change); `AV2j0WeHpvRVEt3bvRkk` MetaData L78 (rename the `metadata` field — public-ish rename).
+
 ### java:S5785 — NOT dropped, suppressed in code
 The 30 rendering S5785 issues sit in equals()/hashCode() contract tests. They are handled by
 `@SuppressWarnings("java:S5785")` + an in-code rationale on the 6 concerned test methods
@@ -129,9 +147,13 @@ assertions; see `rules/test-code.md`.
 
 ### java:S9016 (extract nested mock creation) — type-inferred `mock()` with no class literal
 Not defects: the extraction is valid, but Sonar's `textRange` gives no type to name in the declaration,
-so a scripted batch cannot do it. Recoverable by hand by reading the stubbed method's return type.
+so a scripted batch cannot do it. Recoverable by hand *when the stubbed method's return type is already
+imported in the test* (that is how 6 of 7 such sites were converted); a drop only when naming the type
+would mean adding an import from a foreign library.
 - `AZ-5kehz8JWMl105u6eb` (L305), `AZ-5kehz8JWMl105u6ed` (L334) DefaultModelBridgeTest;
   `AZ-5kZa38JWMl105u6dV` InternalTemplateManagerTest L90.
+- `AZ-5kc4M8JWMl105u6eJ` DefaultBaseClassRequiredRightAnalyzerTest L262 — naming the type of
+  `this.hibernate.getConfiguration()` requires importing a Hibernate type into the test.
 
 ### java:S1118 (add/hide private constructor) — instantiated factories & abstract bases
 - `AW5-S6zG1Yj5qvzeRnt9` DurationFactory — instantiated via `new DurationFactory()` in XWikiCriteriaServiceImpl.
