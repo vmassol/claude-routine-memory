@@ -124,9 +124,10 @@ location, subagent verification, the accept loop).
 - **Accept all issues in a loop** (per issue: `add_comment` + `do_transition accept`). Each issue is
   ~2 curls ≈ 4s, so 20+ issues blow a 2-min timeout — run the accept loop as a BACKGROUND task, and/or
   make it idempotent (re-query which keys are still OPEN). **An unthrottled loop silently loses about
-  half of them** — a 70-key run left 35 still OPEN with no error output — so the confirm-and-retry pass
-  is mandatory, not a safety net: loop `issues/search?issues=<keys>` → re-POST `accept` for anything not
-  yet ACCEPTED → repeat until zero, with a ~0.3s sleep between POSTs. `do_transition`'s response does NOT
+  half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
+  EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
+  throttle from the start and still run the confirm pass: loop `issues/search?issues=<keys>` → re-POST
+  `accept` for anything not yet ACCEPTED → repeat until zero. `do_transition`'s response does NOT
   reliably contain an `issues` key (don't index it → KeyError; the transition still applied), and a
   `Transition from state RESOLVED does not exist: accept` error on the retry is benign — that issue is
   already closed.
