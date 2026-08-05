@@ -137,7 +137,9 @@ location, subagent verification, the accept loop).
   make it idempotent (re-query which keys are still OPEN). **An unthrottled loop silently loses about
   half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
   EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
-  throttle from the start and still run the confirm pass: loop `issues/search?issues=<keys>` → re-POST
+  throttle from the start and still run the confirm pass (**72/72 landed, zero stragglers**, but budget
+  ~15 min of wall clock for 72 keys through this container's proxy — launch it BEFORE the memory
+  write-up, not after): loop `issues/search?issues=<keys>` → re-POST
   `accept` for anything not yet ACCEPTED → repeat until zero. `do_transition`'s response does NOT
   reliably contain an `issues` key (don't index it → KeyError; the transition still applied), and a
   `Transition from state RESOLVED does not exist: accept` error on the retry is benign — that issue is
@@ -159,8 +161,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
 - **Datapoints for a three-repo chain** (warm `~/.m2`, all green, tests on): whole commons repo
-  (130 modules) **17:46**, rendering 3 modules **1:59**, platform **26**-module `-pl` reactor **18:25**
-  — ≈38 min end to end for one background run. A 26-module platform reactor is NOT expensive: prefer it
+  (130 modules) **17:46** / **22:54** on a second run (3941 tests), rendering 3-4 modules **1:59** /
+  **2:10**, platform **26**-module `-pl` reactor **18:25**, platform 12-module reactor incl. oldcore
+  **6:24**, platform 7 leaf modules **7:08** — ≈38 min end to end for one background run. A 26-module platform reactor is NOT expensive: prefer it
   over dropping thin-spread sites.
 - **When a commons batch touches >~25 modules, build the WHOLE repo** (`cd /home/user/xwiki-commons
   && mvn install -Plegacy,quality`) instead of a long `-pl` list: 35 touched modules ran 16:36 with
