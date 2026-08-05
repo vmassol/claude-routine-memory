@@ -120,10 +120,19 @@ location, subagent verification, the accept loop).
   consistent scheme (`<type>Mock`, `<type>Mock2`, …) over "plain name, suffix only on collision" —
   the latter makes one file read three different ways.
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
-  are removing.** Recurring traps when a fix *adds* code: a declaration for a generic type written raw
-  (`MultivaluedMap x = mock(MultivaluedMap.class)`) trades the fixed issue for `S3740` "raw types" — write
-  the type arguments and let the factory infer (`MultivaluedMap<String, String> x = mock();`); and a
-  removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those in the same edit.
+  are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
+  in the same edit; a declaration for a generic type should carry its type arguments and let the factory
+  infer (`MultivaluedMap<String, String> x = mock();`) rather than being written raw.
+- **"Would this create a new issue X?" is answered by the project's PROFILE, not the rule catalogue.**
+  `api/qualityprofiles/search?organization=xwiki&project=<key>` → the `java` profile key (XWiki's is
+  *XWiki Java*, ~609 active rules) → `api/rules/search?organization=xwiki&qprofile=<key>&activation=true&rule_key=java:SXXXX`
+  (`total` 1 = active, 0 = not enabled, so it can never fire). Worth knowing: **`S3740` (raw types) and
+  `S6212` (type inference / `var`) are NOT enabled** for XWiki, so neither a raw declaration nor a
+  class-literal factory call can be "trading one issue for another" — argue those on merit instead.
+  A cross-check from the other direction: a rule with 0 open issues project-wide on a shape that occurs
+  thousands of times is not enabled. `api/rules/show?organization=xwiki&key=java:SXXXX` gives the rule's
+  own compliant example, which is the strongest possible answer to a reviewer asking "shouldn't the fix
+  look like Y instead?".
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
