@@ -61,6 +61,36 @@ migration) is **fixed**: `mvn package revapi:check -Pquality -DskipTests -pl <mo
 The seven `DefaultCoreExtensionScanner` S7476 keys and the `AbstractExtensionHandlerTest` S3706 key
 are fair game again — do not skip them.
 
+### java:S1192 (duplicated literal) — coincidental duplication inside vocabulary lists
+- `AYG0Ud0QouLKnFEkGft-` SVGDefinitions L87 (`"style"`), `AYG0Ud0QouLKnFEkGft9` L99 (`"title"`) — the
+  literals are entries of three different SVG/HTML name lists (attributes, elements, integration
+  points); a shared constant hides the lists and the repetition is coincidental, not a shared concept.
+
+### java:S3012 (manual array copy) — the loop copies a SUFFIX, not the array
+- `AZkVtQQYz-Gjyq6TVk6Y` LogUtils L196 — `for (int i = arguments.size(); i < defaults.length; ++i)`
+  appends from an offset, so every suggested replacement (`Arrays.copyOfRange` + `Collections.addAll`,
+  `subList`) reads worse than the loop. The rule is only clean on a whole-array copy.
+
+### java:S1185 (remove super-only override) — comment / public-API removal
+- `AV4uHSsf5jV1AdqTqB0u` AbstractGenericComponentManager L108 — a "Note: Ideally …" comment on the
+  override explains why it exists.
+- `AZnoBG5_sgBBO9CiAWpB` DefaultCoreExtension L112 (`setId`) — would take a public method off a public
+  API class for one issue; not worth the Revapi risk.
+
+### java:S1171 (instance initializer) — same file as an open agent PR
+- `AV4uHSLB5jV1AdqTqBv_` DefaultExtensionSerializer L219 — file claimed by open PR #1875.
+
+### java:S1144 (unused private method) — asserted BY NAME in the test's expected output
+- `AY-F47j8UnN6kAHHxlSf` (L113 `privateParentMethod`), `AY-F47j8UnN6kAHHxlSg` (L142 `privateMethod`)
+  ReflectionUtilsTest — both appear in the expected `getAllMethods` strings at L310-311, so they are
+  used, just never called. Any "unused private member" inside a *reflection* test is suspect.
+
+### java:S5786 (JUnit 5 visibility) — cross-package use / an `@Override` of a public method
+- `AZ827Jbt5HXsydqHEg0y` DefaultHTMLCleanerTest — `HTMLUtilsTest` (another package) reads
+  `DefaultHTMLCleanerTest.HEADER`, so the class cannot become package-private.
+- `AZ827KKd5HXsydqHEg00` InstallJobTest — its `setUp()` is `@BeforeEach @Override` of a public parent
+  method; reducing an override's visibility does not compile, so the file cannot be fully cleared.
+
 ## xwiki-rendering
 
 ### java:S1118 (add private constructor) — public utility classes in the `wikimodel` public API
@@ -142,6 +172,11 @@ The 30 rendering S5785 issues sit in equals()/hashCode() contract tests. They ar
 (`xwiki/xwiki-rendering#390`), NOT by accepting them in SonarCloud — so they are deliberately NOT
 listed as dropped keys here. If they resurface, add the suppression rather than converting the
 assertions; see `rules/test-code.md`.
+
+### java:S1130 (remove unthrowable `throws`) — `src/main` method other modules call
+- `AZNziSnUEcK0YeraNzE5` AbstractInternalRenderingTest L288 — dropping `throws Exception` from a
+  method in `xwiki-rendering-test`'s `src/main` breaks callers that catch it. The rule is only safe on
+  a test method nothing calls.
 
 ## xwiki-platform
 

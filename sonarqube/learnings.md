@@ -94,6 +94,17 @@ location, subagent verification, the accept loop).
   - **Review the generated `git diff` before building.** One bad regex (a cast pattern matching a
     method-call paren, turning `equals((String) o)` into `equalsstring`) is obvious in the diff and
     invisible in the summary counts.
+- **For a STRUCTURAL rule, locate sites by scanning for the code SHAPE and assert `found == issue
+  count` per file.** For `S8714` that was "every `try {` block whose body contains `fail(`", printed
+  with its full extent; 21 files matched 49-for-49, which proves up front that no site is missed and
+  no line-number drift matters. Then feed each printed block verbatim into the `(file, old, new)`
+  table. This generalises to any rule whose shape is greppable — it is the structural counterpart of
+  the per-file match-count technique and it needs no snippet reads beyond the blocks themselves.
+- **When a batch INTRODUCES a local declaration per site, two sites in the same method collide.**
+  `T e = assertThrows(...)` twice in one test method is a duplicate-variable compile error; the
+  compiler would catch it, but a 20-second post-apply scan (walk each `    {` … `    }` method body,
+  flag a repeated `^        <Type> <name> =`) finds it before the 20-minute build. It fired on two of
+  21 files. Fix by declaring once and assigning after, keeping a distinct name for the odd type out.
 - **Drive the edit off the issue's `textRange`, not a regex over the flagged line.** `issues/search`
   returns `textRange: {startLine, endLine, startOffset, endOffset}`, which pinpoints the exact
   expression Sonar flagged. Slicing `line[startOffset:endOffset]` and asserting the slice looks like
@@ -165,6 +176,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   and a test in *another module* asserting a log message that the wave had reworded. **A test-only
   batch cannot cause a Checkstyle error in `src/main` or an assertion failure in a test you did not
   edit** — that reasoning is enough to keep the fixes rather than dropping the module.
+- **`checkstyle:check` runs AFTER the tests, so a pre-existing `src/main` violation still gives you
+  full test verification.** A test-only oldcore batch failed the module on two `DeclarationOrder`
+  violations in an untouched `RegisterAction.java` while its 1140+45 tests ran green — that is enough
+  to ship a test-only change. Note the failing module also SKIPS everything downstream of it in the
+  reactor even with `-fae`, so re-run the skipped modules as their own `-pl` list (they resolve the
+  failed module as a remote SNAPSHOT and build fine).
+- **`git diff origin/master..HEAD` is NOT proof of what your commit touches** — the local
+  `origin/master` ref lags (it was 1 commit behind the real HEAD here, so the diff pulled in unrelated
+  files and made an untouched file look like mine). Use `git show --name-only --format="" HEAD`.
 - **Do not repair unrelated master breakage inside a Sonar cleanup PR.** Ship the batch, and state the
   breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
   the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
@@ -204,6 +224,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `bash build.sh`, never as an inline heredoc.** In a chain, `cd repoA && mvn …` newline `mvn …` leaves
   the SECOND mvn in repoA — and re-typing a long heredoc to fix one `cd` reproduces the bug verbatim
   (it happened three times in a row). A file you can `Edit` makes the per-`mvn` `cd` visible and fixable.
+  **The script file is not the fix by itself — the CHECK is.** It happened again *inside* a script
+  file: `cd repoA && mvn …` on line 2, a bare `mvn` on line 4. Before running any multi-repo script,
+  grep it: every `mvn` line must begin with its own `cd /home/user/<repo> &&`. The failure is silent
+  and total (`Could not find the selected project in the reactor` + a Develocity Groovy NPE from the
+  *other* repo's `.mvn/`), and it costs a whole build round.
 - **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
   repos B and C from building, since each ships its own PR.
 - **Session plugin cache can be STALE vs the xwiki-dev-llm source.** The build recipe, profiles and the
