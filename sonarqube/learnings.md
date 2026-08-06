@@ -217,7 +217,19 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   failed module as a remote SNAPSHOT and build fine).
 - **`git diff origin/master..HEAD` is NOT proof of what your commit touches** — the local
   `origin/master` ref lags (it was 1 commit behind the real HEAD here, so the diff pulled in unrelated
-  files and made an untouched file look like mine). Use `git show --name-only --format="" HEAD`.
+  files and made an untouched file look like mine). Worse: **these clones are SHALLOW** (~94 commits),
+  so once a concurrent session fetches a newer `master` the two histories share no visible ancestor and
+  even the three-dot `origin/master...HEAD` form invents a merge base — a follow-up batch edit keyed to
+  it matched 82 sites in 50 files instead of 33 in 22, including pre-existing code. **Key every
+  follow-up edit to your own commit** (`git show <sha> -U0`) and assert the site count. Before merging
+  master you must first `git fetch --deepen=250 origin master` so a real merge-base exists (`.git` is
+  only ~77 MB, so this is cheap); `git merge-base HEAD origin/master` returning your base is the
+  green light.
+- **Derive test counts by pairing `[INFO] Building <module>` with that module's `Tests run:` summary,
+  never by slicing the log into line ranges.** A chained three-repo log sliced at the `###### REPO ######`
+  marker over-counted platform 3× (2951 instead of 949 — the slice still held commons and rendering),
+  and that wrong figure reached a PR description before it was caught. Same regex both times, so the
+  cross-check that catches it is per-module pairing, not a second sum.
 - **Do not repair unrelated master breakage inside a Sonar cleanup PR.** Ship the batch, and state the
   breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
   the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
@@ -226,7 +238,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   wins over the user property and `checkstyle:check` still fails the build. Useful consequence: you
   cannot skip past a pre-existing violation. The tests still run *before* Checkstyle, so a failed run
   of this kind still gives you the full `Tests run:` figures — grep them; they are the real
-  verification for a test-only batch.
+  verification for a test-only batch. **`-Denforcer.skip=true` is overridden the same way** — but the
+  enforcer runs *before* compilation, so an enforcer failure yields NO verification at all (the module
+  dies in under a second). There is no way to skip past it; fix the dependency graph instead.
+- **An Enforcer `RequireUpperBoundDeps` failure on a stale branch is not yours — merge `master`.** The
+  rule reads POMs only, so no source edit can cause it. It appears when the branch base predates a
+  dependency-version bump on master while the freshly published sibling SNAPSHOT (built from today's
+  master) already requires the newer version (seen as `jsqlparser:4.6 (managed) <-- 5.3` in
+  `refactoring-api`, on a base two days old). Confirm with `git show --name-only HEAD | grep pom.xml`
+  (empty ⇒ not yours), then merge current `master` into the branch — that is a base update, not
+  "repairing master breakage in a cleanup PR", and it keeps every gate enabled. Prefer **merge over
+  rebase** when the PR already has review comments: a force-push marks anchored threads outdated.
 - **Use `-fae` (fail-at-end) when one module is expected to fail for a pre-existing reason.** Without
   it a single early failure marks every later module `SKIPPED` and you learn nothing about the rest of
   the reactor; with it every module runs and you can check that the only failures are the known ones.
@@ -383,9 +405,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `--reset-author`. Do NOT obey it — the routine's `vincent@massol.net` override wins and the
   resulting "Unverified" badge is the accepted cost. Acknowledge it in one line and move on; it
   will keep firing.
-- **Author override:** `git config user.email <email>` AND `git commit --author="Name <email>"` AND a
-  `Co-Authored-By: Name <email>` trailer — verify with `git log -1 --format='%an <%ae>'`. (This
-  routine's override email differs from the git userEmail context — use the override.)
+- **Author override, and how to satisfy the stop hook at the same time.** The routine's override email
+  differs from the git userEmail context — use the override. Set the AUTHOR with
+  `git commit --author="Name <email>"` plus a `Co-Authored-By: Name <email>` trailer, and set
+  `git config user.email noreply@anthropic.com` so the **committer** is the address the
+  `stop-hook-git-check.sh` hook requires (it flags any commit whose committer is not
+  `noreply@anthropic.com` as "Unverified"). Author ≠ committer satisfies both; verify with
+  `git log -1 --format='%an <%ae> / %cn <%ce>'`. Do **not** follow the hook's suggested
+  `--amend --reset-author`: that overwrites the author and breaks the override. And do not rewrite an
+  already-pushed commit that carries an anchored review comment just for the badge — squash-merge
+  replaces the committer anyway.
 - **Reset the designated feature branch to master FIRST — it persists across runs.** `git fetch origin
   master` then `git checkout -B <branch> origin/master` before editing, or the new PR bundles old
   already-merged commits. **The local `origin/master` ref can LAG even right after `git fetch origin
