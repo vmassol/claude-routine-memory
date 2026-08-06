@@ -445,6 +445,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     platform test code); the type-inferred `mock()` form converts by hand when the stubbed getter's
     return type is already imported and is a drop when naming it needs a foreign import; never hoist a
     `mock()` out of a repeatedly-invoked lambda.
+  - **S9016 follow-up — Vincent's style call, apply it from the start:** write the extracted local as
+    `Foo fooMock = mock();` (type-inferred), not `mock(Foo.class)`. No rule requires it (`S3740`/`S6212`
+    are not in the XWiki profile and the rule's own example keeps the literal), but it was asked for in
+    review and applied across the whole batch, so treat it as the preferred form for extracted mocks and
+    new test code. It is only valid where the target type is explicit; `mock(X.class, "name")` /
+    `withSettings()` / `RETURNS_DEEP_STUBS` keep the literal.
   - **S4719** charset name → `StandardCharsets` — retyping a `private` charset constant to `Charset`
     clears every site in the file in one line, but only if no remaining use still needs a `String`;
     otherwise fix the call site and delete the constant/import the change orphans. Check for a
