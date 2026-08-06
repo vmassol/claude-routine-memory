@@ -398,6 +398,31 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   already MERGED (squash-merged, so the local commits look distinct) → `git checkout -B <branch>
   <realMasterSha>` and start fresh. If it's genuinely ahead, rebase the unmerged commits onto the real
   HEAD.
+- **An OKF PR must be branched off a FRESH plugin master, kept small, and pushed the same turn.**
+  `xwiki-dev-llm` takes several commits a day and every shipped change bumps the version in four
+  manifests, so a branch cut at the start of a long run conflicts on exactly those lines and gets closed
+  rather than merged ("Not applying, because code conflicts and it'll be recreated by the routine later
+  on if still needed"). Fetch master right before writing the OKF edit, do the version bump last, and
+  don't let the branch sit while a build runs. When one is closed for conflicts, do **not** reopen or
+  re-push it — condense what it held here and let a later run re-author it on a clean master.
+- **Owed to the OKF** (closed PR `xwiki/xwiki-dev-llm#38` holds the full text; re-author on fresh master
+  when a run next fixes these rules):
+  - **S9016** extract nested mock creation — drive the edit off the issue `textRange`; insert the
+    declaration at the statement start; name `<type>Mock` reserving names **per method** (file-wide
+    reservation yields a stray `fooMock2` in a method with no `fooMock`); declare a **generic** mocked
+    type parameterized and let the no-arg `mock()` infer it (a raw declaration leaves an unchecked
+    warning — note `S3740` is NOT enabled for XWiki, so it is a merit argument, not a new issue); keep
+    the class literal for a non-generic type (the rule's own compliant example does, and it is ~92% of
+    platform test code); the type-inferred `mock()` form converts by hand when the stubbed getter's
+    return type is already imported and is a drop when naming it needs a foreign import; never hoist a
+    `mock()` out of a repeatedly-invoked lambda.
+  - **S4719** charset name → `StandardCharsets` — retyping a `private` charset constant to `Charset`
+    clears every site in the file in one line, but only if no remaining use still needs a `String`;
+    otherwise fix the call site and delete the constant/import the change orphans. Check for a
+    `catch (UnsupportedEncodingException …)` that would become unreachable.
+  - **S2589** condition always true — safe when the condition is the negation of the branch it sits in,
+    or a guard repeated inside its own guarded block; **drop** a dead defensive null check in concurrent
+    code (it costs nothing to keep and reads as intentional).
 - **Recording learnings (memory repo → `main`).** The xwiki-platform fix lives on a feature branch but
   learnings go to this repo's `main`. Do NOT edit on the feature branch then stash/checkout/pop (main
   has diverged; the pop bakes `<<<<<<<` markers into the commit). Instead `git checkout main && git pull
