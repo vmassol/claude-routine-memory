@@ -423,6 +423,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   - **S2589** condition always true — safe when the condition is the negation of the branch it sits in,
     or a guard repeated inside its own guarded block; **drop** a dead defensive null check in concurrent
     code (it costs nothing to keep and reads as intentional).
+- **An OKF PR must re-derive the plugin version from the LIVE master right before pushing.**
+  Concurrent sessions bump `1.0.N` too, so a bump computed from the commit you branched off is stale
+  by the time you push, and the PR gets closed for it ("the versions are wrong") — the content is
+  never even reviewed. Re-read `marketplace.json` on master (`gh api repos/xwiki/xwiki-dev-llm/
+  contents/.claude-plugin/marketplace.json --jq .content | base64 -d`) at push time, bump from THAT,
+  and also re-check the rule map on master: a parallel run may have just documented the same rules.
+- **Pending OKF additions** (closed PR #40's content, still absent from master as of plugin 1.0.12 —
+  fold into the next OKF PR rather than re-opening that one): **`S8714`** is not in the rule map at
+  all — its three shapes are single-call try (`T e = assertThrows(T.class, () -> call())`),
+  `catch { fail() }` → `assertDoesNotThrow`, and multi-statement try with the setup hoisted out;
+  `fail` becomes an unused import; 62/62 with no drop. Plus three caveats: `S5786` cannot touch an
+  `@Override` (visibility cannot be reduced) nor a class read cross-package for a constant; `S1185`
+  removing a *public* super-only override PASSES revapi (so "public API" is not a drop reason); and
+  `S1144` must not remove a private member that a reflection test names as a string.
 - **Recording learnings (memory repo → `main`).** The xwiki-platform fix lives on a feature branch but
   learnings go to this repo's `main`. Do NOT edit on the feature branch then stash/checkout/pop (main
   has diverged; the pop bakes `<<<<<<<` markers into the commit). Instead `git checkout main && git pull
