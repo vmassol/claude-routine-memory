@@ -119,6 +119,18 @@ location, subagent verification, the accept loop).
   `fooMock3`). Reserve in source order into a `taken` set first, then apply in reverse. Prefer one
   consistent scheme (`<type>Mock`, `<type>Mock2`, …) over "plain name, suffix only on collision" —
   the latter makes one file read three different ways.
+- **A fix that NARROWS the set of checked exceptions a call can throw breaks the enclosing
+  `catch`.** Java rejects a `catch` for a checked exception the `try` can no longer throw, so the
+  compile fails. It bit S4719 three times in one batch (`getBytes(String)`/`IOUtils.toString(…,
+  String)` → the `Charset` overload kills `UnsupportedEncodingException`). Before applying such a
+  fix, look at the enclosing `try`: if that exception is the ONLY thing the body throws, the fix
+  includes deleting the dead `try`/`catch` and dedenting the body — which is a good change (the
+  removed instructions are uncovered, so coverage goes UP), just not a one-liner. If the `catch`
+  also covers something else (`catch (IOException)` around a `getOutputStream()`), it stays. The
+  same shape applies to any rule that swaps a String-typed API for a typed one.
+- **An "unnecessary" cast on an argument of an OVERLOADED method is not a mechanical fix** — removing
+  it can silently re-dispatch to a different overload and still compile. Check the callee's overload
+  set before trusting S1905.
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
   are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
   in the same edit; a declaration for a generic type should carry its type arguments and let the factory
@@ -170,10 +182,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
 - **Datapoints for a three-repo chain** (warm `~/.m2`, all green, tests on): whole commons repo
-  (130 modules) **17:46** / **22:54** on a second run (3941 tests), rendering 3-4 modules **1:59** /
-  **2:10**, platform **26**-module `-pl` reactor **18:25**, platform 12-module reactor incl. oldcore
-  **6:24**, platform 7 leaf modules **7:08** — ≈38 min end to end for one background run. A 26-module platform reactor is NOT expensive: prefer it
-  over dropping thin-spread sites.
+  (130 modules) **17:46**; commons 12-module `-pl` **5:37** (1012 tests); rendering 2-4 modules
+  **0:44**-**2:10**; platform **32**-module `-pl` reactor **13:03** (2181 tests), a 26-module one
+  **18:25**, 12 modules incl. oldcore **6:24**, 3 leaf modules **2:23**. A wide platform reactor is
+  NOT expensive: prefer it over dropping thin-spread sites.
 - **When a commons batch touches >~25 modules, build the WHOLE repo** (`cd /home/user/xwiki-commons
   && mvn install -Plegacy,quality`) instead of a long `-pl` list: 35 touched modules ran 16:36 with
   2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
@@ -188,6 +200,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   and a test in *another module* asserting a log message that the wave had reworded. **A test-only
   batch cannot cause a Checkstyle error in `src/main` or an assertion failure in a test you did not
   edit** — that reasoning is enough to keep the fixes rather than dropping the module.
+- **`-fae` does NOT save the modules DOWNSTREAM of a failure — plan the drop before the build.** A
+  single `jacoco:check` failure on a small early module (`eventstream-api`, 0.73 → 0.72) skipped 17
+  of 32 platform modules including oldcore, costing a full second reactor. When a batch removes
+  **covered** instructions from a module that contributes only one or two fixes, drop that module
+  from the change up front rather than discovering it at minute 5.
+- **A module whose `src/main` is essentially a helper library has no meaningful test suite of its
+  own — add its CONSUMER to the reactor.** `xwiki-rendering-test` ran 2 tests; adding
+  `xwiki-rendering-integration-tests` ran 1532 and is what actually exercises `TestDataParser`.
+  Grep for the changed class across `*/src/test` to find the consumer.
 - **`checkstyle:check` runs AFTER the tests, so a pre-existing `src/main` violation still gives you
   full test verification.** A test-only oldcore batch failed the module on two `DeclarationOrder`
   violations in an untouched `RegisterAction.java` while its 1140+45 tests ran green — that is enough
@@ -357,6 +378,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   - `git cherry-pick` has **no `-q` flag** (it prints usage and the branch silently stays at base).
     Redirect its output instead, and if a commit goes dangling, recover the SHA from `git reflog
     --format='%H %gs'`.
+- **This container's stop hook demands `noreply@anthropic.com` and conflicts with the author
+  override.** It fires at the end of EVERY turn once a commit exists, asking you to
+  `--reset-author`. Do NOT obey it — the routine's `vincent@massol.net` override wins and the
+  resulting "Unverified" badge is the accepted cost. Acknowledge it in one line and move on; it
+  will keep firing.
 - **Author override:** `git config user.email <email>` AND `git commit --author="Name <email>"` AND a
   `Co-Authored-By: Name <email>` trailer — verify with `git log -1 --format='%an <%ae>'`. (This
   routine's override email differs from the git userEmail context — use the override.)

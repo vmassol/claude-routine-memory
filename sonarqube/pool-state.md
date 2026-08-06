@@ -59,7 +59,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | Rule | Last-seen pool & clustering | Observed drop rate |
 |---|---|---|
 | **S6201** instanceof | **Drained**: the last 54 (the whole `xwiki-commons-extension` tree) went in one PR. Commons keeps only the 4 permanently-dropped crypto-cipher sites; rendering 0; platform 2 (both dropped). Concurrent sessions routinely leave 9-10 feature-module PRs open at once. | ~95-100%: **54/54** in the extension tree, **0/53** on an earlier 5-module commons batch, **42/42** across 26 non-extension files. Drops are coverage or flow-scope, not correctness. The `equals()`-with-explicit-local shape is ~a third of any pool and is a pure delete-the-declaration edit. |
-| **S6068** Mockito `eq()` | Platform 102 → 35 → **17** after a second 18-site pass; the remainder is thin-spread one-or-two per module across ~11 modules (wiki-workspaces-migrator 3, legacy-events-hibernate-api 3, notifications-preferences-api 2, icon-default 2, …). Commons had 4, all in `job-default`/`DefaultJobExecutorTest` — now done. Zero in rendering. | **0 drops (89/89).** Fully scriptable and test-only, so the module tests are the whole verification. |
+| **S6068** Mockito `eq()` | **Drained in all three repos** (platform 102 → 35 → 17 → 0, over three passes; the last 17 were thin-spread one-to-three per module across 11 modules). Commons 4 done, rendering 0. | **0 drops (106/106).** Fully scriptable and test-only, so the module tests are the whole verification. Key the edit to the whole STATEMENT (scan up/down to the `;`), never the flagged argument. |
 | **S9016** nested mock creation | Platform 101 → 49 → **4** (one 45-site PR across 26 modules; the pool was thin-spread — 1-4 per module — and a 26-module platform reactor still builds in 18 min). Commons 6 (1 extension-api + 5 store-blob-s3) still unswept. Rendering 0. | **~8%: only the type-inferred `mock()` form drops.** 39 of the 45 were scripted off `textRange`; 6 of the 7 `mock()` sites were still recoverable by hand (the stubbed getter's return type was already imported). The one real drop needed a *new foreign* import (Hibernate `Configuration`) — that is the drop line for this rule. |
 | **S8714** try/catch/fail→`assertThrows` | **Drained in all three repos.** The platform 49 went in one PR (security-authorization-api 11, rest-server 8, export-pdf-default 7, model-api 7, oldcore 5, export-pdf-api 4, livedata-livetable 2, + 5 singletons = 21 files / 12 modules). Regenerates slowly. | **0 drops (62/62 across the three repos).** Three shapes, all safe: single-call try (~90%), `catch { fail() }` → `assertDoesNotThrow`, and a multi-statement try where only the last call throws (hoist the setup out, effectively-final locals still work in the lambda). |
 | **S4201** null check before `instanceof` | Commons 4 (crypto-pkix 2, extension-api 2) — drained. Not yet counted in platform/rendering. | **0 drops (4/4).** Pure one-line delete of `x == null \|\|`; every site was the `equals()`/validate shape. |
@@ -95,6 +95,13 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S5361** `replaceAll`→`replace` | Rendering 8, all in the `XWikiSerializer2` transliteration table (the S6397 twin — same table, different rule). | 0 drops (8/8). Watch the ONE escaped-metacharacter site: `replaceAll("\\\\.", "")` must become `replace(".", "")`, **not** `replace("\\\\.", "")`. |
 | **S1611 / S1161 / S1125 / S1612 / S1488** small mechanical | Individually 1-5 per repo, so only worth doing as *riders* on a batch you are already building. Commons yielded 5+3+2+2+1 = 13 in one pass alongside S1124/S6208/S1640 (1+2+2 more). | **0 drops (18/18).** |
 | **S1604** anon class→lambda | ~20 project-wide, one-or-two per file across many modules. | Low, EXCEPT `AccessController.doPrivileged(new PrivilegedAction<T>(){…}, acc)` — **permanent drop**, the lambda is an ambiguous reference (see `dropped-issues.md`). |
+| **S3024** concat inside `append` | Swept: platform 16 (oldcore 13, of which `XWikiGroupServiceImpl` alone held 10 — a query-builder class is the reliable shape; + repository-server-api, skin-skinx, zipexplorer). | **0 drops (16/16).** Chained `append` preserves left-to-right evaluation, so a `count++` fragment is safe. Use a `char` literal for one-character fragments. |
+| **S4719** charset name → `StandardCharsets` | Swept: commons 9, then **platform 15** across 12 modules (oldcore 3, skin-skinx 2, + singletons). | **0 drops (24/24)** but **3 of 15 needed dead-`catch` removal** (see learnings): the shape to watch is a flagged call inside `try { … } catch (UnsupportedEncodingException)`. Retyping a *private* `String` charset constant to `Charset` clears several keys in one line. |
+| **S6353** `[0-9]` → `\d` | Swept: platform 8 (oldcore 4, chart-macro 2, url-scheme-standard 2). Two keys per line is common. | **0 drops (8/8).** Equivalent without `UNICODE_CHARACTER_CLASS`, which XWiki never sets. |
+| **S1659** one declaration per line | Swept: platform 8, ALL in oldcore (`XWiki.java` 5, DBListClass 2, StaticListClass 1). | **0 drops (8/8).** Pure line-splitting; the densest sites are `String a = "", b = "", …` preamble blocks in long legacy methods. |
+| **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
+| **S1130** unthrowable `throws` | **Commons 28 = 24 test + 4 `src/main`; the 24 test ones went in one PR** over 12 modules. This is the best commons fodder found since the classic allowlist dried up. Platform has **287** open, never triaged — the same test/main split should apply and is the biggest untouched pool anywhere. | **0 drops on test methods (24/24)**; `src/main` is a permanent drop (callers catch it). The compiler is the whole verification. |
+| **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
 | **S3415** swap operands | — | **Default DROP.** |
 
 ## Candidates not yet swept
@@ -113,6 +120,12 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   occurrence still compiles, because it silently re-binds to the field of the same name. Only worth it
   with a guard that asserts zero bare occurrences of the old name between the declaration and the end of
   the method, and even then the payoff is one issue per rename.
+- **`S3252`** "use static access with X for Y" (rendering 34, 30 of them in two
+  `xwiki20/reference/*TypeSerializer` classes) — **rejected, and the OKF denylist entry is right for
+  this pool**: the code says `XWiki20LinkReferenceParser.ESCAPE_CHAR` where the constant is declared
+  on the parent `GenericLinkReferenceParser`. Renaming the qualifier is behaviour-neutral but *loses
+  the intent* (which parser's escape char this is) and churns imports — a style argument a reviewer
+  would push back on, not a cleanup.
 - **`S2925`** `Thread.sleep()` in a test (rendering 3, all `LinkCheckerTransformationTest`) —
   **rejected**: replacing the sleeps means introducing Awaitility and rewriting the test's timing
   contract, well past the mechanical bar.
@@ -149,22 +162,25 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## Where the classic allowlist stands
 
-A 39-rule allowlist query now reads **commons 125 → ~15 residue, rendering 1 (a dropped key),
-platform 18 (nearly all already dropped)**. The allowlist is genuinely exhausted: a future run must
-open with the *distribution facet*, not the allowlist, and pivot to the test-code pools. After the
-S9016/S6068/S8714 sweep the deepest remaining ones are **platform `S8714` 49 and `S9016` ~49**, both
-still worth a full PR each; commons and rendering test-code pools are drained.
+The 39-rule classic allowlist is genuinely exhausted in all three repos (commons ~15 residue,
+rendering 1, platform 18 and nearly all already dropped), and so is the test-code generation
+(`S9016`/`S6068`/`S8714`). **A future run must open with the DISTRIBUTION FACET, not the allowlist.**
 
-**After this sweep**: platform's `S8714` is gone, commons' long tail is down to the rejected rules
-above, and rendering is at zero mechanical issues. The next run should open with the distribution
-facet on **platform** (its long tail — `S4719` 15, `S3024` 16, `S6068` 17, `S6126` 39 — is the only
-place left with volume) and expect commons/rendering to yield a handful at best.
+**After this sweep** (platform 77, commons 24, rendering 1):
 
-**Rendering is closed.** Its last mechanical singletons (S1450, S1121, two S2589) are done; what
-remains is S127 (assign to loop counter), S135 (multiple break/continue), S1452, S2176, S8786, S2925,
-S3457, S4274, S1182, S1700 — all refactors, renames or behaviour changes, plus the standing denylist.
-Expect a rendering PR to be 4 issues, not 50, and budget accordingly rather than hunting for volume
-there. The one place volume may return is `javabugs:S2259` (94 open, never triaged).
+- **Platform's long tail is spent** for S6068/S3024/S4719/S6353/S1659/S1905/S4201/S1596/S2133.
+  Deliberately **deferred but still viable** there — a good next batch, not drops: `S3012` 5
+  (manual array copy — needs a per-site whole-array-vs-suffix check), `S1450` 4 (field → local; the
+  sites are `Thread` fields in `DefaultSolrIndexer` and `jodConverter` in `DefaultOfficeServer`, a
+  real refactor), `S1121` 2 (`XWikiRepositoryModel` assignment-in-expression).
+- **The single biggest untriaged pool anywhere is `java:S1130` in platform: 287 open.** Commons'
+  test-only subset was 24/24 clean, so the platform equivalent is probably worth 100+ — split it by
+  `/src/test/` vs `/src/main/` in the very first query and take only the test half.
+- Commons and rendering are otherwise down to the rejected rules; expect a handful at best.
+- Also never triaged: `javabugs:S2259` (platform 127, rendering 94, commons 16).
+- **Rendering is closed** apart from S1130 (1, a `src/main` drop): what remains is S127, S135,
+  S1452, S2176, S8786, S2925, S3457, S4274, S1182, S1700, S3252 — refactors, renames or behaviour
+  changes. Budget a rendering PR at 1-4 issues, and do not hunt for volume there.
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.

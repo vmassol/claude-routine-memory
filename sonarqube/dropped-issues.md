@@ -66,6 +66,13 @@ are fair game again — do not skip them.
   literals are entries of three different SVG/HTML name lists (attributes, elements, integration
   points); a shared constant hides the lists and the repetition is coincidental, not a shared concept.
 
+### java:S1130 (remove unthrowable `throws`) — `src/main` methods with callers
+The 24 **test** sites are all clean fixes; the 4 `src/main` ones are permanent drops — narrowing a
+`throws` on a published method breaks callers that catch it.
+- `AWgZSVQPUMkE2J58eTdz` MockitoComponentMocker L228; `AV4uHS0Q5jV1AdqTqB1L` DefaultJobManager L114;
+  `AV2juG7VVSxcxmoV58Lz` AbstractBeanOutputFilterStream L68; `AV2juGiwVSxcxmoV58Cq`
+  AbstractExtensionMojo L168.
+
 ### java:S3012 (manual array copy) — the loop copies a SUFFIX, not the array
 - `AZkVtQQYz-Gjyq6TVk6Y` LogUtils L196 — `for (int i = arguments.size(); i < defaults.length; ++i)`
   appends from an offset, so every suggested replacement (`Arrays.copyOfRange` + `Collections.addAll`,
@@ -119,6 +126,11 @@ byte. Do not re-triage them one by one; the rule is closed in this repo until th
 - Leading-indent ladder with no line at the baseline, so the minimum-indent strip eats one space
   (only `\s` escapes could reproduce it, which is worse than the concatenation):
   `AY98gWSueYJJhSa54IlE`, `AY98gWSueYJJhSa54IlF`, `AY98gWSueYJJhSa54IlG` (ListBuilderTest 75/101/135).
+
+### java:S2093 (try-with-resources) — the `finally` restores state, it does not close
+- `AZNziSnUEcK0YeraNzE4` AbstractInternalRenderingTest L160 — the `finally` does
+  `MutableRenderingContext.pop()` + `executionContextManager.popContext()`. (The sibling
+  `TestDataParser` L80 site WAS a real `reader.close()` and is fixed.)
 
 ### java:S6035 (alternation → character class) — public constant value change breaks Revapi
 - `AXZl7LuPr56YxuFA79Xv` ReferenceHandler L32 (`PREFIX_DOWNLOAD`), `AXZl7LuPr56YxuFA79Xu` L36
@@ -198,6 +210,18 @@ would mean adding an import from a foreign library.
 - `AW5-S5WZ1Yj5qvzeRm0r` AbstractNode — abstract base designed for extension (private ctor breaks subclasses).
 - `AW5-S49G1Yj5qvzeRmv5` AbstractSecurityConfiguration — abstract base designed for extension.
 - `AW5-S4nV1Yj5qvzeRmsT` CodeMacroLayout.Constants — nested holder in public-API package `org.xwiki.rendering.macro.code`; private ctor removes the implicit public one → revapi `visibilityReduced`.
+
+### java:S4201 (null check before instanceof) — module falls under its JaCoCo floor
+- `AW5-S8LX1Yj5qvzeRoFX` DefaultUntypedRecordableEvent L75 — the fix is correct and compiles, but
+  removing those covered instructions takes `xwiki-platform-eventstream-api` from 0.73 to 0.72 and
+  fails `jacoco:check`. Retry only alongside tests that raise that module's coverage.
+
+### java:S1905 (unnecessary cast) — the cast may be selecting an overload
+- `AZzGqNNeXFD7Ud6sqSQJ` BaseObjectEventGenerator L105 — `(Map<String, Object>) properties` where
+  `properties` is a `DocumentInstanceInputProperties` and `EntityEventGenerator.write` is overloaded.
+  Dropping the cast could silently re-dispatch instead of being a no-op, so it is not mechanical.
+  **General rule: an "unnecessary" cast on an argument of an OVERLOADED method is never a safe
+  mechanical fix** — the compiler will not complain when it picks a different overload.
 
 ### java:S2093 (use try-with-resources) — finally is a state RESTORE, not a close (whole batch dropped)
 - `AZbU8DY3GHlYUfXgHgO9` DefaultRequestParameterConverter L136 — finally does rendering-context `pop()`.
