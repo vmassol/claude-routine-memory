@@ -134,7 +134,11 @@ location, subagent verification, the accept loop).
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
   are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
   in the same edit; a declaration for a generic type should carry its type arguments and let the factory
-  infer (`MultivaluedMap<String, String> x = mock();`) rather than being written raw.
+  infer (`MultivaluedMap<String, String> x = mock();`) rather than being written raw. And **wrapping code in a lambda
+  re-scopes every throwing expression inside it**: an `assertThrows` around `print(new URL("…"))` holds
+  two checked-exception throwers and lands an `S5783` BUG on *new code*, invisible until the next scan.
+  So after a batch merges, re-query the project once with `&sinceLeakPeriod=true&types=BUG` — a green
+  build does not prove a clean sweep, only that nothing broke.
 - **"Would this create a new issue X?" is answered by the project's PROFILE, not the rule catalogue.**
   `api/qualityprofiles/search?organization=xwiki&project=<key>` → the `java` profile key (XWiki's is
   *XWiki Java*, ~609 active rules) → `api/rules/search?organization=xwiki&qprofile=<key>&activation=true&rule_key=java:SXXXX`
@@ -484,14 +488,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   never even reviewed. Re-read `marketplace.json` on master (`gh api repos/xwiki/xwiki-dev-llm/
   contents/.claude-plugin/marketplace.json --jq .content | base64 -d`) at push time, bump from THAT,
   and also re-check the rule map on master: a parallel run may have just documented the same rules.
-- **Pending OKF additions** (closed PR #40's content, still absent from master as of plugin 1.0.12 —
-  fold into the next OKF PR rather than re-opening that one): **`S8714`** is not in the rule map at
-  all — its three shapes are single-call try (`T e = assertThrows(T.class, () -> call())`),
-  `catch { fail() }` → `assertDoesNotThrow`, and multi-statement try with the setup hoisted out;
-  `fail` becomes an unused import; 62/62 with no drop. Plus three caveats: `S5786` cannot touch an
-  `@Override` (visibility cannot be reduced) nor a class read cross-package for a constant; `S1185`
-  removing a *public* super-only override PASSES revapi (so "public API" is not a drop reason); and
-  `S1144` must not remove a private member that a reflection test names as a string.
+- **What the OKF already covers moves fast.** Between one run's PR and the next, parallel sessions
+  documented eight more rules and bumped the plugin three times (1.0.10 → 1.0.14). Re-read the rule map
+  and the family file on master before writing anything and drop whatever landed meanwhile: a PR that
+  re-documents an existing rule is noise, and a version bump computed from your branch point gets the
+  PR closed unreviewed.
 - **Recording learnings (memory repo → `main`).** The xwiki-platform fix lives on a feature branch but
   learnings go to this repo's `main`. Do NOT edit on the feature branch then stash/checkout/pop (main
   has diverged; the pop bakes `<<<<<<<` markers into the commit). Instead `git checkout main && git pull
