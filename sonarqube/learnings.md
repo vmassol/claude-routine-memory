@@ -174,9 +174,9 @@ location, subagent verification, the accept loop).
   make it idempotent (re-query which keys are still OPEN). **An unthrottled loop silently loses about
   half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
   EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
-  throttle from the start and still run the confirm pass (**72/72 landed, zero stragglers**, but budget
-  ~15 min of wall clock for 72 keys through this container's proxy — launch it BEFORE the memory
-  write-up, not after): loop `issues/search?issues=<keys>` → re-POST
+  throttle from the start and still run the confirm pass (**168/168 landed on the first pass, zero
+  stragglers**, but budget ~30 min of wall clock for 168 keys through this container's proxy — launch
+  it BEFORE the memory write-up, not after, and it comfortably covers the whole write-up plus the OKF PR): loop `issues/search?issues=<keys>` → re-POST
   `accept` for anything not yet ACCEPTED → repeat until zero. `do_transition`'s response does NOT
   reliably contain an `issues` key (don't index it → KeyError; the transition still applied), and a
   `Transition from state RESOLVED does not exist: accept` error on the retry is benign — that issue is
