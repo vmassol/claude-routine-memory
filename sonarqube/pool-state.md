@@ -100,7 +100,9 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6353** `[0-9]` → `\d` | Swept: platform 8 (oldcore 4, chart-macro 2, url-scheme-standard 2). Two keys per line is common. | **0 drops (8/8).** Equivalent without `UNICODE_CHARACTER_CLASS`, which XWiki never sets. |
 | **S1659** one declaration per line | Swept: platform 8, ALL in oldcore (`XWiki.java` 5, DBListClass 2, StaticListClass 1). | **0 drops (8/8).** Pure line-splitting; the densest sites are `String a = "", b = "", …` preamble blocks in long legacy methods. |
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
-| **S1130** unthrowable `throws` | **Commons 28 = 24 test + 4 `src/main`; the 24 test ones went in one PR** over 12 modules. This is the best commons fodder found since the classic allowlist dried up. Platform has **287** open, never triaged — the same test/main split should apply and is the biggest untouched pool anywhere. | **0 drops on test methods (24/24)**; `src/main` is a permanent drop (callers catch it). The compiler is the whole verification. |
+| **S1130** unthrowable `throws` | The deepest pool anywhere and it regenerates. Platform **294 = 240 test + 54 `src/main`**; the 155 sites in the 12 densest modules went in one PR (oldcore 56, eventstream-api 25, model-api 17, security-authorization-api 16, notifications-filters-api 13, then 3-6 each). **~63 annotated test sites are still open across 41 other modules** — thin-spread (1-3 per module) but a wide reactor is cheap, so this is the obvious next batch. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods (179/179 across two repos)**; `src/main` is a permanent drop and a NON-annotated method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
+| **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
+| **S5778** `assertThrows` lambda | Tiny: commons 4, rendering 1. A pure rider on a batch you already build. | **20% (1 of 5).** The one discriminator: read the call you are about to hoist — if IT is the thrower, hoisting moves the exception outside `assertThrows`. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
 | **S3415** swap operands | — | **Default DROP.** |
 
@@ -173,14 +175,21 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
   (manual array copy — needs a per-site whole-array-vs-suffix check), `S1450` 4 (field → local; the
   sites are `Thread` fields in `DefaultSolrIndexer` and `jodConverter` in `DefaultOfficeServer`, a
   real refactor), `S1121` 2 (`XWikiRepositoryModel` assignment-in-expression).
-- **The single biggest untriaged pool anywhere is `java:S1130` in platform: 287 open.** Commons'
-  test-only subset was 24/24 clean, so the platform equivalent is probably worth 100+ — split it by
-  `/src/test/` vs `/src/main/` in the very first query and take only the test half.
+- **`java:S1130` in platform was that pool and it paid**: 155 fixed in one 12-module PR, 0 drops.
+  ~63 annotated test sites remain across 41 thin-spread modules — still the best single lever, and the
+  recipe is: one `&rules=java:S1130&ps=500` query, split on `/src/test/`, then classify each site by
+  the annotation above the flagged line.
 - Commons and rendering are otherwise down to the rejected rules; expect a handful at best.
 - Also never triaged: `javabugs:S2259` (platform 127, rendering 94, commons 16).
-- **Rendering is closed** apart from S1130 (1, a `src/main` drop): what remains is S127, S135,
-  S1452, S2176, S8786, S2925, S3457, S4274, S1182, S1700, S3252 — refactors, renames or behaviour
-  changes. Budget a rendering PR at 1-4 issues, and do not hunt for volume there.
+- **Rendering is closed.** The last two mechanical issues (S1066 1 + S5778 1) shipped. Everything
+  remaining is a refactor, a rename or a behaviour change: S127 (13), S135 (3), S1452 (3), S2176 (3),
+  S8786 (3, regex backtracking), S6880 (2, if→switch), S5961 (11, assertion counts), S1134 (4, FIXME
+  comments), S2925, S3457, S4274, S1182, S1700, S3252 (34), plus `javabugs:S2259` (94, never
+  triaged). Budget a rendering PR at 0-2 issues and do not hunt for volume there.
+- **Commons is nearly closed too.** After the S125/S5778/S1130 pass its whole facet is 87 rules and
+  the mechanical part of it is spent; the only deferred-not-dropped item is S3358 (3). What is left is
+  S6355/S1123 (154 — needs the deprecating version), S1135/S1134 (TODO/FIXME), S5993, S3776, S112,
+  S1133, S1186, S1168, S2065 — all denylisted or design work, plus `javabugs:S2259` (16).
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.

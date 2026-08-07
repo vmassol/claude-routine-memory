@@ -145,6 +145,22 @@ location, subagent verification, the accept loop).
   thousands of times is not enabled. `api/rules/show?organization=xwiki&key=java:SXXXX` gives the rule's
   own compliant example, which is the strongest possible answer to a reviewer asking "shouldn't the fix
   look like Y instead?".
+- **Classify sites by the ANNOTATION above the flagged line before batching a signature-level rule.**
+  For `S1130` this turned a 294-issue pool into a 218-issue provably-safe subset in one pass with no
+  snippet reads: walk up from the flagged line over `@…`/comment/blank lines and bucket the site as
+  `@Test`/`@BeforeEach`/`@AfterEach` (safe — never overridden, never called cross-module),
+  `@Override` (needs a parent check) or un-annotated (a `test-jar` consumer in another module may
+  override it, which the in-module compile will not catch). The same bucketing applies to any rule
+  flagged on a method declaration.
+- **XWiki's brace style puts `{` on the NEXT line, so a declaration regex anchored on `…) {` matches
+  ZERO sites.** A batch keyed to `throws\s+([^{;]+?)\s*\{\s*$` skipped all 155 S1130 sites and the
+  skip list read like a data problem. Make the trailing `{` optional (`(\{)?\s*$`) and re-emit it only
+  when it was there. Corollary for any signature-level rule: the flagged line usually ENDS the
+  declaration, and the body brace is the line after.
+- **Consult `dropped-issues.md` for EVERY rule you shortlist, not only the ones you commit to.** Two
+  rendering rules (`S6035`, `S2093`) were re-triaged from source this run although their keys and the
+  exact reason were already recorded — a grep of the rule key against that file is one cheap call and
+  it is what makes the skip-index pay for itself.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
@@ -181,6 +197,10 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **Datapoint for a wide test-only sweep**: commons 4 modules **3:33** (523 tests) + rendering 2
+  modules **1:11** (440) + platform **12** modules incl. oldcore **9:59** (2156) = **~15 min** for the
+  whole three-repo chain, 3119 tests green. A 12-module platform reactor with oldcore in it is cheap —
+  do not drop thin-spread sites to avoid it.
 - **Datapoints for a three-repo chain** (warm `~/.m2`, all green, tests on): whole commons repo
   (130 modules) **17:46**; commons 12-module `-pl` **5:37** (1012 tests); rendering 2-4 modules
   **0:44**-**2:10**; platform **32**-module `-pl` reactor **13:03** (2181 tests), a 26-module one

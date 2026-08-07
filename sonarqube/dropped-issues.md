@@ -73,6 +73,52 @@ The 24 **test** sites are all clean fixes; the 4 `src/main` ones are permanent d
   `AV2juG7VVSxcxmoV58Lz` AbstractBeanOutputFilterStream L68; `AV2juGiwVSxcxmoV58Cq`
   AbstractExtensionMojo L168.
 
+### java:S125 (commented-out code) — a `TODO`/`FIXME` or a documented intent anchors the block
+Roughly 80% of a `S125` pool is NOT dead code. Two shapes, both permanent drops: a block whose
+neighbouring comment names the JIRA issue that will restore it, and a block that *documents* what the
+code below it covers.
+- Anchored by a `TODO`/`FIXME` (mostly XCOMMONS-3028 / XCOMMONS-1292): `AY-F49LFUnN6kAHHxlXP`
+  AetherExtensionRepository L729; `AY-F49M0UnN6kAHHxlXe` AetherDefaultRepositoryManagerTest L236;
+  `AY-F49NKUnN6kAHHxlXz` InstallJobTest L85; `AY-F47phUnN6kAHHxlTQ` DefaultHTMLCleanerTest L593;
+  `AY-F47rQUnN6kAHHxlUA` StAXUtilsTest L66; `AYnfzRhr5_vnQ7oYSQpG`, `AYnfzRhr5_vnQ7oYSQpH`,
+  `AYnfzRhr5_vnQ7oYSQpI` SafeXStream L42/96/105; `AV4uHSm75jV1AdqTqB0N` DefaultHTMLCleaner L144;
+  `AV2juGhFVSxcxmoV58B3` XARMojo L568 (the comment explains WHY `split` is not used);
+  `AY-F48s3UnN6kAHHxlWY`, `AY-F48s3UnN6kAHHxlWZ` JSONToolTest L240/257.
+- Documentation of the `@Inject` declaration each assertion block covers, triplicated across the
+  Jakarta/Javax/legacy copies of the same test: `AZRQnUDg6WWG1k8VL2F9`, `AZRQnUDg6WWG1k8VL2GA`,
+  `AZRQnUDg6WWG1k8VL2GD`, `AZRQnUDg6WWG1k8VL2GG`, `AZRQnUDg6WWG1k8VL2GJ`, `AZRQnUDg6WWG1k8VL2GM`
+  (JakartaComponentDescriptorFactoryTest); `AY-F47leUnN6kAHHxlSx`, `AY-F47leUnN6kAHHxlS0`,
+  `AY-F47leUnN6kAHHxlS3`, `AY-F47leUnN6kAHHxlS6`, `AY-F47leUnN6kAHHxlS9`, `AY-F47leUnN6kAHHxlTA`
+  (JavaxComponentDescriptorFactoryTest); `AY-F48hrUnN6kAHHxlVP`, `AY-F48hrUnN6kAHHxlVS`,
+  `AY-F48hrUnN6kAHHxlVV`, `AY-F48hrUnN6kAHHxlVY`, `AY-F48hrUnN6kAHHxlVb` (legacy
+  ComponentDescriptorFactoryTest).
+
+### java:S5778 (one throwing call per `assertThrows` lambda) — the hoisted call IS the thrower
+- `AZpzqATq_W9UTNvTGQYE` BlobPathTest L208 — the `IllegalArgumentException` comes from
+  `BlobPath.relative("..", "bad/name")`, not from the `resolve()` it is passed to, so hoisting it out
+  of the lambda moves the exception outside `assertThrows` and breaks the test. (The three sibling
+  sites were clean.)
+
+### java:S3358 (nested ternary) — deferred, readability judgement
+- `AWgZSTDOUMkE2J58eTSh` (L344), `AWgZSTDOUMkE2J58eTSi`, `AWgZSTDOUMkE2J58eTSj` (both L370)
+  DefaultVersionRange — extracting `upper ? -1 : 1` into locals is provably equivalent (no side
+  effects) but does not obviously read better than the ternaries, so it is a style call a reviewer
+  could reasonably push back on. Fix only in a batch that already builds `xwiki-commons-extension-api`.
+
+### java:S1144 / java:S1118 / java:S6204 / java:S1185 / java:S1171 commons singletons
+- `AY-F47j8UnN6kAHHxlSf`, `AY-F47j8UnN6kAHHxlSg` ReflectionUtilsTest L113/142 — the "unused" private
+  methods ARE the subject of the reflection test that looks them up by name.
+- `AYRYmI-EY9WvGmTad5t0` AgentUtil L50 — the class is copied verbatim from CSS4J and already carries
+  `@SuppressWarnings("checkstyle:HideUtilityClassConstructor")` plus a comment saying divergence from
+  upstream is deliberately minimised.
+- `AYyDaUxcjVDzm496Abgb` AbstractJobStatus L554 — the list escapes through a public (`@Deprecated`)
+  getter, so an immutable `toList()` result would change the contract.
+- `AZnoBG5_sgBBO9CiAWpB` DefaultCoreExtension L112, `AV4uHSsf5jV1AdqTqB0u`
+  AbstractGenericComponentManager L108 — super-only overrides on public API; needs a per-site check of
+  the parent's visibility before it is mechanical.
+- `AV4uHSLB5jV1AdqTqBv_` DefaultExtensionSerializer L219 — the instance initializer is ~30 lines and
+  moving it into a constructor is past the mechanical bar.
+
 ### java:S3012 (manual array copy) — the loop copies a SUFFIX, not the array
 - `AZkVtQQYz-Gjyq6TVk6Y` LogUtils L196 — `for (int i = arguments.size(); i < defaults.length; ++i)`
   appends from an offset, so every suggested replacement (`Arrays.copyOfRange` + `Collections.addAll`,
@@ -185,12 +231,31 @@ The 30 rendering S5785 issues sit in equals()/hashCode() contract tests. They ar
 listed as dropped keys here. If they resurface, add the suppression rather than converting the
 assertions; see `rules/test-code.md`.
 
+### java:S3415 (swap assertion operands) — false positive / explicitly warned against in code
+- `AYYHPo6DWD-yte4e8LeB` MacroContentSourceReferenceTest L43 — the arguments are ALREADY
+  `(expected, actual)`; and that same file carries a `@SuppressWarnings("java:S5785")` whose comment
+  explicitly warns that a later S3415 "swap these arguments" change would stop testing the `equals()`
+  contract. `AYYHPo2jWD-yte4e8LeA` MacroContentWikiSourceTest L47 — both operands are constructed
+  objects, so the swap is cosmetic only.
+
 ### java:S1130 (remove unthrowable `throws`) — `src/main` method other modules call
 - `AZNziSnUEcK0YeraNzE5` AbstractInternalRenderingTest L288 — dropping `throws Exception` from a
   method in `xwiki-rendering-test`'s `src/main` breaks callers that catch it. The rule is only safe on
   a test method nothing calls.
 
 ## xwiki-platform
+
+### java:S1130 (remove unthrowable `throws`) — not-a-test-method, recorded by SHAPE not by key
+The platform pool is ~294 and splits cleanly, so triage it with the component path + the annotation
+above the flagged line rather than key-by-key:
+- **`/src/main/` (54) — permanent drop.** Narrowing a `throws` on a method other modules call breaks
+  their `catch`.
+- **A method inside a test class with NO `@Test`/`@BeforeEach`/`@AfterEach`/`@ParameterizedTest`
+  annotation (20) — drop unless proven otherwise.** It can be overridden by a subclass in another
+  module (a `test-jar` consumer) that still declares the exception, and the in-module compile will not
+  catch that.
+- The remaining annotated test-method sites are NOT drops — they are simply unswept; see
+  `pool-state.md`.
 
 ### java:S9016 (extract nested mock creation) — type-inferred `mock()` with no class literal
 Not defects: the extraction is valid, but Sonar's `textRange` gives no type to name in the declaration,
