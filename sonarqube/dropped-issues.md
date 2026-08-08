@@ -99,11 +99,39 @@ code below it covers.
   of the lambda moves the exception outside `assertThrows` and breaks the test. (The three sibling
   sites were clean.)
 
-### java:S3358 (nested ternary) — deferred, readability judgement
-- `AWgZSTDOUMkE2J58eTSh` (L344), `AWgZSTDOUMkE2J58eTSi`, `AWgZSTDOUMkE2J58eTSj` (both L370)
-  DefaultVersionRange — extracting `upper ? -1 : 1` into locals is provably equivalent (no side
-  effects) but does not obviously read better than the ternaries, so it is a style call a reviewer
-  could reasonably push back on. Fix only in a batch that already builds `xwiki-commons-extension-api`.
+### java:S3358 (nested ternary) — FIXED, no longer dropped
+The three `DefaultVersionRange` keys shipped as their own PR (the extraction is provably equivalent —
+the two branches of each outer ternary are exact negations — but it stays a readability judgement, so
+it was split off from the mechanical batch rather than dropped).
+
+### java:S2629 (invoke conditionally) — the argument is not a redundant `toString()`
+The ONLY clean shape is a redundant `x.toString()` passed to an already-parameterized SLF4J call
+(4 such sites in `AbstractInstallPlanJob`, fixed). Everything else needs an `isXxxEnabled()` guard,
+which is a judgement call, not a cleanup.
+- `AYjgzRgXPYtryzrppJ6t`, `AYjgzRgXPYtryzrppJ6u`, `AYjgzRgXPYtryzrppJ6v` XMLUtils L97/111/124 — the
+  argument is `ExceptionUtils.getRootCauseMessage(exception)`; one of the three is a `warn`, which is
+  enabled anyway.
+- `AXKD8jA6g7M8To5DTnWM`, `AXIpLV2-0IfHJsxwimTz`, `AXEX-V0v6U9Dwo1n47dT`, `AXEX-V0v6U9Dwo1n47dU`,
+  `AXEX-V0v6U9Dwo1n47dV`, `AXEX-V0v6U9Dwo1n47dW` FailingTestDebuggingTestExecutionListener L56-64 —
+  the arguments are `RuntimeUtils.run("top …"/"docker ps"…)` whose whole purpose is to be printed,
+  and the block is already guarded by `isInCI()`.
+
+### java:S899 / java:S4042 (ignored `delete()` result / use `Files#delete`) — delete in a `finally`
+The two rules sit on the same lines, so one edit would clear both — but every commons site is a temp
+file deleted in a `finally`, and `Files.delete` throws, masking the original exception and creating a
+fresh `S1163`. The `offer()` variant is an unbounded queue (always `true`), so "doing something" with
+the result is a design change.
+- `AXt3f5KPleV-YJ_ZFWoB`/`AXt3f5KPleV-YJ_ZFWoC` ExtendedJarURLConnection L106;
+  `AWgZSTiwUMkE2J58eTU0`/`AWgZSTiwUMkE2J58eTUz` FileAssert L117; `AWgZSTjGUMkE2J58eTU6`/
+  `AWgZSTjGUMkE2J58eTU5` L135 and `AWgZSTjGUMkE2J58eTU8`/`AWgZSTjGUMkE2J58eTU7` L138
+  ZIPFileAssertComparator; `AWgZSVLwUMkE2J58eTc7`/`AWgZSVLwUMkE2J58eTc6` XARMojo L521.
+- `offer()` (design change): `AWgZSTH7UMkE2J58eTTB`, `AWgZSTH7UMkE2J58eTTC`
+  DefaultExtensionJobHistory L124/131; `AWgZST6wUMkE2J58eTXz`, `AWgZST6wUMkE2J58eTX0`
+  DefaultJobManager L208/216.
+
+### java:S1163 (throw in `finally`) — the rethrow is the intent
+- `AW6i52SPr36yrbKLYWHs` ExecutionContextRunnable L76 — the `finally` deliberately rethrows a context
+  cleanup failure as a `RuntimeException`; "fixing" it means deciding to swallow it.
 
 ### java:S1144 / java:S1118 / java:S6204 / java:S1185 / java:S1171 commons singletons
 - `AY-F47j8UnN6kAHHxlSf`, `AY-F47j8UnN6kAHHxlSg` ReflectionUtilsTest L113/142 — the "unused" private
@@ -250,12 +278,15 @@ The platform pool is ~294 and splits cleanly, so triage it with the component pa
 above the flagged line rather than key-by-key:
 - **`/src/main/` (54) — permanent drop.** Narrowing a `throws` on a method other modules call breaks
   their `catch`.
-- **A method inside a test class with NO `@Test`/`@BeforeEach`/`@AfterEach`/`@ParameterizedTest`
-  annotation (20) — drop unless proven otherwise.** It can be overridden by a subclass in another
-  module (a `test-jar` consumer) that still declares the exception, and the in-module compile will not
-  catch that.
-- The remaining annotated test-method sites are NOT drops — they are simply unswept; see
-  `pool-state.md`.
+- **A NON-`private`, non-annotated method inside a test class — drop.** It can be overridden by a
+  subclass in another module (a `test-jar` consumer) that still declares the exception, and the
+  in-module compile will not catch that. A `private` helper is NOT a drop (nothing can override or
+  call it from outside the file); that distinction turned 22 "non-annotated" sites into 18 fixes.
+- The annotated test-method sites are all fixed. The 4 surviving non-private drops:
+  `AY974oDeKZk1650DhyN8` TempResourceActionTest L215 (`public void
+  renderWithInvalidPathThrowsException()` — a public method with no `@Test`); `AY974q4wKZk1650DhyU6`,
+  `AY974q4wKZk1650DhyU7` AbstractROMTestCase L135/140 (public getters on an abstract base test class);
+  `AY974o4KKZk1650DhyPS` AbstractMoveJobTest L45 (`protected` method on an abstract base test class).
 
 ### java:S9016 (extract nested mock creation) — type-inferred `mock()` with no class literal
 Not defects: the extraction is valid, but Sonar's `textRange` gives no type to name in the declaration,

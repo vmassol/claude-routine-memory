@@ -149,13 +149,22 @@ location, subagent verification, the accept loop).
   thousands of times is not enabled. `api/rules/show?organization=xwiki&key=java:SXXXX` gives the rule's
   own compliant example, which is the strongest possible answer to a reviewer asking "shouldn't the fix
   look like Y instead?".
-- **Classify sites by the ANNOTATION above the flagged line before batching a signature-level rule.**
-  For `S1130` this turned a 294-issue pool into a 218-issue provably-safe subset in one pass with no
-  snippet reads: walk up from the flagged line over `@…`/comment/blank lines and bucket the site as
-  `@Test`/`@BeforeEach`/`@AfterEach` (safe — never overridden, never called cross-module),
-  `@Override` (needs a parent check) or un-annotated (a `test-jar` consumer in another module may
-  override it, which the in-module compile will not catch). The same bucketing applies to any rule
-  flagged on a method declaration.
+- **Classify sites by the ANNOTATION above the flagged line — and by `private` — before batching a
+  signature-level rule.** For `S1130` this turned a 294-issue pool into a provably-safe subset in one
+  pass with no snippet reads: walk up from the flagged line over `@…`/comment/blank lines and bucket
+  the site as `@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeComponent` (safe — never overridden, never
+  called cross-module), `@Override` (needs a parent check) or un-annotated. **An un-annotated site is
+  only a drop when it is not `private`**: a `private` helper cannot be overridden by a `test-jar`
+  consumer in another module, so it is as safe as an annotated test method (18 of 22 "non-annotated"
+  sites were recovered this way). The same bucketing applies to any rule flagged on a method
+  declaration.
+- **Sonar's message names the type FULLY QUALIFIED; the source almost always uses the simple name.**
+  A batch that matches `message` tokens against source tokens must compare on `name.split('.')[-1]`
+  on BOTH sides. Get this wrong and the edit is a **silent no-op that still produces a diff** — the
+  script rebuilds the clause it was supposed to shrink, and the only visible symptom is an
+  unexplained re-wrap plus a suddenly over-long line. The guard that catches it: assert
+  `len(removed) == len(wanted)` per site and print a `!! mismatch` line, then re-run from
+  `git checkout -- .`.
 - **XWiki's brace style puts `{` on the NEXT line, so a declaration regex anchored on `…) {` matches
   ZERO sites.** A batch keyed to `throws\s+([^{;]+?)\s*\{\s*$` skipped all 155 S1130 sites and the
   skip list read like a data problem. Make the trailing `{` optional (`(\{)?\s*$`) and re-emit it only
@@ -201,6 +210,10 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **Datapoint for a very wide platform reactor**: **49 modules** (incl. oldcore and web-templates),
+  test-only signature edits, **25:10** with **3134 tests** green; the commons single-module leg
+  (`extension-api`) alongside it was **3:13** / 223 tests. A 49-module `-pl` list is entirely
+  practical — building one reactor for 58 thin-spread files beat every alternative.
 - **Datapoint for a wide test-only sweep**: commons 4 modules **3:33** (523 tests) + rendering 2
   modules **1:11** (440) + platform **12** modules incl. oldcore **9:59** (2156) = **~15 min** for the
   whole three-repo chain, 3119 tests green. A 12-module platform reactor with oldcore in it is cheap —
@@ -299,6 +312,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `mvn` — a second `git add -A && git commit` with no `cd` runs in the FIRST repo and reports "nothing
   to commit", which reads like "already committed" — so verify each one with `git -C <repo> log -1`
   (and `git -C <repo> status --porcelain`), never by reading the commit command's own output. **Write a
+  It bites `git push` too, and there the symptom is misleading: a chained
+  `cd repoA && git push -u origin branchA` newline `git push -u origin branchB` runs the second push
+  **in repoA** and fails with `error: src refspec branchB does not match any`, which reads like a
+  missing branch rather than a wrong directory. **Write a
   multi-repo chain to a SCRIPT FILE and run
   `bash build.sh`, never as an inline heredoc.** In a chain, `cd repoA && mvn …` newline `mvn …` leaves
   the SECOND mvn in repoA — and re-typing a long heredoc to fix one `cd` reproduces the bug verbatim

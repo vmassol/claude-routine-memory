@@ -100,7 +100,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6353** `[0-9]` → `\d` | Swept: platform 8 (oldcore 4, chart-macro 2, url-scheme-standard 2). Two keys per line is common. | **0 drops (8/8).** Equivalent without `UNICODE_CHARACTER_CLASS`, which XWiki never sets. |
 | **S1659** one declaration per line | Swept: platform 8, ALL in oldcore (`XWiki.java` 5, DBListClass 2, StaticListClass 1). | **0 drops (8/8).** Pure line-splitting; the densest sites are `String a = "", b = "", …` preamble blocks in long legacy methods. |
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
-| **S1130** unthrowable `throws` | The deepest pool anywhere and it regenerates. Platform **294 = 240 test + 54 `src/main`**; the 155 sites in the 12 densest modules went in one PR (oldcore 56, eventstream-api 25, model-api 17, security-authorization-api 16, notifications-filters-api 13, then 3-6 each). **~63 annotated test sites are still open across 41 other modules** — thin-spread (1-3 per module) but a wide reactor is cheap, so this is the obvious next batch. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods (179/179 across two repos)**; `src/main` is a permanent drop and a NON-annotated method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
+| **S1130** unthrowable `throws` | **The platform TEST pool is now drained**: 294 → 155 (12 dense modules) → the last **81 thin-spread sites** (58 files / 49 modules, 1-4 each) in one reactor. Platform keeps **58**: 54 `src/main` + 4 non-private non-annotated. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). Regenerates, so re-query. | **0 drops on annotated test methods AND on `private` helpers (260/260 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
 | **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
 | **S5778** `assertThrows` lambda | Tiny: commons 4, rendering 1. A pure rider on a batch you already build. | **20% (1 of 5).** The one discriminator: read the call you are about to hoist — if IT is the thrower, hoisting moves the exception outside `assertThrows`. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
@@ -161,6 +161,28 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 - **`S3824`** `Map.get()`+condition → `computeIfAbsent` — check the guarded block first; when it does
   more than the single `put` (the rendering `AbstractXHTMLImageTypeRenderer` site also touches
   `CLASS`), `computeIfAbsent` is not an equivalent rewrite.
+- **`javabugs:S2259`** "Fix this access that will throw a NullPointerException" (platform 127,
+  rendering 94, commons 16 — the last never-triaged big pool) — **rejected as a sweep**. 100%
+  `src/main`, and rendering's 94 cluster in the chaining renderers (`XWikiSyntaxChainingRenderer` 18,
+  `PlainTextChainingRenderer` 9, `XHTMLChainingRenderer` 8) where the "null" comes from the chaining
+  indirection Sonar's dataflow cannot follow. Each site needs a real per-site dataflow argument and a
+  behaviour change; that is a JIRA issue, not a Sonar sweep.
+- **`java:S899` + `java:S4042`** ignored `File.delete()` result / use `Files#delete` — the two rules
+  sit on the SAME lines (commons: 5 shared sites), so one edit would clear ~10 issues. **Rejected
+  anyway**: every commons site is `tempFile.delete()` in a `finally`, and `Files.delete` throws, which
+  both masks the original exception and creates a fresh `S1163` (throw in `finally`). The `offer()`
+  variant of S899 (unbounded queue, always `true`) is a design change too.
+- **`java:S1948`** "make this non-static field transient or serializable" (commons 14) — **rejected**:
+  the inverse of the denylisted `S2065`, and equally load-bearing — adding `transient` changes what
+  gets persisted.
+- **`java:S1163`** throw in `finally` (commons 1, `ExecutionContextRunnable`) — **rejected**: the
+  `finally` deliberately rethrows a cleanup failure as a `RuntimeException`; fixing it means deciding
+  to swallow it.
+- **`java:S2386`** "make this member protected" (commons 8, rendering 3) — **rejected**: reduces the
+  visibility of a public static member → Revapi break, same shape as the denylisted `S5993`.
+- **The `javascript:` rules are the one genuinely unswept generation left in platform** (`S7765` 90,
+  `S1848` 76, `S6582` 76, `S7721` 61, `S7773` 60, `S4138` 60 — ~450 issues) and no run has triaged
+  them. Verifying them means the pnpm/Nx build rather than Maven, so budget for that before starting.
 
 ## Where the classic allowlist stands
 
@@ -175,12 +197,19 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
   (manual array copy — needs a per-site whole-array-vs-suffix check), `S1450` 4 (field → local; the
   sites are `Thread` fields in `DefaultSolrIndexer` and `jodConverter` in `DefaultOfficeServer`, a
   real refactor), `S1121` 2 (`XWikiRepositoryModel` assignment-in-expression).
-- **`java:S1130` in platform was that pool and it paid**: 155 fixed in one 12-module PR, 0 drops.
-  ~63 annotated test sites remain across 41 thin-spread modules — still the best single lever, and the
-  recipe is: one `&rules=java:S1130&ps=500` query, split on `/src/test/`, then classify each site by
-  the annotation above the flagged line.
+- **`java:S1130` in platform was that pool and it paid twice**: 155 in one 12-module PR, then the
+  remaining **81 in one 49-module PR**, 0 drops either time. It is now spent (58 permanent drops left).
+  The recipe that made it cheap: one `&rules=java:S1130&ps=500` query, split on `/src/test/`, then
+  classify each site by the annotation above the flagged line **and by `private`** — no snippet reads
+  at all, and the whole 85-site classification plus edit script fits in one turn.
 - Commons and rendering are otherwise down to the rejected rules; expect a handful at best.
-- Also never triaged: `javabugs:S2259` (platform 127, rendering 94, commons 16).
+- `javabugs:S2259` has now been triaged and rejected (see above). The only untriaged generation left
+  anywhere is platform's **`javascript:` rules** (~450).
+- **Commons' last mechanical fodder was `S2629` + `S3358` in `extension-api`** (4 + 3, one module
+  build, 3:13 / 223 tests). After that its whole 82-rule facet is denylisted, rejected or a recorded
+  drop. **Rendering yielded literally zero** on the same pass — its 47-rule facet contains no rule
+  that is not denylisted, rejected or already a dropped key. Do not budget a rendering PR at all
+  until something regenerates; "check rendering" is now a one-facet-query answer.
 - **Rendering is closed.** The last two mechanical issues (S1066 1 + S5778 1) shipped. Everything
   remaining is a refactor, a rename or a behaviour change: S127 (13), S135 (3), S1452 (3), S2176 (3),
   S8786 (3, regex backtracking), S6880 (2, if→switch), S5961 (11, assertion counts), S1134 (4, FIXME
