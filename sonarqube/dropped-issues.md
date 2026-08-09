@@ -93,6 +93,13 @@ code below it covers.
   `AY-F48hrUnN6kAHHxlVV`, `AY-F48hrUnN6kAHHxlVY`, `AY-F48hrUnN6kAHHxlVb` (legacy
   ComponentDescriptorFactoryTest).
 
+### java:S2093 (try-with-resources) — `closeQuietly` in the `finally`, so converting changes behaviour
+- `AWl4RiCkzMcy0S6oSn2B` InfinispanCacheFactory L105 — the `finally` is a genuine
+  `IOUtils.closeQuietly(configurationStream)`, i.e. the one shape this rule normally converts, BUT
+  `closeQuietly` deliberately swallows a close failure while try-with-resources would surface it
+  through the enclosing `catch (IOException)` as an `InitializationException`. A behaviour change on
+  an error path in a `src/main` cache component is over the mechanical bar.
+
 ### java:S5778 (one throwing call per `assertThrows` lambda) — the hoisted call IS the thrower
 - `AZpzqATq_W9UTNvTGQYE` BlobPathTest L208 — the `IllegalArgumentException` comes from
   `BlobPath.relative("..", "bad/name")`, not from the `resolve()` it is passed to, so hoisting it out
@@ -272,6 +279,12 @@ assertions; see `rules/test-code.md`.
   a test method nothing calls.
 
 ## xwiki-platform
+
+### java:S5778 (one throwing call per `assertThrows` lambda) — same FILE as an open agent PR
+- `AZ_Y1yTvsEtYd74_M78C`, `AZ_Y1yTvsEtYd74_M78E` ClassPropertyValuesResourceImplTest L137/L145 — the
+  fix itself is clean (hoist `List.of("text")`), but the file is already touched by an open `S1130`
+  agent PR, so editing it risks a merge conflict. Re-triage once that PR has merged; this is a
+  timing drop, not a correctness one.
 
 ### java:S1130 (remove unthrowable `throws`) — not-a-test-method, recorded by SHAPE not by key
 The platform pool is ~294 and splits cleanly, so triage it with the component path + the annotation

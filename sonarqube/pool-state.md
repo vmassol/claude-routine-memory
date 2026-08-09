@@ -102,7 +102,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
 | **S1130** unthrowable `throws` | **The platform TEST pool is now drained**: 294 → 155 (12 dense modules) → the last **81 thin-spread sites** (58 files / 49 modules, 1-4 each) in one reactor. Platform keeps **58**: 54 `src/main` + 4 non-private non-annotated. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). Regenerates, so re-query. | **0 drops on annotated test methods AND on `private` helpers (260/260 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
 | **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
-| **S5778** `assertThrows` lambda | Tiny: commons 4, rendering 1. A pure rider on a batch you already build. | **20% (1 of 5).** The one discriminator: read the call you are about to hoist — if IT is the thrower, hoisting moves the exception outside `assertThrows`. |
+| **S5778** `assertThrows` lambda | **Platform was the real pool: 53**, and 37 of them sat in `xwiki-platform-model-api`'s `*ReferenceTest` family alone (`new XReference(new EntityReference(…))` — one shape, ~70% of the pool); the rest are 1-3 per module over 11 modules. 51 shipped in one PR. Commons 4 → 1 left (a recorded drop), rendering 1 (dropped). | **0 real drops (51/51)**; the 2 not shipped were dropped only for a same-FILE open PR. The discriminator is unchanged — read the call you are about to hoist; if IT is the thrower, drop. In practice the hoisted expression is a *fixture* (a valid `EntityReference`, a `WordBlock`, a `DefaultParameterizedType`) and the thrower is the constructor under test, so the whole family converts. Block-bodied lambdas (`() -> { setup; call; }`) convert too and become expression lambdas — that is a bonus, not a drop. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
 | **S3415** swap operands | — | **Default DROP.** |
 
@@ -210,6 +210,11 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
   drop. **Rendering yielded literally zero** on the same pass — its 47-rule facet contains no rule
   that is not denylisted, rejected or already a dropped key. Do not budget a rendering PR at all
   until something regenerates; "check rendering" is now a one-facet-query answer.
+- **Confirmed again: platform still regenerates a real pool, the siblings do not.** A later sweep
+  found `S5778` at 53 in platform while commons and rendering yielded **literally zero** — every
+  candidate key in both siblings was already in `dropped-issues.md`. The whole sibling check is now a
+  two-call answer (one distribution facet + one `grep` of the candidate keys against the drop index);
+  do not budget a commons or rendering PR up front, and do not spend snippet reads there.
 - **Rendering is closed.** The last two mechanical issues (S1066 1 + S5778 1) shipped. Everything
   remaining is a refactor, a rename or a behaviour change: S127 (13), S135 (3), S1452 (3), S2176 (3),
   S8786 (3, regex backtracking), S6880 (2, if→switch), S5961 (11, assertion counts), S1134 (4, FIXME

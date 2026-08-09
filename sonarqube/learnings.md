@@ -158,6 +158,20 @@ location, subagent verification, the accept loop).
   consumer in another module, so it is as safe as an annotated test method (18 of 22 "non-annotated"
   sites were recovered this way). The same bucketing applies to any rule flagged on a method
   declaration.
+- **A batch that RE-FLOWS a statement onto one logical line must refuse to touch comments.** Joining
+  the statement's lines is the cleanest way to re-wrap after substituting a short variable for a long
+  expression, but it silently destroys any `//` comment caught in the range: the comment swallows the
+  rest of the line. Two guards, both needed — when walking back over continuation lines to find the
+  statement start, **stop at a line beginning `//`, `*` or `/*`**, and assert the collected statement
+  text contains no comment marker. Without the first guard a comment ending in a full stop reads as a
+  continuation (`.` is in any sane continuation-character set) and is pulled in; the damage compiles
+  as a syntax error, so it costs a whole build round rather than being caught by the assertions.
+- **The flagged line is not always the STATEMENT start — for some rules it is the middle.** The skill
+  warns that Sonar attributes a multi-line statement to its start line; the converse also happens
+  (`S5778` is flagged on the line holding the lambda, while `T x =` sits on the line above). A fix
+  that INSERTS a line before the flagged line then splits the assignment. Walk back over continuation
+  lines (previous line ends `= ( , -> + && || ? :`) before deciding where the statement begins, and
+  eyeball the dry-run diff for a removed line ending in `=`.
 - **Sonar's message names the type FULLY QUALIFIED; the source almost always uses the simple name.**
   A batch that matches `message` tokens against source tokens must compare on `name.split('.')[-1]`
   on BOTH sides. Get this wrong and the edit is a **silent no-op that still produces a diff** — the
@@ -228,6 +242,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
   supply Checkstyle/Spoon rules as *plugin* dependencies to later modules. Rendering (2 modules) and
   platform (13 modules) stay on `-pl`: 1:26 and 9:35. Whole three-repo chain ≈ 28 min.
+- **After a COMPILE error, rebuild only the failed module plus the ones the reactor skipped behind
+  it.** The modules that already reported `Tests run:` in the failed run are green for sources you
+  have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
+  11-module one). Confirm the claim first with `git diff` between the two applications of the batch —
+  if the second application changed only the failing file, the earlier greens still hold.
 - **A repo-wide cleanup wave landed in the last day or two is the likeliest cause of a build failure
   you did not cause.** Before assuming your batch broke something, check the failing file's history
   (`git log -1 --format='%h %ad %s' --date=short -- <file>`) and confirm your diff does not touch it
