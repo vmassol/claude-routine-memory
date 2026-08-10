@@ -105,6 +105,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S5778** `assertThrows` lambda | **Platform was the real pool: 53**, and 37 of them sat in `xwiki-platform-model-api`'s `*ReferenceTest` family alone (`new XReference(new EntityReference(…))` — one shape, ~70% of the pool); the rest are 1-3 per module over 11 modules. 51 shipped in one PR. Commons 4 → 1 left (a recorded drop), rendering 1 (dropped). | **0 real drops (51/51)**; the 2 not shipped were dropped only for a same-FILE open PR. The discriminator is unchanged — read the call you are about to hoist; if IT is the thrower, drop. In practice the hoisted expression is a *fixture* (a valid `EntityReference`, a `WordBlock`, a `DefaultParameterizedType`) and the thrower is the constructor under test, so the whole family converts. Block-bodied lambdas (`() -> { setup; call; }`) convert too and become expression lambdas — that is a bonus, not a drop. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
 | **S3415** swap operands | — | **Default DROP.** |
+| **S117** local-variable/parameter naming | **Platform 45 in just 2 modules** — 36 in oldcore `src/main` (BaseClass 9, XWiki 6, BooleanClass 5, XWikiHibernateStore 4, + 12 singletons over 9 files) and 9 in one notifications-filters test. Commons **2** (one extension-api test), rendering **0**. Swept. | **0 drops (47/47).** Splits cleanly into *locals* (28, pure mechanical) and *method parameters* (17, public legacy APIs → own PR). Not to be confused with the rejected **S1117** (shadowing rename). |
 
 ## Candidates not yet swept
 
@@ -180,6 +181,17 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   to swallow it.
 - **`java:S2386`** "make this member protected" (commons 8, rendering 3) — **rejected**: reduces the
   visibility of a public static member → Revapi break, same shape as the denylisted `S5993`.
+- **`java:S117`** was the pool that paid after the test-code generation dried up, and it shows where
+  to look next: **a *naming* rule can hide a dense mechanical pool long after the transform rules are
+  spent**, because cleanup waves never rename anything. The same shape is still unswept elsewhere —
+  platform `S116` (17, fields — API-bearing, harder) and `S1117` (107, the rejected shadowing rename).
+- **Platform candidates read but NOT swept this run** (messages only, no source read — a next run
+  should start here rather than re-pulling the facet): `S108` empty block (84 — each site needs a
+  fill/remove/comment judgement, so not a batch), `S3358` nested ternary (10, extract-to-statement —
+  viable), `S6126` text block (39, ~30-40% drops), `S2093` try-with-resources (11, never triaged in
+  platform), `S1871` duplicate branch (8), `S1185` useless override (14), `S1118` (7).
+  `javabugs:S2190` (9, non-terminating recursion) and `javabugs:S6416` (6) are real-bug rules needing
+  per-site dataflow — JIRA issues, not a sweep.
 - **The `javascript:` rules are the one genuinely unswept generation left in platform** (`S7765` 90,
   `S1848` 76, `S6582` 76, `S7721` 61, `S7773` 60, `S4138` 60 — ~450 issues) and no run has triaged
   them. Verifying them means the pnpm/Nx build rather than Maven, so budget for that before starting.

@@ -157,7 +157,11 @@ location, subagent verification, the accept loop).
   only a drop when it is not `private`**: a `private` helper cannot be overridden by a `test-jar`
   consumer in another module, so it is as safe as an annotated test method (18 of 22 "non-annotated"
   sites were recovered this way). The same bucketing applies to any rule flagged on a method
-  declaration.
+  declaration. For a rule that fires on a *declaration of any kind* the cheapest split axis is
+  **what is being declared**: `S117`'s 45 platform sites divided, with no source reading beyond the
+  flagged line, into 28 local variables (pure mechanical, one PR) and 17 method parameters of public
+  legacy APIs (visible in Javadoc/IDE, so a judgement call → the sibling PR). Deriving the safe/unsure
+  split from the issue's own `textRange` line is what makes the two-PR override cheap.
 - **A batch that RE-FLOWS a statement onto one logical line must refuse to touch comments.** Joining
   the statement's lines is the cleanest way to re-wrap after substituting a short variable for a long
   expression, but it silently destroys any `//` comment caught in the range: the comment swallows the
@@ -184,10 +188,23 @@ location, subagent verification, the accept loop).
   skip list read like a data problem. Make the trailing `{` optional (`(\{)?\s*$`) and re-emit it only
   when it was there. Corollary for any signature-level rule: the flagged line usually ENDS the
   declaration, and the body brace is the line after.
-- **Consult `dropped-issues.md` for EVERY rule you shortlist, not only the ones you commit to.** Two
-  rendering rules (`S6035`, `S2093`) were re-triaged from source this run although their keys and the
-  exact reason were already recorded — a grep of the rule key against that file is one cheap call and
-  it is what makes the skip-index pay for itself.
+- **A RENAME batch must never rewrite a `this.<name>` access.** When the flagged parameter shadows a
+  field of the same name (very common in oldcore setters — `this.engine_context = engine_context;`),
+  a plain word-boundary substitution over the method scope renames the field reference too and the
+  file stops compiling. Use a `(?<![\w$])(?<!this\.)name(?![\w$])` pattern so the field keeps its own
+  name; the resulting `this.engine_context = engineContext;` is correct and leaves the (separately
+  flagged) field alone. The converse guard matters as much: assert the NEW name occurs **zero** times
+  in the rename scope, which is what rules out a renamed local silently capturing a reference that
+  used to resolve to a field.
+- **A line-length guard must compare against the SET of original lines, not zip by index.** As soon as
+  one edit re-wraps a statement onto two lines, every later line pairs with the wrong original and the
+  guard fires on pre-existing over-long lines. `for line in new: if line not in set(old_lines): assert
+  len(line) <= 120` is index-independent and still catches exactly the lines you wrote.
+- **Consult `dropped-issues.md` for EVERY rule you shortlist, before reading ANY source — one grep of
+  all the shortlisted keys, not one per rule you commit to.** This has now cost source reads twice:
+  `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with
+  the exact reason. The check is one call for the whole shortlist; skipping it is what makes the
+  skip-index worthless.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
