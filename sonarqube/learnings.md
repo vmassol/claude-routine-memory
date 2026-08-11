@@ -205,6 +205,12 @@ location, subagent verification, the accept loop).
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with
   the exact reason. The check is one call for the whole shortlist; skipping it is what makes the
   skip-index worthless.
+- **Re-derive the fixed-issue COUNT from the applied edit table at PR time — never carry a planning-phase
+  tally forward.** The count drifts every time a site is added or dropped during triage, and the stale
+  number reaches the PR body, the commit message and the accept list at once. A run shipped "21" when the
+  script had applied 28 (a `java:S125` file added after the tally was written). Compute it from the same
+  structure that drives the edits — group the edit list by rule and print the histogram — and build the
+  accept list from those same keys, so the PR body and the SonarCloud transitions cannot disagree.
 - **Collect issue keys by a substring of the full component PATH** (`.../xwiki-platform-chart-macro/...`),
   NOT a guessed short module name (silently returns 0). Build the accept list by KEY, not edit count.
 - **Don't force the target when the allowlist total is small** — expect a low clean yield even from
@@ -307,6 +313,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
   the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
   would muddle the review and can conflict with whoever is already repairing it.
+- **Checkstyle METRIC rules are a drop condition, and the 120-column rule is not the only one.** Any fix
+  that ADDS a statement or LENGTHENS a boolean expression can be rejected by a metric the line-length
+  guard cannot see: **`BooleanExpressionComplexity` (max 3 operators)** and **`ExecutableStatementCount`
+  (max 30 per method)** both fired in one run. They run in `checkstyle:check` *after* the tests, so each
+  one costs a whole build round. Pre-check them in the apply script, where it is nearly free: for a
+  merge-two-branches fix count the `&&`/`||` in the merged condition and refuse >3; for a hoist-an-
+  expression fix count the statements already in the target method. When one fires, **drop the site** —
+  splitting the method or re-nesting the condition is a refactor, not a Sonar cleanup — and say so in the
+  PR's *Clarifications*. Useful side effect: a metric rejection is the codebase stating that the merged
+  form is NOT more readable, which is a far better answer than a reviewer's opinion.
 - **`-Dcheckstyle.skip=true` does NOT disable XWiki's Checkstyle gate** — the plugin configuration
   wins over the user property and `checkstyle:check` still fails the build. Useful consequence: you
   cannot skip past a pre-existing violation. The tests still run *before* Checkstyle, so a failed run
@@ -330,7 +346,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (`xwiki-commons-extension-api`'s recorded revapi failure was fixed upstream; that one probe
   re-opened ~100 issues.) Same idea for a compile question you can answer in seconds: write a 10-line
   file and run plain `javac` on it rather than guessing (that is how the `doPrivileged` lambda
-  ambiguity was settled).
+  ambiguity was settled). **The same throwaway file settles EQUIVALENCE questions, not just compile
+  ones** — for a text-block conversion (`S6126`), put the old concatenation and the new text block in one
+  `main` and print `old.equals(new)`. Incidental-indent stripping, trailing-whitespace removal and
+  `\r\n` are exactly the traps that compile cleanly and silently change the string, and three
+  conversions were confirmed byte-identical this way in under a minute.
 - **Do NOT use the `snapshot` profile** — it was dropped from the org build recipe. Transitive
   `X.Y.0-SNAPSHOT` deps resolve from the local `~/.m2` and the standard XWiki repos. A fully cold
   `~/.m2` does NOT need `-am` — a ~30-module `-pl` reactor resolves every SNAPSHOT sibling as a

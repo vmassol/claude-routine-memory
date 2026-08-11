@@ -179,6 +179,18 @@ the result is a design change.
 - `AZ827KKd5HXsydqHEg00` InstallJobTest — its `setUp()` is `@BeforeEach @Override` of a public parent
   method; reducing an override's visibility does not compile, so the file cannot be fully cleared.
 
+### java:S3457 (`\n` → `%n`) — the produced string is asserted, so the separator is behaviour
+- `AWgZSTp2UMkE2J58eTVu` UnifiedDiffBlock:140 and `AY-F47xFUnN6kAHHxlUC` ExtendedDiffDisplayerTest:141 —
+  `UnifiedDiffBlock#toString()` emits a unified-diff header and the test rebuilds the *same* literal to
+  assert against it. `%n` would make the diff text platform-dependent. (The OTHER `java:S3457` shape —
+  a redundant `toString()` in a format/log call — is clean and was fixed.)
+
+### java:S3824 (computeIfAbsent) — guarded block does more than the put / concurrency
+- `AWgZSU85UMkE2J58eTcM` DefaultBeanDescriptor:303 — the guarded block has an `else if` branch, so
+  `computeIfPresent` is not an equivalent rewrite.
+- `AXJ6kDt8oUIcIBrOdW4q` JobGroupPathLockTree:49 — the map is a `ConcurrentHashMap` and the mapping
+  function would call `GroupedJobInitializerManager` while the bin lock is held. Concurrency change.
+
 ## xwiki-rendering
 
 ### java:S1118 (add private constructor) — public utility classes in the `wikimodel` public API
@@ -277,6 +289,12 @@ assertions; see `rules/test-code.md`.
 - `AZNziSnUEcK0YeraNzE5` AbstractInternalRenderingTest L288 — dropping `throws Exception` from a
   method in `xwiki-rendering-test`'s `src/main` breaks callers that catch it. The rule is only safe on
   a test method nothing calls.
+
+### Rendering is CLOSED — the whole open facet was re-checked and yields nothing
+A 49-rule facet cross-checked against this index produced exactly three keys not already denylisted,
+rejected or dropped, and all three are non-starters: `S1845` (rename a field — denylisted shape),
+`S5411` ×2 (boxed → primitive `boolean` — denylisted), `S5843` (reduce regex complexity 23 → 20, a
+refactor). Budget a rendering PR at 0 until something regenerates.
 
 ## xwiki-platform
 
@@ -395,3 +413,61 @@ reason to add the module to the reactor. Pick them up in a batch that already bu
 - `AZ5GtE2Xwxx8uFGPms3i`, `AZ5GtE2Xwxx8uFGPms3j` (ObjectSolrMetadataExtractorTest, S7476);
   `AZcwcqCH8IL3Wg1vzZyz`, `AZcwcqCH8IL3Wg1vzZy0`, `AZcwcqCH8IL3Wg1vzZy1`, `AZcwcqCH8IL3Wg1vzZy2`
   (AbstractSolrCoreInitializer, S7476); `AZ3geiByzLZemL-okY2L` (SolrIndexEventListener, S3706).
+
+### java:S2589 (always-true expression) — dead DEFENSIVE checks and documented case analysis
+The clean subset is a sub-expression made redundant by the *enclosing* branch (fixed). These are the
+residue — every one is a deliberate defensive check or a documented exhaustive case analysis, and
+removing it is a behaviour question, not a cleanup:
+- Defensive null checks: `AW5-S62m1Yj5qvzeRnwQ` XWiki:6228, `AW5-S6yK1Yj5qvzeRntd` PdfExportImpl:368,
+  `AW5-S6cN1Yj5qvzeRnYK` UndeleteAction:116, `AYMiXdX1XBPpoazW6ICL`/`AYMiXdX1XBPpoazW6ICM`
+  DefaultTasksManager:244/256 (concurrent queue), `AZ-pzSZoUU8N_C5_mpMF` MyFormAuthenticator:317
+  (CSRF path), `AW5-S5As1Yj5qvzeRmwQ` XWikiCachingRightService:249.
+- Numbered 4-case truth tables whose comments ARE the documentation: `AW5-S9y71Yj5qvzeRooS`,
+  `AW5-S9y71Yj5qvzeRooR`, `AW5-S9y71Yj5qvzeRooT` FileDeleteTransactionRunnable:138/143;
+  `AZp0P6gbRAQTv1t4zCSU`, `AZp0P6gbRAQTv1t4zCST`, `AZp0P6gbRAQTv1t4zCSV`
+  BlobDeleteTransactionRunnable:142/147.
+- `AZYTQtnG6ci08M-1XWQc` DefaultModelBridge:423 — `if (!save)` is the first of several identical
+  clone-once guards; clearing only the first breaks the symmetry that makes the block readable.
+
+### java:S4973 (compare with equals) — a real-bug rule, not a cleanup (whole platform pool)
+All 11 need a per-site semantic decision about whether `==` was meant as identity, so each is a JIRA
+issue rather than a sweep: `AYrcilQ1bO8c88r9TGKa`-`d` CharacterDiffService:86/86/94/99 (`Difference.NONE`
+sentinel), `AW5-S6YN1Yj5qvzeRnPF`/`G`/`H` XWikiDocument:5037/7193/9521 (`isHidden()`),
+`AW5-S4oW1Yj5qvzeRmsg` ScriptClassLoaderHandlerListener:172, `AW5-S76z1Yj5qvzeRoB4`/`5`/`6`
+DocumentSolrMetadataExtractor:281/285 (interned type constants).
+
+### java:S1871 (duplicate branch) — the merged condition exceeds Checkstyle's complexity cap
+- `AXnpAd1eDDFOvAKXAQIQ`, `AXnpAd1eDDFOvAKXAQIS`, `AXnpAd1eDDFOvAKXAQIR`
+  ScopeNotificationFilterPreferencesGetter:95/97/99 — merging the four `return false` branches gives a
+  `BooleanExpressionComplexity` of 10 (max 3), so the build rejects it.
+- `AZbU8BJ4GHlYUfXgHgO7` RequiredRightsInfoUIExtension:266 — same, complexity 5.
+
+### java:S3358 (nested ternary) — not hoistable / blows a Checkstyle metric
+- `AW5-S6XA1Yj5qvzeRnND` AttachmentDiff:43 — the ternary is an argument of a `this(…)` delegating
+  constructor call, so no statement can precede it; clearing it needs a static helper.
+- `AW5-S9MC1Yj5qvzeRoWH` DefaultWikiDescriptorBuilder:221 — `save()` is already at exactly the
+  `ExecutableStatementCount` cap (30); hoisting the ternary makes it 31 and fails the build.
+
+### java:S2629 (invoke conditionally) — the platform pool needs `isXxxEnabled()` guards
+Confirms the commons finding: the only clean shape is a redundant `x.toString()`. 26 of the 27 platform
+sites pass a genuine method call (`ExceptionUtils.getRootCauseMessage(e)`, `object.getStringValue(…)`,
+`StringUtils.join(…)`, `Messages.getString(…)`) and would need a level guard — a judgement call. Note
+`AW5-S7nD1Yj5qvzeRn8U` DefaultQuery:299 is a **permanent** drop: a comment above it says the
+stringification is deliberate (the log is serialized into a job status).
+
+### java:S6126 (text block) — additional platform drops
+- Merged line >120: `AYyD4wTKj2dtqk6dnyNe` MoveAttachmentDocumentInitializer:102,
+  `AYyD4p_jj2dtqk6dnyGU` HibernateDataMigrationManager:332 (the `xsi:schemaLocation` pair merges to 144).
+- `\r\n` line endings, which a text block cannot reproduce without escapes: `AY974jt8KZk1650Dhx4W`
+  JavaIntegrationTest:292, `AY974juUKZk1650Dhx4Y` ScriptingIntegrationTest:248.
+- Build ROI only (the conversion is byte-safe): `AY974ns7KZk1650DhyMP` DocumentSolrMetadataExtractorTest:713
+  — one site would add the slow search-solr-api module to the reactor.
+
+### java:S125 (commented-out code) — src/main is nearly all ANCHORED; test files are the clean subset
+Anchored by a `TODO`/`FIXME` or by a comment explaining why the code is commented out:
+`AW5-S9_r1Yj5qvzeRos3` FeedPlugin:735, `AW5-S50E1Yj5qvzeRm5j` Document:3206, `AW5-S6WL1Yj5qvzeRnMv`
+XWikiRCSArchive:209, `AW5-S6fT1Yj5qvzeRnaP` CancelAction:60, `AW5-S6jq1Yj5qvzeRnfA` SaveAction:174,
+`AW5-S6d91Yj5qvzeRnZb` XWikiServletURLFactory:448.
+Explanatory leftovers documenting mock argument positions: `AY974qjEKZk1650DhyT3`,
+`AY974qjEKZk1650DhyT4` SyndEntryDocumentSourceTest:155/157.
+**False positive** (a descriptive prose comment Sonar read as code): `AXnpAfAcDDFOvAKXAQOz` EditForm:522.
