@@ -558,6 +558,26 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   on if still needed"). Fetch master right before writing the OKF edit, do the version bump last, and
   don't let the branch sit while a build runs. When one is closed for conflicts, do **not** reopen or
   re-push it — condense what it held here and let a later run re-author it on a clean master.
+- **An OKF PR that only adds NUANCE to an already-documented rule is not worth opening.** Two
+  successive runs had theirs closed with the same words — *"not critical and there's a conflict, if
+  it's useful a new PR will be created"* — and the version-bump conflict is structural (parallel
+  sessions bump `1.0.N` constantly, so re-deriving the version at push time does not save you; the
+  branch conflicts again while it waits for review). Reserve an OKF PR for a rule with **no existing
+  entry at all**, or for a correction to an entry that is actively wrong. When the family file already
+  has the rule and you only sharpened a shape or two, record it here under *Owed to the OKF* and let a
+  later run fold it into a PR it was opening anyway.
+- **Owed to the OKF, batch 3** (closed PR `xwiki/xwiki-dev-llm#48`; two shapes that sharpen the
+  EXISTING `test-code-rules` S5778 section rather than adding a rule):
+  - **S5778 — "hoist the nested invocation" is not "hoist the outermost one."** When the thrower is the
+    outer call and its arguments are the fixtures (`new EntityReference(null, new EntityReference(a),
+    new EntityReference(b))` — the `null` name is what throws), hoist the **arguments** and leave the
+    outer constructor in the lambda. A batch keyed to "the first nested `new X(…)`" takes the whole
+    body, compiles, and silently moves the exception outside `assertThrows`. Guard: assert the hoisted
+    span is not the entire lambda body.
+  - **S5778 — a block-bodied lambda is a fix, not a drop.** `() -> { Foo f = new Foo(); f.doIt(); }` is
+    the same defect in braces: hoist the declaration and the block collapses to an expression lambda,
+    or to a method reference when only the call is left (`assertThrows(RuntimeException.class,
+    message::getType)`). Only statements that cannot throw may leave the block.
 - **Owed to the OKF, batch 2** (closed PR `xwiki/xwiki-dev-llm#53` — closed for a conflict with
   *"not critical … if it's useful, a new PR will be created"*, so re-author it on a fresh master when a
   run next touches these rules; do NOT re-push that branch). Two universal drop conditions and five
