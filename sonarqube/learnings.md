@@ -386,9 +386,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 - **The routine's install script does NOT keep the plugin current, and the container image freezes it.**
   `claude plugin marketplace add` + `claude plugin install` are *skip-if-present*: re-run, they print
   "already on disk" / "already installed" and neither pulls the marketplace clone nor checks for a newer
-  version. Because the image is built with the plugin already installed, every session restores that
-  snapshot — observed at **1.0.4 / commit a1a6fa2 (9 days and 12 releases stale)**, with
-  `known_marketplaces.json` `lastUpdated` frozen at build time. The converging pair is
+  version. And **the routine's environment is NOT rebuilt per run**: a fresh VM boots and the repos are
+  re-cloned, but its root disk is a carried-forward snapshot — `/root/.claude` held files written on
+  three different run dates at once (132 from the first run, 205 from a later one, 328 from today) with
+  no persistent volume mounted (`/` is a plain `ext4`). So the FIRST run's install is what every later
+  run keeps finding, and both commands short-circuit — observed at **1.0.4 / commit a1a6fa2 (9 days and
+  12 releases stale)**. The freshly-cloned repos are what makes the environment look clean when
+  `~/.claude` is not. The converging pair is
   `claude plugin marketplace update xwiki-dev-llm` **then**
   `claude plugin update xwiki@xwiki-dev-llm --scope user` (marketplace first — `plugin update` resolves
   the version from the local clone); verified 1.0.4 → 1.0.16. It prints "Restart to apply", so it must
