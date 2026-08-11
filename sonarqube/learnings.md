@@ -383,6 +383,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   *other* repo's `.mvn/`), and it costs a whole build round.
 - **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
   repos B and C from building, since each ships its own PR.
+- **The routine's install script does NOT keep the plugin current, and the container image freezes it.**
+  `claude plugin marketplace add` + `claude plugin install` are *skip-if-present*: re-run, they print
+  "already on disk" / "already installed" and neither pulls the marketplace clone nor checks for a newer
+  version. Because the image is built with the plugin already installed, every session restores that
+  snapshot — observed at **1.0.4 / commit a1a6fa2 (9 days and 12 releases stale)**, with
+  `known_marketplaces.json` `lastUpdated` frozen at build time. The converging pair is
+  `claude plugin marketplace update xwiki-dev-llm` **then**
+  `claude plugin update xwiki@xwiki-dev-llm --scope user` (marketplace first — `plugin update` resolves
+  the version from the local clone); verified 1.0.4 → 1.0.16. It prints "Restart to apply", so it must
+  run BEFORE Claude Code starts, not from a `SessionStart` hook. Until the script does this, treat the
+  cached OKF as an unreliable copy and read the checkout.
 - **Read the OKF from the SOURCE REPO, not the session cache, before deciding any fix.** This is the
   single most expensive mistake this routine has made: the cached plugin was **1.0.4** while master was
   **1.0.16**, and `okf/conventions/logging.md` — added four days earlier and the authoritative answer
