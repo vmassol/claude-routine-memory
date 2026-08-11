@@ -558,7 +558,31 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   on if still needed"). Fetch master right before writing the OKF edit, do the version bump last, and
   don't let the branch sit while a build runs. When one is closed for conflicts, do **not** reopen or
   re-push it — condense what it held here and let a later run re-author it on a clean master.
-- **Owed to the OKF** (closed PR `xwiki/xwiki-dev-llm#38` holds the full text; re-author on fresh master
+- **Owed to the OKF, batch 2** (closed PR `xwiki/xwiki-dev-llm#53` — closed for a conflict with
+  *"not critical … if it's useful, a new PR will be created"*, so re-author it on a fresh master when a
+  run next touches these rules; do NOT re-push that branch). Two universal drop conditions and five
+  rules, all validated by a real sweep:
+  - **Checkstyle METRIC rules as a drop condition** — `BooleanExpressionComplexity` (3 operators) and
+    `ExecutableStatementCount` (30 statements/method) reject mechanically-correct S1871/S3358/S9016
+    fixes *after* the tests run. Full text under *Building / verifying* above.
+  - **A rationale can be a commit message, not a comment** — check the flagged line's git history before
+    deleting. Full text under *Batch mode* above.
+  - **S1871** merge two branches with an identical body: `||` short-circuits in the same order the chain
+    evaluated in (so a second condition that would throw is still guarded); the discriminator is the
+    merged expression's operator count vs the cap of 3, decidable before editing.
+  - **S2589** the fixable subset is redundancy *created by the surrounding code* (a conjunct implied by
+    the preceding branch of the same chain, a null check after an `instanceof` pattern binding); drop
+    defensive checks, documented case tables, and guards repeated for symmetry.
+  - **S3358** turn the OUTER condition into a guard clause and leave the inner ternary as the only one;
+    drop when the ternary is an argument of a `this(…)`/`super(…)` delegating call (nothing may precede
+    it).
+  - **S3457** two shapes, neither free: the `toString()` shape needs `String.valueOf(x)` on a log call
+    (cross-reference `conventions/logging.md`, which is the authority and which the sonarqube corpus
+    still does not point at); the `%n` shape is a behaviour change.
+  - **S3824** clean only when the guarded block is exactly one `put`; drop on an `else if`, and drop when
+    the map is a `ConcurrentHashMap` whose mapping function calls another component (bin-lock hazard).
+  - **S4973** belongs on the denylist — a real-bug rule needing a per-site semantic decision.
+- **Owed to the OKF, batch 1** (closed PR `xwiki/xwiki-dev-llm#38` holds the full text; re-author on fresh master
   when a run next fixes these rules):
   - **S9016** extract nested mock creation — drive the edit off the issue `textRange`; insert the
     declaration at the statement start; name `<type>Mock` reserving names **per method** (file-wide
