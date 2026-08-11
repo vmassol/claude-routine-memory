@@ -383,6 +383,24 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   *other* repo's `.mvn/`), and it costs a whole build round.
 - **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
   repos B and C from building, since each ships its own PR.
+- **Read the OKF from the SOURCE REPO, not the session cache, before deciding any fix.** This is the
+  single most expensive mistake this routine has made: the cached plugin was **1.0.4** while master was
+  **1.0.16**, and `okf/conventions/logging.md` — added four days earlier and the authoritative answer
+  for `java:S2629` — **did not exist in the cache at all**. The fix was shipped, merged into a PR body
+  arguing the exact reasoning that file pre-emptively rejects, and had to be withdrawn. `git -C
+  /home/user/xwiki-dev-llm pull` costs one call; do it in the find phase, not only when writing the
+  OKF PR.
+- **Rule knowledge is NOT all under `okf/sonarqube/`.** The skill routes to `index.md` + one family
+  file, so a rule owned by a *convention* file is invisible from that entry point — `S2629` was in
+  `okf/conventions/logging.md` and referenced from nowhere in the Sonar corpus. Before fixing a rule
+  that is about a **convention** rather than a code shape (logging, naming, comments, deprecation),
+  grep the whole `okf/` tree for the rule key, not just `okf/sonarqube/`.
+- **When the fix's justification is a claim about a LIBRARY's behaviour, check what XWiki wraps around
+  that library.** "SLF4J calls `toString()` itself, lazily" is true of SLF4J and false of XWiki: a job
+  captures the `LogEvent` with its raw `Object[]` and XStream-serializes it into the job log. The
+  giveaway was in plain sight and was not read — the class was `AbstractInstallPlanJob`, the field was
+  a job's `this.logger`, and a sibling call in the same file already wrote the eager String on purpose.
+  Generalise: *whose* code consumes what you are changing, not just what the JDK/library contract says.
 - **Session plugin cache can be STALE vs the xwiki-dev-llm source.** The build recipe, profiles and the
   OKF are authoritative in the plugin *repo*, which may be several versions ahead of the cached plugin
   loaded this session. When a reviewer cites "the latest plugin says X", re-read the source repo.

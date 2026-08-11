@@ -111,10 +111,18 @@ The three `DefaultVersionRange` keys shipped as their own PR (the extraction is 
 the two branches of each outer ternary are exact negations — but it stays a readability judgement, so
 it was split off from the mechanical batch rather than dropped).
 
-### java:S2629 (invoke conditionally) — the argument is not a redundant `toString()`
-The ONLY clean shape is a redundant `x.toString()` passed to an already-parameterized SLF4J call
-(4 such sites in `AbstractInstallPlanJob`, fixed). Everything else needs an `isXxxEnabled()` guard,
-which is a judgement call, not a cleanup.
+### java:S2629 (invoke conditionally) — WHOLE RULE: never remove the eager String
+**Corrected — there is no clean shape.** "The explicit `x.toString()` is redundant because SLF4J calls
+it itself" is WRONG in XWiki and cost a withdrawn PR (`xwiki/xwiki-commons#1888`): a job captures the
+`LogEvent` with its **raw `Object[]`** and `SafeMessageConverter` XStream-serializes it into the job
+log, where `XStreamUtils.isSerializable()` **defaults to true** — so the object is written as a full
+graph, and `SafeArrayConverter.readBareItem()` turns any read failure into `null`. The eager String is
+a deliberate snapshot. The rule is owned by the OKF's `conventions/logging.md` (**not**
+`okf/sonarqube/`, which is why a Sonar sweep never reaches it) and the only resolution is
+`@SuppressWarnings("java:S2629")` + the inline reason — see `AbstractInstallPlanJob` and
+`DefaultJobProgress.onEndStepProgress()`. The 4 `AbstractInstallPlanJob` keys
+(`AXNSaTSQLv0ks60bJ0DB`-`DE`) are suppressed in code, not dropped. The remaining sites all need an
+`isXxxEnabled()` guard, which is a judgement call:
 - `AYjgzRgXPYtryzrppJ6t`, `AYjgzRgXPYtryzrppJ6u`, `AYjgzRgXPYtryzrppJ6v` XMLUtils L97/111/124 — the
   argument is `ExceptionUtils.getRootCauseMessage(exception)`; one of the three is a `warn`, which is
   enabled anyway.
@@ -449,11 +457,12 @@ DocumentSolrMetadataExtractor:281/285 (interned type constants).
   `ExecutableStatementCount` cap (30); hoisting the ternary makes it 31 and fails the build.
 
 ### java:S2629 (invoke conditionally) — the platform pool needs `isXxxEnabled()` guards
-Confirms the commons finding: the only clean shape is a redundant `x.toString()`. 26 of the 27 platform
-sites pass a genuine method call (`ExceptionUtils.getRootCauseMessage(e)`, `object.getStringValue(…)`,
-`StringUtils.join(…)`, `Messages.getString(…)`) and would need a level guard — a judgement call. Note
-`AW5-S7nD1Yj5qvzeRn8U` DefaultQuery:299 is a **permanent** drop: a comment above it says the
-stringification is deliberate (the log is serialized into a job status).
+**The whole rule is a drop** — see the commons section above; the "redundant `x.toString()`" shape is
+NOT clean either. 26 of the 27 platform sites pass a genuine method call
+(`ExceptionUtils.getRootCauseMessage(e)`, `object.getStringValue(…)`, `StringUtils.join(…)`,
+`Messages.getString(…)`) and would need a level guard — a judgement call. `AW5-S7nD1Yj5qvzeRn8U`
+DefaultQuery:299 is the tell that should have stopped both sessions: a comment above it already says
+the stringification is deliberate *because the log is serialized into a job status*.
 
 ### java:S6126 (text block) — additional platform drops
 - Merged line >120: `AYyD4wTKj2dtqk6dnyNe` MoveAttachmentDocumentInitializer:102,
