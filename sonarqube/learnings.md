@@ -565,7 +565,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   branch conflicts again while it waits for review). Reserve an OKF PR for a rule with **no existing
   entry at all**, or for a correction to an entry that is actively wrong. When the family file already
   has the rule and you only sharpened a shape or two, record it here under *Owed to the OKF* and let a
-  later run fold it into a PR it was opening anyway.
+  later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
+  `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words, so
+  the version-bump conflict — not the content — is what decides. Write the condensed *Owed to the OKF*
+  entry in the SAME turn you open the PR, never after review.
 - **Owed to the OKF, batch 3** (closed PR `xwiki/xwiki-dev-llm#48`; two shapes that sharpen the
   EXISTING `test-code-rules` S5778 section rather than adding a rule):
   - **S5778 — "hoist the nested invocation" is not "hoist the outermost one."** When the thrower is the
@@ -578,6 +581,24 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     the same defect in braces: hoist the declaration and the block collapses to an expression lambda,
     or to a method reference when only the call is left (`assertThrows(RuntimeException.class,
     message::getType)`). Only statements that cannot throw may leave the block.
+- **Owed to the OKF, batch 4** (closed PR `xwiki/xwiki-dev-llm#49`, same "not critical + a conflict"
+  reason as batch 2 — re-author on fresh master, do NOT re-push that branch). One rule, `S117`
+  "rename this local variable to match `^[a-z][a-zA-Z0-9]*$`", belongs in `syntax-rules`:
+  - It fires on **method parameters as well as locals** even though the message always says "local
+    variable", and *what is declared* is the natural safe/unsure split — a local cannot escape its
+    method (compiler + module tests are the whole verification), while a parameter of a public legacy
+    API changes no signature and nothing in Revapi but is visible in Javadoc/IDE completion, so it
+    belongs in its own PR. Update the `@param` tag in the same edit.
+  - **The `this.<name>` trap**: an oldcore parameter usually shadows a field of the same name, so the
+    substitution must never rewrite a `this.X` access (`(?<![\w$])(?<!this\.)name(?![\w$])`); the field
+    keeps its own name and `this.engine_context = engineContext;` is correct.
+  - Mirror-image guard: **assert the NEW name occurs zero times in the rename scope**, or the rename can
+    capture a bare reference that used to resolve to a same-named field — which compiles.
+  - Renaming a local **file-wide** is safe when the identifier is only ever declared as a local;
+    transliterate a non-ASCII name (`prefβ` → `prefBeta`) rather than re-lettering it; watch the
+    120-column rule on the *uses*, not the declaration.
+  - Add a denylist note that the neighbouring **`S1117`** (hides-a-field rename) is the unsafe one — a
+    missed occurrence there silently re-binds to the field instead of failing to compile.
 - **Owed to the OKF, batch 2** (closed PR `xwiki/xwiki-dev-llm#53` — closed for a conflict with
   *"not critical … if it's useful, a new PR will be created"*, so re-author it on a fresh master when a
   run next touches these rules; do NOT re-push that branch). Two universal drop conditions and five
