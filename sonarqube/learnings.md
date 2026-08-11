@@ -588,7 +588,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     variable", and *what is declared* is the natural safe/unsure split — a local cannot escape its
     method (compiler + module tests are the whole verification), while a parameter of a public legacy
     API changes no signature and nothing in Revapi but is visible in Javadoc/IDE completion, so it
-    belongs in its own PR. Update the `@param` tag in the same edit.
+    belongs in its own PR. Update the `@param` tag in the same edit. **Outcome datapoint: both PRs were
+    merged, the parameter one without an objection** — so the split is cheap insurance, not a sign the
+    parameter half is unwelcome; keep splitting (it lets the mechanical half merge first) but do not
+    drop parameter sites for fear of the review.
   - **The `this.<name>` trap**: an oldcore parameter usually shadows a field of the same name, so the
     substitution must never rewrite a `this.X` access (`(?<![\w$])(?<!this\.)name(?![\w$])`); the field
     keeps its own name and `this.engine_context = engineContext;` is correct.
