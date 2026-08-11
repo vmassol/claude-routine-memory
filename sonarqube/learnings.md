@@ -200,6 +200,15 @@ location, subagent verification, the accept loop).
   one edit re-wraps a statement onto two lines, every later line pairs with the wrong original and the
   guard fires on pre-existing over-long lines. `for line in new: if line not in set(old_lines): assert
   len(line) <= 120` is index-independent and still catches exactly the lines you wrote.
+- **Check the flagged line's own git history before DELETING anything — a rationale is not always a
+  comment, sometimes it is a commit message.** The universal drop conditions say to respect a comment on
+  the flagged code; that is not enough. A run deleted a `.toString()` from a log call whose `toString()`
+  had been *added on purpose* four days earlier by `64ba541` (XWIKI-24665) — **the direct parent of the
+  branch, printed in the `git log -1` output while the branch was being set up** and read straight past.
+  The repo had already oscillated on those lines (#1871 stripped them, #1872/#1884 restored them), so the
+  sweep re-fought a settled decision. Guard, cheap enough for any deleting rule: loop
+  `git log -1 --format='%h %s' -- <file>` over `git diff --name-only`, and when a subject is recent and
+  JIRA-numbered, `git show <sha> -- <file>` to check it did not introduce the shape you are removing.
 - **Consult `dropped-issues.md` for EVERY rule you shortlist, before reading ANY source — one grep of
   all the shortlisted keys, not one per rule you commit to.** This has now cost source reads twice:
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with

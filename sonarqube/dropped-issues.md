@@ -190,8 +190,15 @@ the result is a design change.
 ### java:S3457 (`\n` → `%n`) — the produced string is asserted, so the separator is behaviour
 - `AWgZSTp2UMkE2J58eTVu` UnifiedDiffBlock:140 and `AY-F47xFUnN6kAHHxlUC` ExtendedDiffDisplayerTest:141 —
   `UnifiedDiffBlock#toString()` emits a unified-diff header and the test rebuilds the *same* literal to
-  assert against it. `%n` would make the diff text platform-dependent. (The OTHER `java:S3457` shape —
-  a redundant `toString()` in a format/log call — is clean and was fixed.)
+  assert against it. `%n` would make the diff text platform-dependent.
+
+### java:S3457 (`toString()` shape) — deleting the call changes what the JOB LOG stores
+`AXDOBHbO3-iMCxIZIEYv` RepositoryUtils:420 is **fixed, but not the way it first looked** — this is the
+same trap as `java:S2629` above. My first fix simply deleted the `.toString()`; that reverted `64ba541`
+(XWIKI-24665), **the direct parent of the branch**, which had added it on purpose. Corrected in-flight
+by `816355e` to **`String.valueOf(repository.getDescriptor())`**, which clears the rule (it is not a
+`toString()` call) while keeping the eager snapshot — the form `DefaultJobProgress` already uses. No
+`@SuppressWarnings("java:S2629")` is needed when the call sits in a `catch` block: S2629 skips those.
 
 ### java:S3824 (computeIfAbsent) — guarded block does more than the put / concurrency
 - `AWgZSU85UMkE2J58eTcM` DefaultBeanDescriptor:303 — the guarded block has an `else if` branch, so
