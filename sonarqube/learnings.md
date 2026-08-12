@@ -247,7 +247,11 @@ location, subagent verification, the accept loop).
   count afterwards.
 - **Accept all issues in a loop** (per issue: `add_comment` + `do_transition accept`). Each issue is
   ~2 curls ≈ 4s, so 20+ issues blow a 2-min timeout — run the accept loop as a BACKGROUND task, and/or
-  make it idempotent (re-query which keys are still OPEN). **An unthrottled loop silently loses about
+  make it idempotent (re-query which keys are still OPEN). **Budget the wall clock from a measured
+  per-key rate, not from a past run's total** — the proxy's throughput varies by an order of magnitude
+  between runs (168 keys in ~30 min once, but only 50 keys in ~50 min on another, i.e. ~60 s/key). At
+  the slow rate the loop outlasts the whole write-up, so launch it FIRST and check progress with one
+  `issueStatuses=ACCEPTED` count query rather than tailing its log. **An unthrottled loop silently loses about
   half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
   EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
   throttle from the start and still run the confirm pass (**168/168 landed on the first pass, zero
