@@ -100,7 +100,9 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6353** `[0-9]` → `\d` | Swept: platform 8 (oldcore 4, chart-macro 2, url-scheme-standard 2). Two keys per line is common. | **0 drops (8/8).** Equivalent without `UNICODE_CHARACTER_CLASS`, which XWiki never sets. |
 | **S1659** one declaration per line | Swept: platform 8, ALL in oldcore (`XWiki.java` 5, DBListClass 2, StaticListClass 1). | **0 drops (8/8).** Pure line-splitting; the densest sites are `String a = "", b = "", …` preamble blocks in long legacy methods. |
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
-| **S1130** unthrowable `throws` | **The platform TEST pool is now drained**: 294 → 155 (12 dense modules) → the last **81 thin-spread sites** (58 files / 49 modules, 1-4 each) in one reactor. Platform keeps **58**: 54 `src/main` + 4 non-private non-annotated. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). Regenerates, so re-query. | **0 drops on annotated test methods AND on `private` helpers (260/260 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
+| **S1130** unthrowable `throws` | 294 → 155 → 81 → then **24 more the very next scan** (5 files / 5 modules, all files the previous PR had already touched). **This rule regenerates inside the files you just fixed** — see the cascade note below. Platform now keeps **58**: 54 `src/main` + 4 non-private non-annotated. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods AND on `private` helpers (284/284 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
+| **S1128** unused import | Platform 9 — swept (4 test files, 3 oldcore `src/main`, 2 others). Thin everywhere; a perfect rider on any reactor you already build. | **0 drops (9/9).** Check the simple name with a word boundary across the whole file first: the remaining hits are almost always prose in comments/strings, but a `{@link X}` in Javadoc counts as a use. |
+| **S1117** local hides a field | **Was rejected as a rule; it is NOT — see the scope proof below.** Commons 15 (5 test files / 5 modules) swept in one PR. Platform **107** untriaged, the biggest mechanical-looking pool left there. | **0 drops (15/15).** The local shadows the field from its declaration to the enclosing block's closing brace, so *every* bare occurrence in that range is provably the local. Rename only inside that computed range. |
 | **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
 | **S5778** `assertThrows` lambda | **Platform was the real pool: 53**, and 37 of them sat in `xwiki-platform-model-api`'s `*ReferenceTest` family alone (`new XReference(new EntityReference(…))` — one shape, ~70% of the pool); the rest are 1-3 per module over 11 modules. 51 shipped in one PR. Commons 4 → 1 left (a recorded drop), rendering 1 (dropped). | **0 real drops (51/51)**; the 2 not shipped were dropped only for a same-FILE open PR. The discriminator is unchanged — read the call you are about to hoist; if IT is the thrower, drop. In practice the hoisted expression is a *fixture* (a valid `EntityReference`, a `WordBlock`, a `DefaultParameterizedType`) and the thrower is the constructor under test, so the whole family converts. Block-bodied lambdas (`() -> { setup; call; }`) convert too and become expression lambdas — that is a bonus, not a drop. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
@@ -127,11 +129,17 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   into inner class, `S5413`, `S119`, `S131` add a default case — design/refactor calls; `S3011`
   `setAccessible` (that IS the test framework's job).
 
-- **`S1117`** "rename this local variable which hides the field declared at line N" (commons 15, mostly
-  test files; platform 107) — **rejected**: renaming a shadowing local is the one rename where a *missed*
-  occurrence still compiles, because it silently re-binds to the field of the same name. Only worth it
-  with a guard that asserts zero bare occurrences of the old name between the declaration and the end of
-  the method, and even then the payoff is one issue per rename.
+- **`S1117`** "rename this local variable which hides the field declared at line N" — **the earlier
+  rejection was wrong and is withdrawn.** The hazard is real (a missed occurrence re-binds to the field
+  and still compiles) but it is fully removed by scoping: Java shadows the field from the local's
+  declaration to the enclosing block's closing brace, so every bare occurrence in that computed range
+  *is* the local and nothing outside it is. Compute the range by brace-matching forward from the
+  declaration and substitute `(?<![\w$.])name(?![\w$])` only there — the `.` in the look-behind is what
+  spares `this.name` and `x.name`. Three cheap assertions make it safe to batch: the flagged line really
+  is a declaration, the NEW name occurs zero times in the range beforehand, and the name never appears
+  inside a string literal in the range. Commons' 15 went in one PR with 0 drops, including 8 sites where
+  the local and the field have the **same type** (so the compiler would not have caught a partial
+  rename). Platform's 107 are the obvious next pool.
 - **`S3252`** "use static access with X for Y" (rendering 34, 30 of them in two
   `xwiki20/reference/*TypeSerializer` classes) — **rejected, and the OKF denylist entry is right for
   this pool**: the code says `XWiki20LinkReferenceParser.ESCAPE_CHAR` where the constant is declared
@@ -194,6 +202,16 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   to look next: **a *naming* rule can hide a dense mechanical pool long after the transform rules are
   spent**, because cleanup waves never rename anything. The same shape is still unswept elsewhere —
   platform `S116` (17, fields — API-bearing, harder) and `S1117` (107, the rejected shadowing rename).
+- **A rule can regenerate inside the files your last PR touched.** Platform's S1130 came back with 24
+  issues in exactly the 5 files the previous run had fixed — the cascade described under *Batch mode*
+  in `learnings.md`. So after shipping a signature-narrowing batch, re-query the same rule next run
+  before assuming it is drained.
+- **Platform rules triaged from their MESSAGE and rejected** (one `ps=2` query each, no source read —
+  do not re-triage): `S2177` rename-shadowing-a-private-parent-method, `S5738` don't-use-a-
+  deprecated-for-removal API, `S1206` add `hashCode()`, `S2139` log-or-rethrow, `S2176` rename this
+  class, `S6880` if/else → switch expression, `S1452` remove a generic wildcard, `S2142` re-interrupt,
+  `S1181` catch `Exception` not `Throwable`, `S8786` simplify a super-linear regex, `S135` reduce
+  break/continue count. All are renames, behaviour changes or design work.
 - **Platform candidates read but NOT swept this run** (messages only, no source read — a next run
   should start here rather than re-pulling the facet): `S108` empty block (84 — each site needs a
   fill/remove/comment judgement, so not a batch), `S3358` nested ternary (10, extract-to-statement —
@@ -206,6 +224,16 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   them. Verifying them means the pnpm/Nx build rather than Maven, so budget for that before starting.
 
 ## Where the classic allowlist stands
+
+**Latest sweep (platform 35, commons 15, rendering 0).** The 56-rule mechanical allowlist queried in
+ONE call per repo returns platform 60 / commons 18 / rendering 6 — and cross-checking those 84 keys
+against `dropped-issues.md` left only **17 in platform and 0 in the siblings**. That cross-check is
+the single cheapest step in the run: do it on the whole shortlist before opening any source file.
+What paid instead was (a) `S1130` regenerating in the files the last PR touched, and (b) `S1117`,
+which the index had wrongly written off. **The lesson generalises: when the allowlist reads zero,
+the next pool is either a rule that regenerates or a rule a past run rejected too quickly** — re-read
+the rejection's reasoning before trusting it.
+
 
 The 39-rule classic allowlist is genuinely exhausted in all three repos (commons ~15 residue,
 rendering 1, platform 18 and nearly all already dropped), and so is the test-code generation

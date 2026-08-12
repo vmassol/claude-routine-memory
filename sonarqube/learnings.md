@@ -188,6 +188,23 @@ location, subagent verification, the accept loop).
   skip list read like a data problem. Make the trailing `{` optional (`(\{)?\s*$`) and re-emit it only
   when it was there. Corollary for any signature-level rule: the flagged line usually ENDS the
   declaration, and the body brace is the line after.
+- **A fix that narrows a SIGNATURE cascades through the call graph in the same file — fix the whole
+  file, not the flagged sites.** Sonar only reports the frontier: narrowing those sites exposes the
+  next ring, so the rule regenerates in the very files you just shipped. A platform S1130 PR narrowed
+  4 private test helpers; the next scan flagged 11 more helpers in the same class, and narrowing those
+  would have exposed the 13 `@Test` methods that call them — three PRs for one file. Strip the whole
+  file in one pass and let the compiler reject anything that really can throw (assert the match count
+  so a partial sweep fails loudly). Count only the flagged keys as "fixed"; the pre-emptive ones are a
+  bonus worth one line in the PR body. Generalises to any rule that changes what a method can throw or
+  return.
+- **A "hides the field" rename is provably safe once you scope it to the BLOCK, not the method.** Java
+  shadows the field from the local's declaration to the enclosing block's closing brace, so every bare
+  occurrence in that computed range is the local and nothing outside it is — brace-match forward from
+  the declaration and substitute only there. This is what turns `S1117` (long recorded as "rejected,
+  a missed occurrence silently re-binds") into a 0-drop batch, including sites where the local and the
+  field share a type and the compiler could not have caught a partial rename. Three assertions carry
+  it: the flagged line really is a declaration, the NEW name occurs zero times in the range, and the
+  name never appears inside a string literal in the range.
 - **A RENAME batch must never rewrite a `this.<name>` access.** When the flagged parameter shadows a
   field of the same name (very common in oldcore setters — `this.engine_context = engine_context;`),
   a plain word-boundary substitution over the method scope renames the field reference too and the
@@ -256,6 +273,10 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **Datapoint for a two-repo chain from a COLD `~/.m2`**: commons 5 modules **5:00** (620 tests) +
+  platform **12** modules incl. oldcore **10:57** (1794 tests) = **~16 min** wall clock end to end,
+  both green, downloads included. oldcore alone was 1143 of those tests. A 12-module platform reactor
+  with oldcore in it stays cheap even cold — keep the thin-spread sites.
 - **Datapoint for a very wide platform reactor**: **49 modules** (incl. oldcore and web-templates),
   test-only signature edits, **25:10** with **3134 tests** green; the commons single-module leg
   (`extension-api`) alongside it was **3:13** / 223 tests. A 49-module `-pl` list is entirely
@@ -569,6 +590,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words, so
   the version-bump conflict — not the content — is what decides. Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 5** (not opened as a PR — one entry sharpens an existing rule, the other
+  adds a rule, and both would hit the structural version-bump conflict; fold them into a PR a later
+  run is opening anyway):
+  - **`S1130`, in `dead-code-rules`** — add the cascade: the rule reports only the frontier of a test
+    class's private-helper call graph, so fixing the flagged sites re-flags the next ring on the next
+    scan. Strip every `throws` in the test file at once. Full text under *Batch mode* above.
+  - **`S1117`, a NEW entry for `syntax-rules`** — "rename this local variable which hides the field
+    declared at line N". It is **not** the unsafe twin of `S117` the denylist note claims, provided
+    the rename is scoped to the block rather than the method: the shadow runs from the declaration to
+    the enclosing block's closing brace, so every bare occurrence there is provably the local. Use
+    `(?<![\w$.])name(?![\w$])` (the `.` spares `this.name` and `x.name`), assert the new name is unused
+    in the range and that the name is not inside a string literal there. Commons: 15/15, 0 drops, 8 of
+    them same-type locals. Correct the `S117` entry's closing sentence, which currently sends a reader
+    away from a viable pool.
 - **Owed to the OKF, batch 3** (closed PR `xwiki/xwiki-dev-llm#48`; two shapes that sharpen the
   EXISTING `test-code-rules` S5778 section rather than adding a rule):
   - **S5778 — "hoist the nested invocation" is not "hoist the outermost one."** When the thrower is the

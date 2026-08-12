@@ -205,6 +205,15 @@ by `816355e` to **`String.valueOf(repository.getDescriptor())`**, which clears t
   `computeIfPresent` is not an equivalent rewrite.
 - `AXJ6kDt8oUIcIBrOdW4q` JobGroupPathLockTree:49 — the map is a `ConcurrentHashMap` and the mapping
   function would call `GroupedJobInitializerManager` while the bin lock is held. Concurrency change.
+- `AY7OTFZKsA0XqdeA5Uak` AbstractInstallPlanJob:198 — same file as the withdrawn `S2629` fix; the
+  guarded block is not a lone `put` and the class's log/plan bookkeeping is deliberately eager.
+
+### java:S3457 (no need to call toString()) — log calls in `AbstractInstallPlanJob`
+The whole remaining commons pool sits in one file, and it is the file whose eager `toString()` was
+*added on purpose* (XWIKI-24665): the job captures the `LogEvent` with its raw `Object[]` and
+XStream-serializes it into the job log, so the String is load-bearing. Two PRs have already been
+withdrawn over this. Permanent drop: `AXNSaTSQLv0ks60bJ0DF` L400, `AXNSaTSQLv0ks60bJ0DG` L606,
+`AXNSaTSQLv0ks60bJ0DH` L659, `AXNSaTSQLv0ks60bJ0DI` L697, `AXNSaTSQLv0ks60bJ0DJ` L700.
 
 ## xwiki-rendering
 
@@ -487,3 +496,21 @@ XWikiRCSArchive:209, `AW5-S6fT1Yj5qvzeRnaP` CancelAction:60, `AW5-S6jq1Yj5qvzeRn
 Explanatory leftovers documenting mock argument positions: `AY974qjEKZk1650DhyT3`,
 `AY974qjEKZk1650DhyT4` SyndEntryDocumentSourceTest:155/157.
 **False positive** (a descriptive prose comment Sonar read as code): `AXnpAfAcDDFOvAKXAQOz` EditForm:522.
+
+### java:S1450 (field → local) — the field outlives the method Sonar sees it in
+Sonar's "only used in one method" is about *syntactic* occurrences, not lifetime: a field written and
+read inside one lifecycle method still exists so the component can be restarted or torn down, and
+demoting it to a local silently changes object lifetime. All `src/main`.
+- `AW5-S8FO1Yj5qvzeRoET` DefaultOfficeServer:86 `jodConverter` — assigned in three places across the
+  start/stop path (`= null` in one method, rebuilt in another) and handed to `DefaultOfficeConverter`.
+- `AW5-S79J1Yj5qvzeRoCr` / `AW5-S79J1Yj5qvzeRoCs` DefaultSolrIndexer:401/406 `indexThread` /
+  `resolveThread` — the component's handles to its own daemon threads; losing them is a design change.
+- `AW5-S6wR1Yj5qvzeRnro` StatsUtil:182 `cookieExpirationDate` is the ONE viable site of the four (a
+  `private static` written and returned in the same method, nothing else reads it) — deferred, not
+  dropped, because one issue does not pay for an oldcore reactor. Take it as a rider.
+
+### java:S1121 (extract the assignment) — deferred, viable, needs a repository-server-api build
+`AW5-S-g71Yj5qvzeRo3o` / `AW5-S-g71Yj5qvzeRo3p` XWikiRepositoryModel:572/575
+(`repository.substring(0, index = repository.indexOf(':'))`). The rewrite is mechanical and
+order-preserving — hoist each `indexOf` into its own `int` local before the `substring` that uses it —
+but it is `src/main` and only worth doing as a rider on a reactor that already builds that module.
