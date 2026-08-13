@@ -102,7 +102,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
 | **S1130** unthrowable `throws` | 294 → 155 → 81 → then **24 more the very next scan** (5 files / 5 modules, all files the previous PR had already touched). **This rule regenerates inside the files you just fixed** — see the cascade note below. Platform now keeps **58**: 54 `src/main` + 4 non-private non-annotated. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods AND on `private` helpers (284/284 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
 | **S1128** unused import | Platform 9 — swept (4 test files, 3 oldcore `src/main`, 2 others). Thin everywhere; a perfect rider on any reactor you already build. | **0 drops (9/9).** Check the simple name with a word boundary across the whole file first: the remaining hits are almost always prose in comments/strings, but a `{@link X}` in Javadoc counts as a use. |
-| **S1117** local hides a field | **Was rejected as a rule; it is NOT — see the scope proof below.** Commons 15 (5 test files / 5 modules) swept in one PR. Platform **107** untriaged, the biggest mechanical-looking pool left there. | **0 drops (15/15).** The local shadows the field from its declaration to the enclosing block's closing brace, so *every* bare occurrence in that range is provably the local. Rename only inside that computed range. |
+| **S1117** local hides a field | **Was rejected as a rule; it is NOT — see the scope proof below.** Commons 15 (5 test files / 5 modules) swept in one PR. Platform's **107 are now swept too**, in two PRs split on `src/test` (58, 26 files / 19 modules — oldcore held 34 of them, `XWikiDocumentMockitoTest` alone 19) vs `src/main` (49, 14 files / 5 modules — oldcore 44, `XWikiDocument` 21). Both halves fit one 22-module reactor. | **0 drops (122/122 across two repos).** The local shadows the field from its declaration to the enclosing block's closing brace, so *every* bare occurrence in that range is provably the local. Rename only inside that computed range. `src/main` is NOT a drop condition here — a local cannot escape its method, so nothing is API-bearing. |
+| **S116** field naming | Commons 2, both non-static `protected` fields written in CONSTANT_CASE in one abstract test class (`AbstractBinaryStringEncoderTest`). Platform 17 (fields, untriaged). | **0 drops (2/2)** when every reader is in the SAME module (grep the name first) — then the compiler is the whole verification. A `protected` field of a class published in a `test-jar`, or any `src/main` field, is the drop line: it is a cross-module rename. Not the same rule as the denylisted **S115** (`static final` constants). |
 | **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
 | **S5778** `assertThrows` lambda | **Platform was the real pool: 53**, and 37 of them sat in `xwiki-platform-model-api`'s `*ReferenceTest` family alone (`new XReference(new EntityReference(…))` — one shape, ~70% of the pool); the rest are 1-3 per module over 11 modules. 51 shipped in one PR. Commons 4 → 1 left (a recorded drop), rendering 1 (dropped). | **0 real drops (51/51)**; the 2 not shipped were dropped only for a same-FILE open PR. The discriminator is unchanged — read the call you are about to hoist; if IT is the thrower, drop. In practice the hoisted expression is a *fixture* (a valid `EntityReference`, a `WordBlock`, a `DefaultParameterizedType`) and the thrower is the constructor under test, so the whole family converts. Block-bodied lambdas (`() -> { setup; call; }`) convert too and become expression lambdas — that is a bonus, not a drop. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
@@ -129,6 +130,12 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   into inner class, `S5413`, `S119`, `S131` add a default case — design/refactor calls; `S3011`
   `setAccessible` (that IS the test framework's job).
 
+- **A *naming* rule outlives every transform rule, and it is where the volume now is.** `S117` paid
+  after the test-code generation dried up; `S1117` then paid 107 in platform in a single run, split
+  into two PRs. The reason is structural: cleanup waves reformat and simplify but never rename, so a
+  naming rule accumulates untouched. When the facet looks dead, sort it for rules whose message starts
+  with "Rename" before concluding the repo is closed. Platform's remaining naming pool is **S116**
+  (17, fields — cross-module, so harder).
 - **`S1117`** "rename this local variable which hides the field declared at line N" — **the earlier
   rejection was wrong and is withdrawn.** The hazard is real (a missed occurrence re-binds to the field
   and still compiles) but it is fully removed by scoping: Java shadows the field from the local's
@@ -277,6 +284,19 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
   the mechanical part of it is spent; the only deferred-not-dropped item is S3358 (3). What is left is
   S6355/S1123 (154 — needs the deprecating version), S1135/S1134 (TODO/FIXME), S5993, S3776, S112,
   S1133, S1186, S1168, S2065 — all denylisted or design work, plus `javabugs:S2259` (16).
+
+**After the S1117/S116 sweep (platform 107, commons 2, rendering 0):**
+
+- **Platform's S1117 is spent**; its next naming pool is `S116` (17 fields). `S1130` has regenerated to
+  **66** (it was written off at 58 permanent drops — re-query it, the cascade note applies). Still
+  deferred-not-dropped and never triaged in platform: `S3824` 35, `S3457` 41, `S125` ~25, `S6126` 36,
+  `S3358`, `S1871`, `S1185`, `S1118`.
+- **Commons is down to singletons.** Its 84-rule facet cross-checked against `dropped-issues.md` left
+  exactly FIVE keys: 3 × `S1214` (OKF-denylisted) and the 2 × `S116` that shipped. Budget commons at
+  0-2 and do not spend snippet reads beyond the cross-check.
+- **Rendering: closed, third confirmation.** Its 50-rule facet cross-checked against the drop index
+  left 13 keys, all in already-rejected rules (`S4144` 5, `S1214` 4, `S2160`, `S1141`) plus one new
+  drop (`S2198` ×2, now recorded). The whole rendering answer is two calls; do not budget a PR.
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.

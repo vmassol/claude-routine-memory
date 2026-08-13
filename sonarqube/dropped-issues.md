@@ -225,6 +225,13 @@ revapi `java.method.visibilityReduced`.
   WikiScannerUtil, `AV2j0WndpvRVEt3bvRpt` HtmlEntityUtil, `AV2j0WoGpvRVEt3bvRqD` WikiEntityUtil,
   `AV2j0WsMpvRVEt3bvRsp` XWikiScannerUtil.
 
+### java:S2198 (comparison always true/false) — a dead range that mirrors the XML spec
+`WikiPageUtil.isValidXmlNameStartChar(char ch, …)` ends its range table with
+`(ch >= 0x10000 && ch <= 0xEFFFF)`, unreachable for a `char`. Deleting it is behaviour-preserving but
+drops the supplementary-plane row of the XML 1.0 `NameStartChar` production the table transcribes,
+and the real fix (take an `int` code point) is an API change. Both keys sit on the same line.
+- `AZ_01MtBbzuOmnNi3w77`, `AZ_01MtBbzuOmnNi3w78` WikiPageUtil L310.
+
 ### java:S1066 (merge nested if) — comment between the two ifs
 - `AZFHCq1E-4lPKEDZswFl` AbstractBoxMacro L261 — a MULTI-line `//` comment sits between the outer and
   inner `if` (a single-line one would be recoverable).

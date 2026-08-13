@@ -213,6 +213,29 @@ location, subagent verification, the accept loop).
   flagged) field alone. The converse guard matters as much: assert the NEW name occurs **zero** times
   in the rename scope, which is what rules out a renamed local silently capturing a reference that
   used to resolve to a field.
+- **A block-scoped rename has TWO scope cases, and one of them is not brace-matching.** For a plain
+  declaration statement the scope ends at the `}` that closes the enclosing block (brace-match forward
+  from the declaration to depth −1). But when the declaration sits in a *header* — `for (T x : …)`,
+  `catch (E x)`, a parameter list — brace-matching from the declaration first counts the body's own
+  `{`, so it runs past the method and swallows unrelated code. For those, walk forward to the header's
+  closing paren, then take the block that follows: the scope is the declaration through the end of
+  that block (which correctly includes the rest of the `for` header). Detect the case from the flagged
+  line's first token, not from the rule.
+- **A pattern variable (`if (x instanceof T name)`) is flagged by the same rules and is NOT
+  brace-scoped** — its scope is flow-sensitive (the `if` body, or the *negation* when the condition is
+  inverted). No brace rule models it. Fix those sites as a one-off exact-string edit over the two or
+  three lines that use the binding, and keep them out of the scripted table.
+- **Every batch that INVENTS a name must check the new name against the class's own field
+  declarations** — otherwise the rename can re-create the very rule you are clearing (or a sibling
+  one) under a different name, silently, with a green build. One regex over `^\s{4}(modifiers…)\s(\w+)\s*[=;]`
+  gives the field set per file; intersect it with the new names before writing anything.
+- **A rename that LENGTHENS the identifier will push some pre-existing ≤120 line over the limit — do
+  not solve that by picking a worse name.** Give the batch script a second, ordered `POST_EDITS` list
+  of exact `(old_text, new_text)` pairs applied *after* the renames, each asserted to occur exactly
+  once, and use it to re-wrap those few statements onto a continuation line. Two of 107 sites needed
+  it, and one of them (a line already at exactly 120 columns) had no shorter name available at all.
+  This "scope-rename pass + exact-string post-edit pass" shape generalises to any batch where the
+  mechanical transform is right but a handful of sites need hand surgery.
 - **A line-length guard must compare against the SET of original lines, not zip by index.** As soon as
   one edit re-wraps a statement onto two lines, every later line pairs with the wrong original and the
   guard fires on pre-existing over-long lines. `for line in new: if line not in set(old_lines): assert
@@ -281,6 +304,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   platform **12** modules incl. oldcore **10:57** (1794 tests) = **~16 min** wall clock end to end,
   both green, downloads included. oldcore alone was 1143 of those tests. A 12-module platform reactor
   with oldcore in it stays cheap even cold — keep the thin-spread sites.
+- **Datapoint for a two-PR-in-one-reactor split** (warm `~/.m2`): commons 1 module **2:49** (89 tests)
+  + platform **22** modules incl. oldcore **16:52** (2231 tests) verified BOTH halves of a 107-site
+  rename (58 test-file sites and 49 `src/main` sites in disjoint files) in one pass, then the branch
+  was split by file set. Two PRs for one build.
 - **Datapoint for a very wide platform reactor**: **49 modules** (incl. oldcore and web-templates),
   test-only signature edits, **25:10** with **3134 tests** green; the commons single-module leg
   (`extension-api`) alongside it was **3:13** / 223 tests. A 49-module `-pl` list is entirely
