@@ -633,8 +633,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     the enclosing block's closing brace, so every bare occurrence there is provably the local. Use
     `(?<![\w$.])name(?![\w$])` (the `.` spares `this.name` and `x.name`), assert the new name is unused
     in the range and that the name is not inside a string literal there. Commons: 15/15, 0 drops, 8 of
-    them same-type locals. Correct the `S117` entry's closing sentence, which currently sends a reader
-    away from a viable pool.
+    them same-type locals; platform then went 107/107 with 0 drops. Correct the `S117` entry's closing
+    sentence, which currently sends a reader away from a viable pool. Three additions the platform
+    sweep proved necessary, all detailed under *Batch mode* above: the **header** scope case
+    (`for`/`catch`/parameter declarations are not brace-scoped from the declaration), **pattern
+    variables** are flow-scoped and must be hand-edited, and each invented name must be checked
+    against the class's **field set** so the fix does not re-create the rule. `src/main` is not a drop
+    condition — a local cannot escape its method — but it is the natural safe/unsure PR split, exactly
+    like `S117`'s locals-vs-parameters split.
+  - **`S116` field naming, also for `syntax-rules`** — "rename this field X to match `^[a-z][a-zA-Z0-9]*$`".
+    Distinct from the denylisted **`S115`** (`static final` constants): S116 fires on *instance* fields
+    written in CONSTANT_CASE. Clean when every reader is in the same module (grep the name, then the
+    compiler is the whole verification); a drop when the field is `protected`/`public` on a class
+    published in a `test-jar`, or anywhere in `src/main`, because that is a cross-module rename.
+    Replace the longer name first when one field name contains another as a substring.
 - **Owed to the OKF, batch 3** (closed PR `xwiki/xwiki-dev-llm#48`; two shapes that sharpen the
   EXISTING `test-code-rules` S5778 section rather than adding a rule):
   - **S5778 — "hoist the nested invocation" is not "hoist the outermost one."** When the thrower is the
