@@ -651,6 +651,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words, so
   the version-bump conflict — not the content — is what decides. Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 6** (opened as `xwiki/xwiki-dev-llm#61`, plugin 1.0.27 — a *correction*,
+  which is the one shape worth the version-bump conflict risk. If it is closed for a conflict, re-author
+  it, do not re-push that branch): **`S3252`** moves off the denylist into `syntax-rules`, next to its
+  sibling `S2209`. The old reason ("backward-compat-bearing public API") describes `S1845` only —
+  S3252 asks solely that a static member be qualified with the class that DECLARES it, so nothing is
+  declared, renamed or re-typed, and Sonar names the *resolved* declaring class (a member a subclass
+  hides is never flagged). Two mechanics: classify each site by the token BEFORE the `textRange`
+  (which covers only the member name), and fix imports in both directions. One drop condition: the
+  derived type is an XWiki utility subclass of the same simple name (`org.xwiki.text.StringUtils`,
+  `org.xwiki.localization.LocaleUtils`), where the fix degenerates into abandoning a deliberate XWiki
+  convention.
 - **Owed to the OKF, batch 5** (not opened as a PR — one entry sharpens an existing rule, the other
   adds a rule, and both would hit the structural version-bump conflict; fold them into a PR a later
   run is opening anyway):
