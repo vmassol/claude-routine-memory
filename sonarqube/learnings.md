@@ -648,20 +648,8 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   entry at all**, or for a correction to an entry that is actively wrong. When the family file already
   has the rule and you only sharpened a shape or two, record it here under *Owed to the OKF* and let a
   later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
-  `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words, so
-  the version-bump conflict — not the content — is what decides. Write the condensed *Owed to the OKF*
+  `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
-- **Owed to the OKF, batch 6** (opened as `xwiki/xwiki-dev-llm#61`, plugin 1.0.27 — a *correction*,
-  which is the one shape worth the version-bump conflict risk. If it is closed for a conflict, re-author
-  it, do not re-push that branch): **`S3252`** moves off the denylist into `syntax-rules`, next to its
-  sibling `S2209`. The old reason ("backward-compat-bearing public API") describes `S1845` only —
-  S3252 asks solely that a static member be qualified with the class that DECLARES it, so nothing is
-  declared, renamed or re-typed, and Sonar names the *resolved* declaring class (a member a subclass
-  hides is never flagged). Two mechanics: classify each site by the token BEFORE the `textRange`
-  (which covers only the member name), and fix imports in both directions. One drop condition: the
-  derived type is an XWiki utility subclass of the same simple name (`org.xwiki.text.StringUtils`,
-  `org.xwiki.localization.LocaleUtils`), where the fix degenerates into abandoning a deliberate XWiki
-  convention.
 - **Owed to the OKF, batch 5** (not opened as a PR — one entry sharpens an existing rule, the other
   adds a rule, and both would hit the structural version-bump conflict; fold them into a PR a later
   run is opening anyway):
