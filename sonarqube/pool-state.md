@@ -10,6 +10,14 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **A rule on the OKF DENYLIST can still be the run's best pool — re-read the denylist reason against
+  the rule's own definition.** `S3252` was listed as "static-access … usually backward-compat-bearing
+  public API"; the rule actually only asks you to qualify a static member with the class that declares
+  it, which changes no declaration at all. One `api/rules/show?key=java:SXXXX` call (name + compliant
+  example) settles it, and it re-opened 123 clean CRITICAL sites across three repos on a day when the
+  whole classic allowlist read platform 61 / commons 19 / rendering 6, nearly all already dropped.
+  This is the second denylist entry found wrong after `S1117`; both were rules that *sound* like
+  renames but are not.
 - **The mechanical pool is usually drained in PLATFORM but untouched in the SIBLINGS.** Platform's
   whole classic allowlist can total under 60 with nearly all of it already in `dropped-issues.md`,
   while commons and rendering still hold hundreds. On a multi-repo run, spend the effort in
@@ -118,6 +126,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S3824** computeIfAbsent | Commons 8 → **5 fixed** (`InternalFilterTest` 3, `ResourceLoader`, `URLTool`). Platform 35 **untriaged** — the biggest un-swept mechanical-looking pool left there. | **~40% drops.** Clean when the guarded block is exactly one `put`. Drop when it has an `else if`, and drop when the map is a **`ConcurrentHashMap`** whose mapping function would call another component while the bin lock is held. |
 | **S3457** two distinct shapes | Commons 8 → 1 fixed, 2 permanent drops, 5 blocked by an open PR. Platform 41 untriaged. | **Read the message, not just the rule — and NEITHER shape is a free edit.** For "No need to call `toString()`" on a LOG call write `String.valueOf(x)`; a bare deletion changes what the XStream-serialized job log stores and has now cost two commons PRs. "`%n` should be used in place of `\n`" is a behaviour change — always a drop when the produced string is asserted or compared. |
 | **S4973** compare with equals | Platform 11, in 4 files. | **100% drops — a real-bug rule.** Each site needs a semantic decision about whether `==` was meant as identity (sentinel constants, interned type strings, boxed getters). JIRA issues, not a sweep. |
+| **S3252** static member via a derived type | **Was on the OKF denylist and should not have been** (see below). 175 project-wide: platform 135, rendering 34, commons 6 — **123 fixed in one three-repo sweep** (platform 85 / 25 files / 14 modules, rendering 32 / 3 files / 2 modules, commons 6 / 5 files / 2 modules). What is left is the 52-site `org.xwiki.text.StringUtils` shape (a permanent drop). CRITICAL severity, zero open PRs, and it regenerates from ordinary refactoring. | **0 drops on the 123 qualifier sites.** The pool splits on one cheap test — the token *before* the flagged member: if it differs from the declaring class's simple name it is a pure qualifier swap (mechanical); if it is the SAME simple name the "fix" is an import swap to the base class, which in XWiki means abandoning `org.xwiki.text.StringUtils` / `org.xwiki.localization.LocaleUtils` — always a drop. |
 
 ## Candidates not yet swept
 

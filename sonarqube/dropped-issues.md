@@ -321,11 +321,21 @@ assertions; see `rules/test-code.md`.
   method in `xwiki-rendering-test`'s `src/main` breaks callers that catch it. The rule is only safe on
   a test method nothing calls.
 
-### Rendering is CLOSED — the whole open facet was re-checked and yields nothing
+### java:S3252 (static access via a derived type) — the derived type is XWiki's own `StringUtils`
+- `AXYPy2qQq9YfDBN_rAfZ` SyntaxType:369, `AWy9lcQ0KTwBvn8qD2vO` IconTransformation:106 — both call an
+  Apache Commons method through `org.xwiki.text.StringUtils`. See the platform section for the full
+  reason; the rest of rendering's 34 were fixed.
+
+### Rendering is NOT closed — a denylisted rule re-opened 32 sites
+The "49-rule facet yields nothing" conclusion below held only for the *allowlist*. `S3252`, which the
+OKF denylist described as backward-compat-bearing, turned out to be a pure qualifier change and paid
+32 sites in two modules. Re-read a denylist reason against the rule's own definition before believing
+a repo is closed.
+
 A 49-rule facet cross-checked against this index produced exactly three keys not already denylisted,
 rejected or dropped, and all three are non-starters: `S1845` (rename a field — denylisted shape),
 `S5411` ×2 (boxed → primitive `boolean` — denylisted), `S5843` (reduce regex complexity 23 → 20, a
-refactor). Budget a rendering PR at 0 until something regenerates.
+refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
 
@@ -521,3 +531,35 @@ demoting it to a local silently changes object lifetime. All `src/main`.
 (`repository.substring(0, index = repository.indexOf(':'))`). The rewrite is mechanical and
 order-preserving — hoist each `indexOf` into its own `int` local before the `substring` that uses it —
 but it is `src/main` and only worth doing as a rider on a reactor that already builds that module.
+
+### java:S3252 (static access via a derived type) — the derived type is XWiki's own utility subclass
+`org.xwiki.text.StringUtils` and `org.xwiki.localization.LocaleUtils` deliberately **extend** the
+Apache Commons classes of the same simple name so that one import serves both the Apache helpers and
+the XWiki additions. Sonar flags every inherited call made through them. "Fixing" one means swapping
+the import for the base class — a style regression, and impossible without an FQN in any file that
+also uses the XWiki-specific methods. Permanent drop for the whole shape; the other 85 platform
+`S3252` sites (a genuine derived-type qualifier) were fixed.
+- `StringUtils` (47): `AYjDs5BtPAk_qAE7Pepl`, `AXnpAd_3DDFOvAKXAQJQ`, `AW5-S5bz1Yj5qvzeRm1M`,
+  `AW5-S5bz1Yj5qvzeRm1O` DefaultNotificationPreferenceModelBridge; `AW5-S5ev1Yj5qvzeRm1w`,
+  `AW5-S5ev1Yj5qvzeRm1x`, `AW5-S5ev1Yj5qvzeRm1y`, `AW5-S5ev1Yj5qvzeRm1z` LogoAttachmentExtractor;
+  `AW5-S9401Yj5qvzeRoo8`, `AW5-S9401Yj5qvzeRoo9`, `AW5-S9401Yj5qvzeRoo-`
+  DefaultStringEntityReferenceSerializer; `AW5-S5TW1Yj5qvzeRm0W`, `AW5-S5TW1Yj5qvzeRm0Z`,
+  `AW5-S5TW1Yj5qvzeRm0Y` DefaultWatchedEntitiesConfiguration; `AW5-S5eD1Yj5qvzeRm1l`,
+  `AW5-S5eD1Yj5qvzeRm1m`, `AW5-S5eD1Yj5qvzeRm1n` DefaultNotificationEmailRenderer;
+  `AW5-S7eg1Yj5qvzeRn8K`, `AW5-S7eg1Yj5qvzeRn8L`, `AW5-S7eg1Yj5qvzeRn8M` AbstractQueryFilter;
+  `AX0whn23NVa5BHo6Y8yN`, `AX0whn23NVa5BHo6Y8yO` StaticListClassPropertyValuesProvider;
+  `AW5-S7Sx1Yj5qvzeRn6v`, `AW5-S7Sx1Yj5qvzeRn6w` DistributionInternalScriptService;
+  `AW5-S5_n1Yj5qvzeRm9j`, `AW5-S5_n1Yj5qvzeRm9k` ImplicitlyAllowedValuesPageQueryBuilder;
+  `AW5-S7d31Yj5qvzeRn8C`, `AW5-S7d31Yj5qvzeRn8D` CountDocumentFilter; `AW5-S4Vs1Yj5qvzeRmnU`,
+  `AW5-S4Vs1Yj5qvzeRmnV` AbstractClassPropertyValuesProvider; `AW5-S5Yr1Yj5qvzeRm03`,
+  `AW5-S5Yr1Yj5qvzeRm04` DefaultNotificationFilterPreference; and one each `AYAqYBvjTBPgKLwK3BDS`
+  IncludeMacroRefactoring, `AXnpAh1uDDFOvAKXAQzG` DefaultQuoteService, `AXnpAd-DDDFOvAKXAQJG`
+  NotificationPreferenceScriptService, `AXnpAfjUDDFOvAKXAQfK` SecureDocumentConfigurationSource,
+  `AXE7zQJN6SPgukNyCE31` FileUploadPlugin, `AW5-S8If1Yj5qvzeRoE6`
+  DefaultUntypedRecordableEventDescriptor, `AW5-S7TU1Yj5qvzeRn62` DefaultVersionCheckConfiguration,
+  `AW5-S5UM1Yj5qvzeRm0f` EventUserFilter, `AW5-S5Yi1Yj5qvzeRm01` WikiNotificationFilterDisplayer,
+  `AW5-S5fe1Yj5qvzeRm16` AbstractWikiNotificationRenderer, `AW5-S5aO1Yj5qvzeRm1C`
+  AbstractNotificationPreference, `AW5-S5gh1Yj5qvzeRm2R` InternalNotificationsRenderer,
+  `AW5-S5_E1Yj5qvzeRm9T` DefaultDBListQueryBuilder, `AW5-S5_91Yj5qvzeRm9m` DefaultPageQueryBuilder,
+  `AW5-S-VT1Yj5qvzeRo1L` StackTraceLogParser.
+- `LocaleUtils` (3): `AW5-S62m1Yj5qvzeRnyd`, `AW5-S62m1Yj5qvzeRnyg`, `AW5-S62m1Yj5qvzeRnyl` XWiki.java.

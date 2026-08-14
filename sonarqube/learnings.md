@@ -48,6 +48,16 @@ location, subagent verification, the accept loop).
   the gaps. **A same-FILE open PR is off-limits even for a DIFFERENT rule** — a concurrent edit risks
   merge conflicts; drop that site. To learn exactly which modules a wildcard "various modules" PR
   claims, read its file list (`gh api "repos/…/pulls/N/files?per_page=100" --jq '.[].filename'`).
+- **Verify a DENYLIST reason against the rule's own definition before writing a repo off.** The OKF
+  denylist is a one-line summary and it can be wrong: `S3252` was listed as "usually
+  backward-compat-bearing public API" when the rule in fact only asks you to qualify a static member
+  with the class that declares it — no declaration changes at all. One
+  `api/rules/show?organization=xwiki&key=java:SXXXX` gives the rule's name and compliant example and
+  settles it in a single call; that one re-opened 123 clean CRITICAL sites across three repos on a day
+  when the entire classic allowlist read 61/19/6 and was almost all already dropped. Two entries have
+  now been found wrong this way (`S1117`, `S3252`), and both were rules that *sound* like renames.
+  Run the check when the allowlist is dry, not before — and record the correction as an OKF PR, since
+  a wrong entry (unlike a missing nuance) is worth the version-bump conflict risk.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -73,6 +83,23 @@ location, subagent verification, the accept loop).
   other rules, and four hand-edits for the shapes with nested scopes or re-wrapped conditions. The
   `count == 1` assertion is what makes the second form safe — a stale or ambiguous snippet fails
   loudly instead of editing the wrong place.
+- **When the `textRange` covers only PART of the flagged expression, the token BEFORE it is the free
+  classifier.** For `S3252` the range is just the member name; reading the qualifier that precedes it
+  split a 175-issue pool, with zero source reads beyond one line per issue, into 123 pure
+  qualifier swaps (mechanical, 0 drops) and 52 sites where the qualifier's simple name EQUALS the
+  declaring class's — those are not qualifier changes at all but import swaps, and in XWiki they mean
+  abandoning `org.xwiki.text.StringUtils`, so they are a permanent drop. Derive the safe/unsure split
+  from the one line the issue already points at before reading anything else; it is the same lever as
+  `S117`'s locals-vs-parameters and `S1130`'s annotation bucketing.
+- **A batch that swaps a type qualifier must fix imports in BOTH directions, in the same edit.** Add
+  the declaring class's import (skip it when the class is in the file's own package — the compiler is
+  not the guard here, a redundant import is a Checkstyle error) and remove the old qualifier's import
+  once the swap orphans it, matching its simple name with a word boundary over the WHOLE file so a
+  `{@link X}` in Javadoc still counts as a use. Insert the new import into the group whose first
+  package segment matches, keeping that group alphabetical — inserting merely "before the first
+  greater import" walks it across a blank-line group boundary. One file needed five imports removed
+  and two added; getting either direction wrong fails only in `checkstyle:check`, i.e. after the
+  tests, i.e. a whole build round.
 - **Re-run the whole script from `git checkout -- .` after EVERY fix to it.** Three successive bugs
   (a `} else if` brace-count, a `\b` that will not match after `]`, and a paren-greedy cast pattern)
   were each found by reading the compact diff `git diff -U0 | grep '^[+-]'` — a full-file diff is
@@ -300,6 +327,9 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
+  the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
+  platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.
 - **Datapoint for a two-repo chain from a COLD `~/.m2`**: commons 5 modules **5:00** (620 tests) +
   platform **12** modules incl. oldcore **10:57** (1794 tests) = **~16 min** wall clock end to end,
   both green, downloads included. oldcore alone was 1143 of those tests. A 12-module platform reactor
