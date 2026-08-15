@@ -602,8 +602,12 @@ where the `if` is the whole body, the second catch becomes empty (a fresh S108/S
   `createOrExtendClassLoader(...)` has side effects, so only the `cl =` prefix could go, which reads
   worse than the current code.
 
-### java:S3400 (method returning a constant) — the file is claimed by an open agent PR
-`AYZ7IjPH9c9uyqlx3uGB` XWikiRightServiceImpl:781 (`hasDenyRights()`). Valid fix, but the file was
-being edited by the same run's S3824 batch — a same-file concurrent edit is a conflict risk. Re-try
-it on a later run. (The other two platform S3400 sites, Scope and HibernateDataMigrationManager,
-were fixed.)
+### java:S3400 / java:S4165 — the judgement-call PR was CLOSED without merging. Whole rules: DROP
+PR #6179 carried exactly these three and was closed silently (no comment) while its mechanical
+sibling #6178 merged the same hour. So in xwiki-platform, replacing a documented `private`
+constant-returning method with a constant, and deleting a "redundant" defensive re-assignment, are
+both unwanted — the reviewer's answer, not a guess. Treat both rules as permanent drops here.
+- `AW5-S6zO1Yj5qvzeRnuA` Scope:162 (`getGlobalPattern()`), `AW5-S6ls1Yj5qvzeRngN`
+  HibernateDataMigrationManager:346 (`getLiquibaseChangeLogFooter()`),
+  `AYZ7IjPH9c9uyqlx3uGB` XWikiRightServiceImpl:781 (`hasDenyRights()`) — java:S3400.
+- `AW5-S6s91Yj5qvzeRnnN` DocumentInfo:141 — java:S4165 (the other two S4165 sites are above).

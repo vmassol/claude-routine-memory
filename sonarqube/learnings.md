@@ -616,6 +616,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks, S8714
   assertThrows) on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the
   easy PR without the hard one blocking it. Both PRs still get the label/assignee/lock treatment.
+  - **Outcome datapoint: the split works, and the judgement half really does get rejected.** A 51-issue
+    mechanical PR and a 3-issue judgement PR (`S3400`, `S4165`) opened together from one reactor were
+    merged and closed-unmerged respectively, within the same hour, the closure carrying **no comment at
+    all**. Two consequences. (1) Keep splitting — had those three ridden along, they would have taken 51
+    good fixes down with them. (2) **A silent close IS the review verdict**: record the rule as a
+    permanent drop for that repo rather than waiting for an explanation or re-attempting it later.
+  - **A closed PR makes your SonarCloud comments WRONG — fix the record the same turn you learn of it.**
+    The issues were already *Accepted* with a "Fixed by <PR>" comment, so they now claim a fix that will
+    never land. Re-query the keys by `rules=…&issueStatuses=ACCEPTED` (the accept script rewrites its own
+    key file to empty on success, so the original list is gone), post a correction comment naming the
+    closed PR, then `do_transition transition=reopen` and verify the status went back to `OPEN`.
   - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
     the usual candidate) and in FILES the safe batch does not touch. Then the judgement PR costs zero
     extra build time and the split-by-file step is trivially legitimate. A site in a file the safe batch
