@@ -563,3 +563,47 @@ also uses the XWiki-specific methods. Permanent drop for the whole shape; the ot
   `AW5-S5_E1Yj5qvzeRm9T` DefaultDBListQueryBuilder, `AW5-S5_91Yj5qvzeRm9m` DefaultPageQueryBuilder,
   `AW5-S-VT1Yj5qvzeRo1L` StackTraceLogParser.
 - `LocaleUtils` (3): `AW5-S62m1Yj5qvzeRnyd`, `AW5-S62m1Yj5qvzeRnyg`, `AW5-S62m1Yj5qvzeRnyl` XWiki.java.
+
+### java:S3824 (computeIfAbsent) — not an equivalent rewrite (8 of the 35 platform sites)
+The other 27 converted cleanly. Three distinct disqualifiers, all visible in the flagged block:
+- **The mapping function can return `null`**, which `computeIfAbsent` does not store, so the current
+  code's caching of a negative result is lost: `AW5-S4nz1Yj5qvzeRmsY` AbstractJSR223ScriptMacro:315
+  (`scriptEngineManager.getEngineByName`).
+- **The guarded block does more than the single `put`** — it also feeds a second collection/map, or
+  needs a multi-statement body that would have to throw: `AW5-S6v_1Yj5qvzeRnrV`
+  XWikiStatsStoreService:152, `AXnpAhXIDDFOvAKXAQwP` XClassBreakingQuestion:105,
+  `AW5-S4591Yj5qvzeRmu9` Right:297, `AW8Kv7iBPTv0sE1_7izG` XWikiAttachmentRCSArchive:93.
+- **The mapping function would call another component from inside the map operation**:
+  `AW5-S6qr1Yj5qvzeRnlc` RightsManager:1263 (group service),
+  `AYj3Kveh6Rs8CIfHrNru` CachedNotificationPreferenceModelBridge:149 (preference bridge, and its
+  hint can be `null`).
+- **The flagged `get()` is a save/restore of a context value, not a lazy init**:
+  `AW5-S7bh1Yj5qvzeRn7x` DefaultWikiComponentMethodExecutor:162.
+
+### java:S1872 (compare classes by name) — `instanceof` is not equivalent
+`ApplicationStartedEvent.class.getName().equals(event.getClass().getName())` matches exactly one
+class; `instanceof` also matches subclasses, and comparing `Class` objects instead of names changes
+behaviour across class loaders (extension jars). A per-site semantic decision, not a cleanup.
+- `AW5-S8FG1Yj5qvzeRoEQ`, `AW5-S8FG1Yj5qvzeRoER` OfficeServerLifecycleListener:84/86;
+  `AW5-S7bh1Yj5qvzeRn71` DefaultWikiComponentMethodExecutor:189 (`"void".equals(returnType.getName())`).
+
+### java:S1193 (instanceof in a catch → multi-catch) — duplicates the `throw`, or empties a `catch`
+The XWiki shape is `catch (Exception e) { if (e instanceof InterruptedException) { interrupt(); }
+throw new XxxException(…, e); }`. Splitting it duplicates the wrapping `throw` in both catch blocks;
+where the `if` is the whole body, the second catch becomes empty (a fresh S108/S1186).
+- `AYK2yKxsjX57U6EJhxnU`, `AYK2yKxsjX57U6EJhxnW` XarExtensionHandler:178/203;
+  `AW5-S5ct1Yj5qvzeRm1Y` LiveNotificationEmailListener:99.
+
+### java:S4165 (useless assignment) — hides a probable bug / the call must stay
+- `AW5-S6wR1Yj5qvzeRnrm` StatsUtil:410 — `VisitStats newVisitObject = visitObject; … visitObject =
+  newVisitObject;` is a self-assignment whose sibling block above does `visitObject.clone()`.
+  Removing the flagged line papers over a likely missing `clone()`; that is a JIRA issue.
+- `AW5-S4oW1Yj5qvzeRmsf` ScriptClassLoaderHandlerListener:173 — the right-hand side
+  `createOrExtendClassLoader(...)` has side effects, so only the `cl =` prefix could go, which reads
+  worse than the current code.
+
+### java:S3400 (method returning a constant) — the file is claimed by an open agent PR
+`AYZ7IjPH9c9uyqlx3uGB` XWikiRightServiceImpl:781 (`hasDenyRights()`). Valid fix, but the file was
+being edited by the same run's S3824 batch — a same-file concurrent edit is a conflict risk. Re-try
+it on a later run. (The other two platform S3400 sites, Scope and HibernateDataMigrationManager,
+were fixed.)

@@ -58,6 +58,17 @@ location, subagent verification, the accept loop).
   now been found wrong this way (`S1117`, `S3252`), and both were rules that *sound* like renames.
   Run the check when the allowlist is dry, not before — and record the correction as an OKF PR, since
   a wrong entry (unlike a missing nuance) is worth the version-bump conflict risk.
+- **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
+  (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
+  `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF
+  denylist plus `pool-state.md`'s rejected list. Two turns settled commons (1155 issues) and rendering
+  (430) as closed with zero source reads. Do this before budgeting any sibling-repo PR.
+- **When the classic allowlist reads zero, the volume is in a big NEVER-TRIAGED MAJOR rule, not in the
+  allowlist's residue.** Sort the distribution facet for rules with 20+ issues that `pool-state.md`
+  marks *untriaged*, and prefer the one whose fix is decidable from the flagged block alone: `S3824`
+  (35) yielded 27 in one PR, more than the entire remaining allowlist across all three repos. The
+  per-site triage there is ~10 lines of context each, which is affordable precisely because no
+  whole-file read is needed.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -83,6 +94,11 @@ location, subagent verification, the accept loop).
   other rules, and four hand-edits for the shapes with nested scopes or re-wrapped conditions. The
   `count == 1` assertion is what makes the second form safe — a stale or ambiguous snippet fails
   loudly instead of editing the wrong place.
+- **An `assert count == 1` that fires on a duplicated block is a finding, not an obstacle.** The same
+  lazy-init block often appears twice in one long legacy file while Sonar flags only one of them
+  (`XWikiRightServiceImpl`'s `grouplistcache`). Extend that site's `old` with the preceding unique line
+  (a comment, or the statement above) and convert BOTH occurrences — leaving one half of a file
+  converted is what a reviewer objects to. Count only the flagged key as fixed and say so in the PR.
 - **When the `textRange` covers only PART of the flagged expression, the token BEFORE it is the free
   classifier.** For `S3252` the range is just the member name; reading the qualifier that precedes it
   split a 175-issue pool, with zero source reads beyond one line per issue, into 123 pure
@@ -330,6 +346,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.
+- **Datapoint for a thin-spread single-repo sweep** (warm `~/.m2`): **17 platform modules** including
+  both `oldcore` and `legacy-oldcore`, 32 files changed, **15:49** with **1605 tests** green (oldcore
+  1145 of them). Two commits verified in that one reactor and split into two PRs afterwards.
 - **Datapoint for a two-repo chain from a COLD `~/.m2`**: commons 5 modules **5:00** (620 tests) +
   platform **12** modules incl. oldcore **10:57** (1794 tests) = **~16 min** wall clock end to end,
   both green, downloads included. oldcore alone was 1143 of those tests. A 12-module platform reactor
@@ -597,6 +616,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks, S8714
   assertThrows) on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the
   easy PR without the hard one blocking it. Both PRs still get the label/assignee/lock treatment.
+  - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
+    the usual candidate) and in FILES the safe batch does not touch. Then the judgement PR costs zero
+    extra build time and the split-by-file step is trivially legitimate. A site in a file the safe batch
+    edits must be dropped, not split — the concurrent edit is a conflict risk (recorded as a drop).
   - **Verify the pair in ONE reactor, then split by file.** Apply both batches to the same working
     tree, build once, and only then separate them: commit batch A (`git add <its files>`), commit
     batch B (`git add -A`), then `git checkout -B <sibling> <masterSha> && git cherry-pick <commitB>`
@@ -650,6 +673,25 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
   `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 6** (not opened as a PR — one sharpens an existing entry and the rest are new
+  rules, and the version-bump conflict is structural; fold into a PR a later run is opening anyway):
+  - **`S3824`, sharpening the existing `index.md` denylist note** — the note says "check the guarded
+    block", which is right but incomplete. Four drop shapes, all decidable from the flagged block:
+    (a) the mapping function can return `null` (`computeIfAbsent` does not store it, so a cached
+    negative result is lost); (b) the block feeds a second collection/map as well as the `put`;
+    (c) the mapping function calls another component from inside the map operation; (d) the flagged
+    `get()` is a context save/restore, not a lazy init. 27 of 35 platform sites converted on that test.
+    `XWikiContext` extends `Hashtable`, so the map methods work on it directly (cast the result).
+  - **`S2129`/`S1158`, for `simplification-rules`** — `new Boolean(x).toString()` → `Boolean.toString(x)`
+    clears BOTH rules on one line; `new String(s)` inside a `cloneResult(String)` override is safe
+    because `String` is immutable.
+  - **`S6395`, for `simplification-rules`, with a pointer from the `S6035` denylist entry** — unwrapping
+    `(?:["'])` → `["']` is safe when the regex is a `private static final Pattern`; only a
+    `public static final String` regex carries the Revapi `constantValueChanged` break that got `S6035`
+    denylisted. The denylist currently reads as if the whole regex family were off-limits.
+  - **`S2388`, for `syntax-rules`** — prefixing an inner class's call with `super.` is behaviour-neutral
+    *only if* the inner class does not itself declare that method; grep it before batching, because if
+    it overrides the method `super.` silently changes the target.
 - **Owed to the OKF, batch 5** (not opened as a PR — one entry sharpens an existing rule, the other
   adds a rule, and both would hit the structural version-bump conflict; fold them into a PR a later
   run is opening anyway):
