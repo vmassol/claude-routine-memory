@@ -469,7 +469,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (`xwiki-commons-extension-api`'s recorded revapi failure was fixed upstream; that one probe
   re-opened ~100 issues.) Same idea for a compile question you can answer in seconds: write a 10-line
   file and run plain `javac` on it rather than guessing (that is how the `doPrivileged` lambda
-  ambiguity was settled). **The same throwaway file settles EQUIVALENCE questions, not just compile
+  ambiguity was settled). **It settles a REVIEWER'S objection too, and that is its highest-value use.** Asked
+  "isn't this change less performant?" about `List#reversed()`, a 30-line `java R.java` (single-file
+  source mode, no project, no JMH) printed the view's runtime class
+  (`java.util.ReverseOrderListView$Rand`), proved it is a lazy view by mutating the base list, and
+  timed both loop forms over 5M elements in alternating rounds. Post the actual output, and label a
+  crude microbenchmark as one — "no measurable penalty" is defensible where "faster" is not.
+  **The same throwaway file settles EQUIVALENCE questions, not just compile
   ones** — for a text-block conversion (`S6126`), put the old concatenation and the new text block in one
   `main` and print `old.equals(new)`. Incidental-indent stripping, trailing-whitespace removal and
   `\r\n` are exactly the traps that compile cleanly and silently change the string, and three
@@ -711,7 +717,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     S6876 replaces a backward `ListIterator` walk, S6877 a `Collections.reverse()` on a fresh copy.
     Single drop condition: the body mutates through the iterator (`it.remove()`/`it.set()`). Delete the
     orphaned `java.util.ListIterator` import, and keep the defensive `new ArrayList<>(…)` copy when the
-    source is a `Set`.
+    source is a `Set`. **Expect a performance question in review**: `reversed()` is a lazy view
+    (`ReverseOrderListView`), so S6876 is the identical backwards walk plus one wrapper object per
+    loop, and S6877 is strictly cheaper — it deletes an O(n) in-place reversal of a copy.
   - **`S3655`, for `simplification-rules`** — fixable only when it is a one-liner: `isPresent()` plus a
     second `get()` on the same expression → `map(pred).orElse(false)`, and
     `reduce((a, b) -> a + sep + b).get()` → `collect(Collectors.joining(sep))` (equivalent for a
