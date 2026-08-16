@@ -62,7 +62,11 @@ location, subagent verification, the accept loop).
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
   `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF
   denylist plus `pool-state.md`'s rejected list. Two turns settled commons (1155 issues) and rendering
-  (430) as closed with zero source reads. Do this before budgeting any sibling-repo PR.
+  (430) as closed with zero source reads. Do this before budgeting any sibling-repo PR. **The cheaper
+  variant, and the one to open a run with: one `issues/search` per repo carrying a ~78-rule mechanical
+  allowlist (`&rules=…&ps=500`), then grep every returned key against `dropped-issues.md`** — three
+  calls plus one grep gave a whole cross-repo plan (platform 69 fresh of 201, commons 8 of 59,
+  rendering 0 of 22) and both siblings were answered without opening a single file.
 - **When the classic allowlist reads zero, the volume is in a big NEVER-TRIAGED MAJOR rule, not in the
   allowlist's residue.** Sort the distribution facet for rules with 20+ issues that `pool-state.md`
   marks *untriaged*, and prefer the one whose fix is decidable from the flagged block alone: `S3824`
@@ -380,6 +384,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
   11-module one). Confirm the claim first with `git diff` between the two applications of the batch —
   if the second application changed only the failing file, the earlier greens still hold.
+- **A module can be red on master because of an EXTERNAL dependency, and the proof costs nothing.**
+  `xwiki-platform-security-authorization-api` failed `testCompile` on `RightSetTest#testSetEquals()`
+  — an `@Override` against a method `commons-collections4`'s `AbstractSetTest` no longer declares. The
+  argument that settles it without a second build: **the failing file is byte-identical to
+  `origin/master` (`git show --name-only <yourCommits>` does not list it) and nothing in your diff
+  touches the classpath**, so no source edit of yours can produce it. Then drop that module from `-pl`
+  and re-run only the modules the reactor marked SKIPPED behind it (they resolve the excluded module as
+  a remote SNAPSHOT); keep the fixes you made in it, and state the file, the line and the evidence
+  under *Clarifications*.
 - **A repo-wide cleanup wave landed in the last day or two is the likeliest cause of a build failure
   you did not cause.** Before assuming your batch broke something, check the failing file's history
   (`git log -1 --format='%h %ad %s' --date=short -- <file>`) and confirm your diff does not touch it
@@ -684,6 +697,35 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
   `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 7** (four rules with no OKF entry at all plus one drop taxonomy; fold into
+  a PR a later run is opening anyway):
+  - **`S116` field naming, sharpening the batch-5 entry** — the drop line is not `src/main`, it is
+    **non-`private`**. A `private` field cannot escape its compilation unit, so oldcore `src/main`
+    fields (`XWikiContext.engine_context`, `XWikiAttachment.attachment_archive`) rename with the
+    compiler as the whole verification; only the one `protected` site was dropped (16/17). Two guards:
+    print every occurrence first — they are nearly all `this.X`, and the setter parameter usually
+    already carries the target name, so `this.engine_context = engineContext` becomes correct rather
+    than self-assigning — and grep the name repo-wide once, because a field name that also appears in
+    an `.hbm.xml` or a reflective string is the real hazard.
+  - **`S6876`/`S6877`, one entry for `modernization-rules`** — both mean "iterate `List#reversed()`":
+    S6876 replaces a backward `ListIterator` walk, S6877 a `Collections.reverse()` on a fresh copy.
+    Single drop condition: the body mutates through the iterator (`it.remove()`/`it.set()`). Delete the
+    orphaned `java.util.ListIterator` import, and keep the defensive `new ArrayList<>(…)` copy when the
+    source is a `Set`.
+  - **`S3655`, for `simplification-rules`** — fixable only when it is a one-liner: `isPresent()` plus a
+    second `get()` on the same expression → `map(pred).orElse(false)`, and
+    `reduce((a, b) -> a + sep + b).get()` → `collect(Collectors.joining(sep))` (equivalent for a
+    non-empty stream, which `Enum.values()` always is). Drop when presence is established by an earlier
+    statement Sonar cannot follow.
+  - **`S4030`, for `dead-code-rules`** — clean when every occurrence of the local is its declaration
+    plus `add(…)` calls. Remove the enclosing `else` if that `add` was its only statement, or the fix
+    trades S4030 for a fresh `S108`.
+  - **`S125`, a drop taxonomy for the existing entry** — four shapes, all decidable from the flagged
+    block: a `TODO`/`FIXME` above *or below* it (one site was anchored by a TODO two lines later saying
+    "see previous commented code"), a sentence explaining why the code is not run, prose Sonar mis-reads
+    as code, and a block whose removal would empty an `if`. The clean subset is an unanchored leftover —
+    disabled `verify(…)`/`when(…)` pairs in tests, dead alternative implementations. 11 fixed / 17
+    dropped on the fresh platform pool.
 - **Owed to the OKF, batch 6** (not opened as a PR — one sharpens an existing entry and the rest are new
   rules, and the version-bump conflict is structural; fold into a PR a later run is opening anyway):
   - **`S3824`, sharpening the existing `index.md` denylist note** — the note says "check the guarded
