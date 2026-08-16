@@ -16,6 +16,22 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
+### java:S2447 (null returned from a `Boolean` method) — the null IS the API contract
+Same shape as platform's: `ListTool`, `SerializableXStreamChecker` and `Request` return `null` to mean
+"undecided", which is not interchangeable with `false`.
+- `AW6oRQpxoucddIov5uRZ`, `AW6oRQpxoucddIov5uRa`, `AW2vdi3HKOCjNAOnQHTz`, `AW2vdi3HKOCjNAOnQHT0`,
+  `AWgZST5cUMkE2J58eTXi`, `AWgZST5cUMkE2J58eTXj`.
+
+### java:S6876 (use `reversed()`) — the loop body mutates through the iterator
+- `AZp8a1DYEzLQkZWCl-Gv` DefaultVersion#trimPadding L458 — the backward `ListIterator` calls
+  `it.remove()`, which a for-each over `reversed()` cannot do. **This is the rule's only drop
+  condition**: grep the body for `it.remove(`/`it.set(` and convert everything else.
+
+### java:S1192 (duplicated literal) — a literal inside a vocabulary list
+- `AYG0Ud0QouLKnFEkGft-` SVGDefinitions L87 — `"style"` appears three times because it is a member of
+  three different allow-lists of SVG attribute/tag names; a shared constant would obscure the lists.
+
+
 (A 37-site `java:S7158` sweep, a 34-site `java:S6201` sweep of `xwiki-commons-xml` +
 `xwiki-commons-filter-xml`, a 28-site `java:S7476`+`java:S3706` sweep, and a 105-site 14-rule sweep
 of every non-`extension` module were each analyzed in full; only the sites listed below were dropped.)
@@ -338,6 +354,53 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S125 (commented-out code) — anchored by a TODO/FIXME, or a Sonar false positive
+The rule's clean subset is an *unanchored* leftover (a disabled `verify(…)`/`when(…)` in a test, a
+dead alternative implementation); 17 of the 28 fresh platform sites are drops and every reason is
+visible in the flagged block:
+- **A `TODO`/`FIXME` right above or below the block owns it** — `AW5-S-aW1Yj5qvzeRo2K`
+  DefaultFlavorManager, `AW5-S8131Yj5qvzeRoQv` SecureGroovyCompilationCustomizer,
+  `AW5-S5k51Yj5qvzeRm3M` WikiUIExtensionComponentBuilder, `AW5-S88e1Yj5qvzeRoSo`
+  DomainWikiReferenceExtractor, `AYbMyekPEULH0Mn4tsKB` XWikiBlogNewsSource,
+  `AYbrRz0gM5HAxHRCjFBd` XWikiBlogNewsCategoryConverter ("once it's fixed, uncomment the following
+  line"), `AZOwlzyOY-cFm5FjhEI0` DefaultResourceReferenceEntityReferenceResolverTest (FIXME naming
+  XWIKI-22699), `AZ85PRNJ7ctcaw4Skp-F` LegacyEventMigrationJob (a TODO below it says "see previous
+  commented code").
+- **The comment explains why the code is NOT run** — `AW5-S47s1Yj5qvzeRmvn` RightSet#size (why
+  `Long.bitCount()` is avoided), `AW5-S-gg1Yj5qvzeRo3l` + `AZ7imjBN8lbwoM_tj_bk` RepositoryManager
+  ("don't import website since…"), `AW5-S9Aa1Yj5qvzeRoS6` EntityResourceReferenceHandler ("in the
+  future, modify this to return…"), `AY974nPBKZk1650DhyKG` DefaultAuthorizationManagerIntegrationTest
+  L377 (the alternative mock the test deliberately does not use), `AY974p67KZk1650DhyR8`
+  ProvidingTransactionRunnableTest L49 ("this should fail at compile time: …" documents a negative
+  test case).
+- **Prose Sonar mis-reads as code (false positive)** — `AW5-S5Fz1Yj5qvzeRmyK`
+  R40001XWIKI7540DataMigration, `AXnpAdFGDDFOvAKXAQCb` ModelFactory.
+- **Removing it would leave an empty block** (a fresh `S108`) — `AZGaGx8HPhpr_P5DN478`
+  ExtensionIndexJob L202, the only statement of an `if (getRequest().isLocalExtensionsEnabled())`.
+
+### java:S116 (field naming) — the one non-`private` site
+- `AW5-S6ET1Yj5qvzeRm_Q` AbstractSkin `protected Skin VOID` — a `protected` field on a published
+  class is a cross-module rename. The other 16 platform sites are all `private` and were fixed.
+
+### java:S2447 (null returned from a `Boolean` method) — the null IS the API contract
+Every site is a script service or bridge whose `Boolean` return means "not applicable / no answer"
+(`null`) as opposed to `false`; returning `false` instead is a behaviour change on a public API and a
+per-site product decision, not a cleanup. Same shape in commons (see that section).
+- `AXnpAf7oDDFOvAKXAQhj`, `AW5_87iCV8VR4Ualy-ov`, `AW5_87iCV8VR4Ualy-ow`, `AW5-S8e31Yj5qvzeRoME`,
+  `AW5-S5BQ1Yj5qvzeRmwh`, `AW5-S5BQ1Yj5qvzeRmwi`, `AW5-S9Tc1Yj5qvzeRoXO`, `AW5-S9Tc1Yj5qvzeRoXP`,
+  `AW5-S9RU1Yj5qvzeRoW5`, `AW5-S9OD1Yj5qvzeRoWW`, `AW5-S9OD1Yj5qvzeRoWZ`, `AW5-S9OD1Yj5qvzeRoWa`.
+
+### java:S3655 (`Optional#get()` without `isPresent()`) — presence proved by a guard Sonar cannot follow
+- `AZCZDlD8LWAsJr2aywhx` EntityChannelScriptAuthorBot L77 — the value is guarded by a preceding
+  `entityChannel.map(this::needsProtection).orElse(false)` stored in a boolean; making Sonar see it
+  means restructuring the method. The two sites where the fix was a one-liner (`map(…).orElse(false)`
+  and `Collectors.joining`) were fixed.
+
+### java:S6912 (use `addBatch`/`executeBatch`) — a batching decision, not a cleanup
+- `AZf1b0yb-3Rl8fL0EFUS`, `AZf1b0yb-3Rl8fL0EFUT` R35101XWIKI7645DataMigration L137/L140 — batching a
+  migration's statements changes its failure granularity and error reporting.
+
 
 ### java:S5778 (one throwing call per `assertThrows` lambda) — same FILE as an open agent PR
 - `AZ_Y1yTvsEtYd74_M78C`, `AZ_Y1yTvsEtYd74_M78E` ClassPropertyValuesResourceImplTest L137/L145 — the
