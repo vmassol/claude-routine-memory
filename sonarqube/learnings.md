@@ -475,6 +475,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (`java.util.ReverseOrderListView$Rand`), proved it is a lazy view by mutating the base list, and
   timed both loop forms over 5M elements in alternating rounds. Post the actual output, and label a
   crude microbenchmark as one — "no measurable penalty" is defensible where "faster" is not.
+  **Outcome datapoint: the PR merged four minutes later with no further discussion** — a measured
+  answer plus an explicit offer to drop the one contested site resolves a performance objection,
+  where an argument from first principles would have invited a second round.
   **The same throwaway file settles EQUIVALENCE questions, not just compile
   ones** — for a text-block conversion (`S6126`), put the old concatenation and the new text block in one
   `main` and print `old.equals(new)`. Incidental-indent stripping, trailing-whitespace removal and
