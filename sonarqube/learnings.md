@@ -406,6 +406,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `Number.parseInt === parseInt`, or a loop over `U+0000`–`U+1117F` comparing the old and new regex.
   Quote the actual output in the PR body; it is stronger evidence than a green Maven reactor would be.
   Building `xwiki-platform-web-war` alongside is cheap insurance but proves nothing about the JS.
+  **Expect a JS batch to be routed to a front-end reviewer even when Vincent LGTMs it** ("this is
+  javascript and I'd like an opinion from someone with more expertise, cc @manuelleduc") — so write the
+  body for a reviewer who did none of the analysis: state the equivalence proof per rule and list the
+  sites you deliberately did NOT convert. An LGTM on a JS batch is not a merge signal; do not treat the
+  PR as finished.
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.
