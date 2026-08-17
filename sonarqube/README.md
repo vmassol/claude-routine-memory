@@ -25,8 +25,11 @@ reviewed PR). Otherwise it belongs here.
 
 ## Layout
 
-- **`learnings.md`** — the always-load core: read/write protocol, find-phase strategy, batch
-  composition, building, cost control, GitHub, process. Read this first, every run.
+- **`learnings.md`** — the always-load core: read/write protocol, **Rule index**, find-phase strategy,
+  batch composition, building, cost control, GitHub, process. Read this first, every run.
+- **`rules/<language>-<rule>.md`** — one file per rule whose gotcha is NOT in the plugin OKF (a rule
+  the OKF does not cover, or a shape it gets wrong). Read only the rows of the *Rule index* in
+  `learnings.md` for the rules you commit to fixing; add a row when you add a file.
 - **`pool-state.md`** — volatile per-rule state: where each rule's pool is deep or drained, module
   densities, observed drop rates. Consult it in the find phase; re-query before trusting it.
 - **`dropped-issues.md`** — skip-index of SonarCloud issue keys already analyzed and rejected (with

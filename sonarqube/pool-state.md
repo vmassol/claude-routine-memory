@@ -137,6 +137,26 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S2447** null returned from a `Boolean` method | Platform 12, commons 6 — **all dropped, permanently.** | **100% drops.** The `null` is the API contract ("no answer" ≠ `false`) on script services and bridges. Keys recorded in `dropped-issues.md`. |
 
 
+**After the JavaScript sweep (platform 43 JS + 6 Java, commons 0, rendering 0):**
+
+- **The JAVA mechanical pool in platform is now genuinely empty.** The ~85-rule allowlist returns 270
+  keys of which only 59 are not already in `dropped-issues.md`, and 54 of those are the permanent
+  `S1130` `src/main` residue (recorded by shape, so they keep reading as "fresh" — cross-check the
+  path, not just the key). Everything the distribution facet holds beyond the allowlist is a rename
+  (`S100` 24, all public API), a design change (`S110` 39, `S107` 27, `S4348`, `S3078`, `S6912`) or a
+  real-bug rule (`S1872` residue, `S6019`). Total Java yield this run: **6**.
+- **`javascript:` is the pool now, and it is real: ~880 open in platform, zero in commons/rendering.**
+  Almost all of it sits in `xwiki-platform-web-war/src/main/webapp/resources/`. First sweep took
+  `S7773` (38 of 60) + `S6353` (5 of 5) = **43 in one PR, 0 drops beyond the vendored files**. What is
+  left, roughly in descending safety: `S6397` 7, `S1125` 8, `S1121` 25, `S2814` 32, `S3504` 14 (all
+  untriaged); then the judgement-heavy bulk — `S7765` 90 (`indexOf`→`includes`, needs the receiver
+  type per site), `S6582` 76 (optional chaining — differs on falsy-but-not-nullish), `S1848` 76
+  (**false positive on Prototype**: `new Ajax.Request(…)` IS the side effect), `S7721` 61,
+  `S7773` residue, `S4138` 55 (`for`→`for-of`, breaks on mutation/sparse arrays), `S7741` 37
+  (`typeof x === 'undefined'` → ReferenceError on an undeclared variable), `S7740` 33, `S7761` 26.
+- The `xml:S1135` (TODO) pools — platform 54, commons 14, rendering 6 — are TODO comments, i.e. the
+  same non-starter as `java:S1135`.
+
 ## Candidates not yet swept
 
 - **Commons rules triaged and REJECTED in one pass** (read the message, not the code): `S1319`

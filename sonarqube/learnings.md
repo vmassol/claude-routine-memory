@@ -21,6 +21,20 @@ location, subagent verification, the accept loop).
   observation → `pool-state.md`. A routine/build/GitHub/process fact → the matching section HERE.
   Merge and trim in place; do not append.
 
+## Rule index (detail files under `sonarqube/rules/`)
+
+Rule-specific gotchas that are NOT in the plugin OKF live in one file per rule here. Read only the
+rows for the rules you commit to fixing this run.
+
+| Rule | File | One-line reason it has a file |
+|---|---|---|
+| `javascript:S7773` | [rules/javascript-S7773.md](rules/javascript-S7773.md) | `parseInt`/`parseFloat` are free; `isNaN`/`isFinite` are NOT equivalent |
+| `javascript:S6353` | [rules/javascript-S6353.md](rules/javascript-S6353.md) | `\D`/`\W` equivalence depends on the regex flags — prove it with `node` |
+| `java:S6885` | [rules/java-S6885.md](rules/java-S6885.md) | `Math.clamp` throws when `min > max`; the nested form does not |
+| `java:S1193` | [rules/java-S1193.md](rules/java-S1193.md) | the duplicated `throw` creates a fresh `S1192` |
+| `java:S1872` | [rules/java-S1872.md](rules/java-S1872.md) | split verdict: `void.class` is clean, `isAssignableFrom` is a behaviour change |
+| `java:S6916` | [rules/java-S6916.md](rules/java-S6916.md) | false positive on an enum `switch` — guards need pattern labels |
+
 ## Picking a target rule (find phase)
 
 - Get the rule distribution cheaply FIRST (no issue bodies): one
@@ -73,6 +87,26 @@ location, subagent verification, the accept loop).
   (35) yielded 27 in one PR, more than the entire remaining allowlist across all three repos. The
   per-site triage there is ~10 lines of context each, which is affordable precisely because no
   whole-file read is needed.
+- **When the whole JAVA facet is dry, the answer is `languages=js`, not another Java rule.** Platform
+  carries ~880 open `javascript:` issues and no run had touched them; the Java allowlist that day
+  returned 59 "fresh" keys of which 54 were the permanent `S1130` `src/main` residue. Two mechanics
+  matter: (a) **the `rules` facet is truncated to its top 10 values**, so a whole-project facet hides
+  every non-Java rule — query `&languages=js&facets=rules` separately or you will conclude the repo is
+  closed; (b) the pool is **almost entirely one module**,
+  `xwiki-platform-web-war/src/main/webapp/resources/`, i.e. the hand-written Prototype-era WAR
+  scripts. Commons and rendering have **no** JS at all.
+- **Before touching any WAR JavaScript file, check its header for third-party provenance.** Several of
+  the densest files are vendored scripts XWiki redistributes rather than maintains
+  (`table/tablefilterNsort.js` — Guglielmi/de Valk/Eldenmalm, `widgets/validation/livevalidation_prototype.js`
+  — LiveValidation 1.4 MIT); XWiki-owned files carry the standard LGPL "See the NOTICE file" banner.
+  Excluding the vendored ones cost 22 issues out of 65 and is the right call — say so under
+  *Clarifications*. **`git log` cannot answer this here**: the clones are shallow, so every file's
+  history collapses to the same boundary commit.
+- **Triage the JS pool by RULE SEMANTICS first — several of the big ones are traps.** `S1848` "useless
+  object instantiation" is a false positive on Prototype (`new Ajax.Request(…)` *is* the side effect);
+  `S6582` optional chaining, `S7741` `typeof x === 'undefined'`, `S4138` `for`→`for-of`, `S7740`
+  `var self = this` and `S7761` `.dataset` all change behaviour in at least one shape. The
+  provably-safe subset found so far is `S7773` (partly) and `S6353` — see the Rule index.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -301,6 +335,20 @@ location, subagent verification, the accept loop).
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with
   the exact reason. The check is one call for the whole shortlist; skipping it is what makes the
   skip-index worthless.
+- **A `dropped-issues.md` entry can CONFLATE two shapes under one rule heading — read the stated
+  reason against the site you are holding, not just the key.** Three of the six Java fixes in one run
+  were keys already listed as dropped: the `S1872` heading said "`instanceof` is not equivalent",
+  which is true of the two `OfficeServerLifecycleListener` sites but not of the third
+  (`"void".equals(returnType.getName())`, a fixed-class comparison), and the `S1193` heading said
+  "duplicates the `throw`", which is a *solvable* problem (extract the message into a constant), not a
+  drop condition. When you re-open a key, edit the entry into a **Correction:** line rather than
+  deleting it, so the next run sees the reasoning and not just a shorter list. Same failure mode as
+  the OKF-denylist entries that turned out wrong (`S1117`, `S3252`) — a one-line summary loses the
+  shape it was about.
+- **Cross-check EVERY shortlisted key against `dropped-issues.md`, including rules you found via the
+  facet rather than the allowlist.** The allowlist query does this automatically; a rule you pull
+  separately (because the facet surfaced it) skips the check silently, which is exactly how those
+  three already-dropped keys got re-triaged from scratch.
 - **Re-derive the fixed-issue COUNT from the applied edit table at PR time — never carry a planning-phase
   tally forward.** The count drifts every time a site is added or dropped during triage, and the stale
   number reaches the PR body, the commit message and the accept list at once. A run shipped "21" when the
@@ -347,6 +395,14 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **A JavaScript batch has NO Maven verification — say so instead of pretending otherwise.** The
+  legacy WAR resources are outside the Nx/pnpm workspace (which only covers `livedata`, `ckeditor`,
+  `blocknote`), so there is no lint, no unit test and no build step for them. What *is* available, and
+  what a reviewer will accept, is: `node --check <file>` on every modified file (catches any structural
+  damage the batch script did), plus a **`node` one-liner proving the transform's equivalence** — e.g.
+  `Number.parseInt === parseInt`, or a loop over `U+0000`–`U+1117F` comparing the old and new regex.
+  Quote the actual output in the PR body; it is stronger evidence than a green Maven reactor would be.
+  Building `xwiki-platform-web-war` alongside is cheap insurance but proves nothing about the JS.
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.

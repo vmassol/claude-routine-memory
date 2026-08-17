@@ -647,15 +647,63 @@ The other 27 converted cleanly. Three distinct disqualifiers, all visible in the
 `ApplicationStartedEvent.class.getName().equals(event.getClass().getName())` matches exactly one
 class; `instanceof` also matches subclasses, and comparing `Class` objects instead of names changes
 behaviour across class loaders (extension jars). A per-site semantic decision, not a cleanup.
-- `AW5-S8FG1Yj5qvzeRoEQ`, `AW5-S8FG1Yj5qvzeRoER` OfficeServerLifecycleListener:84/86;
-  `AW5-S7bh1Yj5qvzeRn71` DefaultWikiComponentMethodExecutor:189 (`"void".equals(returnType.getName())`).
+- `AW5-S8FG1Yj5qvzeRoEQ`, `AW5-S8FG1Yj5qvzeRoER` OfficeServerLifecycleListener:84/86.
+- **Correction:** `AW5-S7bh1Yj5qvzeRn71` DefaultWikiComponentMethodExecutor:189 was listed here and
+  should not have been — `"void".equals(returnType.getName())` → `void.class.equals(returnType)` is a
+  comparison against a *fixed known* class, not an `instanceof`, so it is exactly equivalent. Fixed.
+  See [rules/java-S1872.md](rules/java-S1872.md).
 
-### java:S1193 (instanceof in a catch → multi-catch) — duplicates the `throw`, or empties a `catch`
+### java:S1193 (instanceof in a catch → multi-catch) — empties a `catch`
 The XWiki shape is `catch (Exception e) { if (e instanceof InterruptedException) { interrupt(); }
-throw new XxxException(…, e); }`. Splitting it duplicates the wrapping `throw` in both catch blocks;
-where the `if` is the whole body, the second catch becomes empty (a fresh S108/S1186).
-- `AYK2yKxsjX57U6EJhxnU`, `AYK2yKxsjX57U6EJhxnW` XarExtensionHandler:178/203;
-  `AW5-S5ct1Yj5qvzeRm1Y` LiveNotificationEmailListener:99.
+throw new XxxException(…, e); }`.
+- `AW5-S5ct1Yj5qvzeRm1Y` LiveNotificationEmailListener:99 — here the `if` is the whole body, so the
+  split leaves an empty `catch (IllegalArgumentException)`, i.e. a fresh S108/S1186. Permanent drop.
+- **Correction:** `AYK2yKxsjX57U6EJhxnU`, `AYK2yKxsjX57U6EJhxnW` XarExtensionHandler:178/203 were
+  dropped for "duplicates the wrapping `throw`" — that is a solvable problem, not a drop condition:
+  extract the message into a constant in the same edit and the duplicated `throw` costs nothing.
+  Fixed. See [rules/java-S1193.md](rules/java-S1193.md).
+
+### java:S6916 (pattern match guard) — FALSE POSITIVE on an enum `switch`
+Java 21 allows a `when` guard only on a *pattern* case label; `case BLOCKED, X when cond ->` does not
+compile. Permanent drop for every enum-`switch` site.
+- `AZqCQr1OWrST1JcpjTkl`, `AZqCQr1OWrST1JcpjTkm` ScopeNotificationFilter:101/107.
+
+### java:S100 (method naming) — every platform site is a PUBLIC API method
+All 24 open sites are `public`/`protected` methods of published oldcore classes (`XWiki` 7,
+`XWikiAttachment` 4, `DefaultXWikiDocumentMerger` 4, `Package`/`PackageAPI` 4, `ScopeFactory` 3,
+`PeriodFactory`, `Utils`), so the rename is a Revapi break. Same verdict as the denylisted `S115`.
+- `AZ9R1gSKWw4wwGCX_PiV`, `AW5-S7Kr1Yj5qvzeRn5D`, `AW5-S7Kr1Yj5qvzeRn5E`, `AW5-S7Kr1Yj5qvzeRn5G`,
+  `AW5-S7Kr1Yj5qvzeRn5I`, `AW5-S6tI1Yj5qvzeRnoN`, `AW5-S6tf1Yj5qvzeRnpK`, `AW5-S6tf1Yj5qvzeRnpM`,
+  `AW5-S62n1Yj5qvzeRn2T`, `AW5-S62n1Yj5qvzeRn2V`, `AW5-S62n1Yj5qvzeRn2X`, `AW5-S62n1Yj5qvzeRn2Z`,
+  `AW5-S6Vq1Yj5qvzeRnL_`, `AW5-S6Vq1Yj5qvzeRnMA`, `AW5-S6Vq1Yj5qvzeRnMB`, `AW5-S6Vq1Yj5qvzeRnMC`,
+  `AW5-S6yZ1Yj5qvzeRntx`, `AW5-S6yi1Yj5qvzeRnt0`, `AW5-S6yi1Yj5qvzeRnt1`, `AW5-S6yi1Yj5qvzeRnt2`,
+  `AW5-S6hc1Yj5qvzeRndD`, `AW5-S62m1Yj5qvzeRnx4`, `AW5-S62m1Yj5qvzeRnx5`, `AW5-S62m1Yj5qvzeRnx6`.
+
+### Platform one-off rules triaged from the message and rejected (no source read)
+- **`java:S106`** replace `System.out`/`System.err` by a logger (4) — the sites are a test-support
+  capture helper and a CLI-style utility where printing to the console *is* the contract:
+  `AW5-S9v11Yj5qvzeRong`, `AW5-S-Ve1Yj5qvzeRo1N`, `AW5-S-Ve1Yj5qvzeRo1O`, `AW5-S-L11Yj5qvzeRoxx`.
+- **`java:S3078`** use an `AtomicInteger` (2) — changes the concurrency contract of
+  `DefaultSolrIndexer`: `AW5-S79J1Yj5qvzeRoC2`, `AW5-S79J1Yj5qvzeRoC3`.
+- **`java:S4348`** make the `Iterator` support multiple traversal (3) — a redesign of the mail
+  iterators: `AW5-S5Ni1Yj5qvzeRmzq`, `AW5-S5Mm1Yj5qvzeRmzk`, `AW5-S5fA1Yj5qvzeRm11`.
+- **`java:S6912`** use `addBatch`/`executeBatch` (2) — see the S6912 section above:
+  `AZf1b0yb-3Rl8fL0EFUS`, `AZf1b0yb-3Rl8fL0EFUT`.
+- **`java:S6019`** reluctant quantifier matching 0 repetitions (2) — a real regex bug needing a
+  per-site decision about what the pattern was meant to match, i.e. a JIRA issue:
+  `AXnpAeoLDDFOvAKXAQNA` XWikiAuthServiceImpl:548, `AXnpAe7ADDFOvAKXAQOS` XWikiServletURLFactory:1007.
+
+### javascript:S7773 (`Number.*` over the global functions) — vendored third-party scripts
+`xwiki-platform-web-war` redistributes two scripts XWiki does not maintain; both carry their upstream
+banner. Do not touch them for a cleanup rule (all 22 keys are permanent drops).
+- `js/xwiki/table/tablefilterNsort.js` (Guglielmi / de Valk / Eldenmalm): `AZlyHalLlYnK6j8fkQaP`,
+  `AZlyHalLlYnK6j8fkQaQ`, `AZlyHalLlYnK6j8fkQaR`, `AZlyHalLlYnK6j8fkQaS`, `AZlyHalLlYnK6j8fkQaT`,
+  `AZlyHalLlYnK6j8fkQaU`, `AZlyHalLlYnK6j8fkQaV`, `AZlyHalLlYnK6j8fkQaW`, `AZlyHalLlYnK6j8fkQaX`,
+  `AZlyHalLlYnK6j8fkQan`, `AZlyHalLlYnK6j8fkQao`, `AZlyHalLlYnK6j8fkQar`, `AZlyHalLlYnK6j8fkQas`,
+  `AZlyHalLlYnK6j8fkQat`, `AZlyHalLlYnK6j8fkQau`, `AZlyHalLlYnK6j8fkQav`, `AZlyHalLlYnK6j8fkQaw`,
+  `AZlyHalLlYnK6j8fkQax`, `AZlyHalLlYnK6j8fkQay`, `AZlyHalLlYnK6j8fkQaz`.
+- `uicomponents/widgets/validation/livevalidation_prototype.js` (LiveValidation 1.4, MIT):
+  `AZlyHawolYnK6j8fkQdz`, `AZlyHawolYnK6j8fkQd0`.
 
 ### java:S4165 (useless assignment) — hides a probable bug / the call must stay
 - `AW5-S6wR1Yj5qvzeRnrm` StatsUtil:410 — `VisitStats newVisitObject = visitObject; … visitObject =
