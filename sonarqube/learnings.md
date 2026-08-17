@@ -669,6 +669,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `get_status` is `pending`/`total_count:0` right after creation — NOT a failure. Webhooks don't deliver
   CI-success / new-push / merge-conflict transitions; for long watches schedule a ~1h self check-in and
   re-arm silently until merged/closed. Reply to reviewers only when genuinely necessary.
+- **A reviewer QUESTION on a merged PR is not an objection — answer it, then ship the clarification
+  straight to `master`.** "Explain why this is ok / it could need a comment" asks for reasoning, so
+  verify the mechanism before replying (here: read the abstract method's own Javadoc and the sibling
+  implementation, then settle the JDK behaviour with a 10-line reflection program rather than asserting
+  it). If the answer is "the code is right but non-obvious", the deliverable is a comment commit, not a
+  revert. Push it to `master` only when explicitly asked to — and still build the module first: a
+  comment can trip Checkstyle, and there is no PR gate to catch it.
 - **Handling a reviewer objection** (verify the mechanism, judge whether the objection is about intent
   clarity, withdraw rather than argue, then ship the `@SuppressWarnings` + rationale version as its own
   PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. Note the dev.xwiki.org
@@ -813,6 +820,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   - **`S2129`/`S1158`, for `simplification-rules`** — `new Boolean(x).toString()` → `Boolean.toString(x)`
     clears BOTH rules on one line; `new String(s)` inside a `cloneResult(String)` override is safe
     because `String` is immutable.
+  - **`S2129` — when the deleted wrapper was a DEFENSIVE COPY, the fix is incomplete without a comment.**
+    `DefaultLESSCompiler.cloneResult(String)` returned `new String(toClone)`; the abstract contract says
+    "returns a clone of the result to avoid returning the instance stored in the cache", and the sibling
+    `ColorTheme` implementation really does copy because `ColorTheme` is mutable. Removing the copy is
+    correct — `String` has no mutators, so there is nothing for a caller to corrupt, and on a modern JDK
+    `new String(s)` does not even copy the characters (it shares the backing array; only the header
+    object differs — verified with reflection). But the method is now named `cloneResult` and does not
+    clone, which is exactly the shape the next cleanup pass "fixes" back. Add a `//` comment giving the
+    immutability reason. Generalises: whenever a removal makes a method's NAME stop describing its body,
+    the comment is part of the fix.
   - **`S6395`, for `simplification-rules`, with a pointer from the `S6035` denylist entry** — unwrapping
     `(?:["'])` → `["']` is safe when the regex is a `private static final Pattern`; only a
     `public static final String` regex carries the Revapi `constantValueChanged` break that got `S6035`
