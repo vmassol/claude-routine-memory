@@ -90,9 +90,12 @@ rows for the rules you commit to fixing this run.
 - **When the whole JAVA facet is dry, the answer is `languages=js`, not another Java rule.** Platform
   carries ~880 open `javascript:` issues and no run had touched them; the Java allowlist that day
   returned 59 "fresh" keys of which 54 were the permanent `S1130` `src/main` residue. Two mechanics
-  matter: (a) **the `rules` facet is truncated to its top 10 values**, so a whole-project facet hides
-  every non-Java rule — query `&languages=js&facets=rules` separately or you will conclude the repo is
-  closed; (b) the pool is **almost entirely one module**,
+  matter: (a) **`javascript:` rule keys START WITH THE STRING "java"**, so the obvious
+  `rule.startswith("java")` filter for "show me the non-Java rules" silently hides the entire JS
+  generation — split on the `:` (`rule.split(':')[0]`) or query `&languages=js&facets=rules`
+  separately. (The `rules` facet also caps at **100 values**, so on a repo with more rules than that
+  the tail is genuinely missing — check `len(values)` before trusting a facet as exhaustive.)
+  (b) the pool is **almost entirely one module**,
   `xwiki-platform-web-war/src/main/webapp/resources/`, i.e. the hand-written Prototype-era WAR
   scripts. Commons and rendering have **no** JS at all.
 - **Before touching any WAR JavaScript file, check its header for third-party provenance.** Several of
