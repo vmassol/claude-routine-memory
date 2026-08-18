@@ -10,3 +10,6 @@ message into a `private static final String` constant in the same edit.
 
 Drop when splitting would leave an **empty** catch block (the old body only acted on one of the
 multi-catch types) — that trades the issue for a fresh `java:S108`.
+
+Reviewed and merged in xwiki-platform, extracted constant included — so the constant is the accepted
+way to handle the duplicated `throw`, not a workaround a reviewer will push back on.

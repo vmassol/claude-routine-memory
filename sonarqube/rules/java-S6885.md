@@ -16,3 +16,6 @@ Two things to check per site, both decidable from the flagged line:
 
 NaN is *not* a difference: `Math.clamp(NaN, 0, 1)` and `Math.max(0, Math.min(1, NaN))` both give NaN
 (verified with a throwaway `java` file).
+
+Reviewed and merged in xwiki-platform with no objection to the transform itself — this rule is
+welcome here, so it does not need to ride in a judgement-call PR next time.
