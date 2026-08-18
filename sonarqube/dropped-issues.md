@@ -693,16 +693,37 @@ All 24 open sites are `public`/`protected` methods of published oldcore classes 
   per-site decision about what the pattern was meant to match, i.e. a JIRA issue:
   `AXnpAeoLDDFOvAKXAQNA` XWikiAuthServiceImpl:548, `AXnpAe7ADDFOvAKXAQOS` XWikiServletURLFactory:1007.
 
-### javascript:S7773 (`Number.*` over the global functions) — vendored third-party scripts
-`xwiki-platform-web-war` redistributes two scripts XWiki does not maintain; both carry their upstream
-banner. Do not touch them for a cleanup rule (all 22 keys are permanent drops).
-- `js/xwiki/table/tablefilterNsort.js` (Guglielmi / de Valk / Eldenmalm): `AZlyHalLlYnK6j8fkQaP`,
+### javascript:* — VENDORED third-party scripts in `xwiki-platform-web-war` (ANY rule, permanent)
+`xwiki-platform-web-war` redistributes three scripts XWiki does not maintain; each carries its
+upstream banner instead of the standard XWiki LGPL "See the NOTICE file" header. **Check the header
+of every WAR JS file before editing it** — this drop applies to every rule, not just the ones listed.
+- `js/xwiki/table/tablefilterNsort.js` (Guglielmi / de Valk / Eldenmalm)
+- `uicomponents/widgets/validation/livevalidation_prototype.js` (LiveValidation 1.4, MIT)
+- `js/xwiki/panelwizard/ieemu.js` (WebFX / Erik Arvidsson, "IE Emu")
+
+Keys seen so far: `S6535` ieemu `AY1U1sPk0GHv9uFD3ja-`; `S6535` tablefilterNsort
+`AY1U1sNB0GHv9uFD3jPT`, `AY1U1sNB0GHv9uFD3jPU`, `AY1U1sNB0GHv9uFD3jPV`, `AY1U1sNB0GHv9uFD3jPW`,
+`AY1U1sNB0GHv9uFD3jPX`; `S1125` tablefilterNsort `AY1U1sNB0GHv9uFD3jQI`, `AY1U1sNB0GHv9uFD3jRB`,
+`AY1U1sNB0GHv9uFD3jQq`, `AY1U1sNB0GHv9uFD3jQw`, `AY1U1sNB0GHv9uFD3jQ5`; `S4030`
+`AY1U1sNB0GHv9uFD3jP6`; `S6644` `AY1U1sNB0GHv9uFD3jRl`; `S7762` `AZlyHalLlYnK6j8fkQai`;
+`S6660` livevalidation `AY1U1sQy0GHv9uFD3jfV`; `S7759` livevalidation `AZlyHawolYnK6j8fkQdy`.
+
+### javascript:S1125 (boolean literal in a comparison) — false positive on a non-boolean operand
+The rule assumes the compared expression is a boolean. It is not always.
+- `AY1U1sOk0GHv9uFD3jWK` `js/xwiki/create.js:108` — `if (targetName != false)` where
+  `computeTargetPageName()` returns a serialized reference (`String`) **or** `false`. Dropping the
+  literal (`if (targetName)`) silently changes behaviour for a page named `0` or `''`; keeping a
+  strict `!== false` does not remove the literal. Permanent drop.
+
+### javascript:S7773 (`Number.*` over the global functions) — the vendored keys
+Superseded by the vendored-scripts entry above; kept for the exact key list.
+- `js/xwiki/table/tablefilterNsort.js`: `AZlyHalLlYnK6j8fkQaP`,
   `AZlyHalLlYnK6j8fkQaQ`, `AZlyHalLlYnK6j8fkQaR`, `AZlyHalLlYnK6j8fkQaS`, `AZlyHalLlYnK6j8fkQaT`,
   `AZlyHalLlYnK6j8fkQaU`, `AZlyHalLlYnK6j8fkQaV`, `AZlyHalLlYnK6j8fkQaW`, `AZlyHalLlYnK6j8fkQaX`,
   `AZlyHalLlYnK6j8fkQan`, `AZlyHalLlYnK6j8fkQao`, `AZlyHalLlYnK6j8fkQar`, `AZlyHalLlYnK6j8fkQas`,
   `AZlyHalLlYnK6j8fkQat`, `AZlyHalLlYnK6j8fkQau`, `AZlyHalLlYnK6j8fkQav`, `AZlyHalLlYnK6j8fkQaw`,
   `AZlyHalLlYnK6j8fkQax`, `AZlyHalLlYnK6j8fkQay`, `AZlyHalLlYnK6j8fkQaz`.
-- `uicomponents/widgets/validation/livevalidation_prototype.js` (LiveValidation 1.4, MIT):
+- `uicomponents/widgets/validation/livevalidation_prototype.js`:
   `AZlyHawolYnK6j8fkQdz`, `AZlyHawolYnK6j8fkQd0`.
 
 ### java:S4165 (useless assignment) — hides a probable bug / the call must stay

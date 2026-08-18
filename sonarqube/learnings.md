@@ -34,6 +34,8 @@ rows for the rules you commit to fixing this run.
 | `java:S1193` | [rules/java-S1193.md](rules/java-S1193.md) | the duplicated `throw` creates a fresh `S1192` |
 | `java:S1872` | [rules/java-S1872.md](rules/java-S1872.md) | split verdict: `void.class` is clean, `isAssignableFrom` is a behaviour change |
 | `java:S6916` | [rules/java-S6916.md](rules/java-S6916.md) | false positive on an enum `switch` — guards need pattern labels |
+| `javascript:S7762` `javascript:S7768` | [rules/javascript-S7762.md](rules/javascript-S7762.md) | safe only when the receiver provably IS the node's `parentNode` |
+| `javascript:S6637` | [rules/javascript-S6637.md](rules/javascript-S6637.md) | the flagged `}.bind(this)` text is never unique — and the sibling binds must stay |
 
 ## Picking a target rule (find phase)
 

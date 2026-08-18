@@ -157,6 +157,25 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 - The `xml:S1135` (TODO) pools — platform 54, commons 14, rendering 6 — are TODO comments, i.e. the
   same non-starter as `java:S1135`.
 
+**After the SECOND JavaScript sweep (platform 32 safe + 3 judgement, commons 0, rendering 0):**
+
+- **The JS long tail is the pool now, and it behaves like the Java "long tail of one-off mechanical
+  rules" did**: 14 small rules queried in ONE call (`&rules=javascript:S6397,…&ps=500`) returned 80
+  keys → 28 in files an open agent PR already claimed, 15 in the vendored scripts, **37 workable**,
+  of which 32 shipped mechanically and 3 as a judgement PR. The proven-safe JS rules are now
+  `S7759` (`Date.now()`), `S6660` (`else { if }`), `S7778` (multiple `push`), `S6637`
+  (unnecessary `.bind(this)`), `S6676` (`.apply()`/`.call()`), `S1481`, `S6644` (`x?x:y`),
+  `S7723` (`Array()`), `S7776` (list → `Set`), plus `S7762`/`S7768` under the receiver check.
+- **Still untriaged JS (descending count)**: `S7765` 90, `S1848` 76 (**false positive on Prototype**),
+  `S6582` 76, `S7721` 61, `S4138` 60, `S7741` 37, `S7740` 33, `S2814` 32, `S7761` 26, `S1121` 25,
+  `S1874` 22, `S2392` 22, `S7781` 17 (`replaceAll`, two shapes), `S3504` 14 (`var`→`let` — hoisting
+  and redeclaration make it risky in these files), `S2201` 2, `S1854` 4. The `S3776` 30 are
+  cognitive-complexity, i.e. the same non-starter as the Java rule.
+- **`javascript:S1125` is a false-positive rule here** — the flagged operand is often a
+  `String`-or-`false` return value, not a boolean. Read the operand's producer before touching it.
+- **`css:` (19) and `xml:` (58) exist but are non-starters** — `xml:S1135`/`S1134` are TODO/FIXME
+  comments, and the css pool is 19 issues over 7 rules.
+
 ## Candidates not yet swept
 
 - **Commons rules triaged and REJECTED in one pass** (read the message, not the code): `S1319`
@@ -335,6 +354,11 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
 - **Rendering: closed, third confirmation.** Its 50-rule facet cross-checked against the drop index
   left 13 keys, all in already-rejected rules (`S4144` 5, `S1214` 4, `S2160`, `S1141`) plus one new
   drop (`S2198` ×2, now recorded). The whole rendering answer is two calls; do not budget a PR.
+
+**Commons and rendering are CLOSED, sixth confirmation, and the check is now ONE call each.** The
+~85-rule mechanical allowlist queried per repo returned commons 89 / rendering 27 open keys and
+**zero** of them absent from `dropped-issues.md`. Neither repo has any `javascript:`, `css:` or
+`web:` issue at all, so the JS pivot does not apply there either. Budget both at zero.
 
 **XWiki's source level is Java 21** (`<xwiki.java.version>21</xwiki.java.version>` in the commons root
 pom), so a rule is never disqualified for needing a recent JDK — `S6876`/`S6877` (`List#reversed()`,
