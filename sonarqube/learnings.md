@@ -400,14 +400,20 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
-- **A JavaScript batch has NO Maven verification — say so instead of pretending otherwise.** The
-  legacy WAR resources are outside the Nx/pnpm workspace (which only covers `livedata`, `ckeditor`,
-  `blocknote`), so there is no lint, no unit test and no build step for them. What *is* available, and
-  what a reviewer will accept, is: `node --check <file>` on every modified file (catches any structural
-  damage the batch script did), plus a **`node` one-liner proving the transform's equivalence** — e.g.
-  `Number.parseInt === parseInt`, or a loop over `U+0000`–`U+1117F` comparing the old and new regex.
-  Quote the actual output in the PR body; it is stronger evidence than a green Maven reactor would be.
-  Building `xwiki-platform-web-war` alongside is cheap insurance but proves nothing about the JS.
+- **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
+  `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
+  non-strict, merge) and `yuicompressor:compress` over every resource, so
+  `mvn install -Plegacy,quality -pl xwiki-platform-core/xwiki-platform-web/xwiki-platform-web-war`
+  really does parse and minify each file you touched. Cost: **6:18 cold, 0:32 warm** — cheap enough to
+  run per branch. There are still no unit tests for these files (they are outside the Nx/pnpm
+  workspace, which covers only `livedata`, `ckeditor`, `blocknote`), so the module build is a syntax
+  and structure gate, not a behaviour one.
+- **The behaviour evidence is still yours to produce**: `node --check <file>` on every modified file,
+  plus a **`node` program proving each transform's equivalence** — `Number.parseInt === parseInt`, a
+  loop over `U+0000`–`U+1117F` comparing two regexes, `(x ? x : y) === (x || y)` over every
+  falsy/truthy shape, `push(a,b,c)` vs three pushes. Quote the actual output in the PR body, one line
+  per rule. For a DOM rule (`S7762`/`S7768`) there is nothing to run: state the receiver/`parentNode`
+  identity per site instead, quoting the line where the receiver was assigned.
   **Expect a JS batch to be routed to a front-end reviewer even when Vincent LGTMs it** ("this is
   javascript and I'd like an opinion from someone with more expertise, cc @manuelleduc") — so write the
   body for a reviewer who did none of the analysis: state the equivalence proof per rule and list the
@@ -723,9 +729,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     key file to empty on success, so the original list is gone), post a correction comment naming the
     closed PR, then `do_transition transition=reopen` and verify the status went back to `OPEN`.
   - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
-    the usual candidate) and in FILES the safe batch does not touch. Then the judgement PR costs zero
-    extra build time and the split-by-file step is trivially legitimate. A site in a file the safe batch
-    edits must be dropped, not split — the concurrent edit is a conflict risk (recorded as a drop).
+    the usual candidate). Preferring FILES the safe batch does not touch keeps the split-by-file step
+    trivial — but a **shared file is NOT a drop condition when both branches are YOURS and both are cut
+    from the same master**: git merges hunks more than a few lines apart in either order. Three files
+    were shared between a 32-issue and a 3-issue JS pair with the nearest hunks ~20 lines apart and
+    neither PR blocked the other. Cut the sibling branch straight from master (`git checkout -B
+    <branch> <masterSha>`) and apply its edits there, rather than committing on top and splitting.
+    The drop rule stands only for a file claimed by **someone else's** open PR.
   - **Verify the pair in ONE reactor, then split by file.** Apply both batches to the same working
     tree, build once, and only then separate them: commit batch A (`git add <its files>`), commit
     batch B (`git add -A`), then `git checkout -B <sibling> <masterSha> && git cherry-pick <commitB>`
