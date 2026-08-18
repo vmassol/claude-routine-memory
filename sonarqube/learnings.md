@@ -418,7 +418,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   javascript and I'd like an opinion from someone with more expertise, cc @manuelleduc") — so write the
   body for a reviewer who did none of the analysis: state the equivalence proof per rule and list the
   sites you deliberately did NOT convert. An LGTM on a JS batch is not a merge signal; do not treat the
-  PR as finished.
+  PR as finished. **Outcome datapoint: it works** — a 43-issue `S7773`+`S6353` PR (#6186) got Vincent's
+  LGTM, then `@manuelleduc`'s formal approval ~7h later with no change requested, and merged. So the
+  provable JS subset (`parseInt`/`parseFloat`, the `Number.isNaN`-on-a-Number sites, regex character
+  classes) clears specialist review as-is; the routing costs a day of latency, not a rework.
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.

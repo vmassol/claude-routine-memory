@@ -15,3 +15,5 @@ Drive the edit off the issue's `textRange` and assert the char before the token 
 the char after is `(` — that rules out a property access or a longer identifier.
 
 `Number.parseInt` & co. are ES2015, so browser support is a non-issue for XWiki.
+
+**Merged in xwiki-platform (#6186), approved by the front-end reviewer with no change requested** — so the `parseInt`/`parseFloat` subset (and the 3 provable `isNaN` sites) is confirmed acceptable as-is; a future JS run does not need to re-argue it.

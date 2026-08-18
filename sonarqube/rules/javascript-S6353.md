@@ -6,3 +6,5 @@ the `u`/`v` flag JS defines `\D` as exactly `[^0-9]` and `\W` as exactly `[^A-Za
 settles it and is worth quoting in the PR body.
 
 Same safety class as `java:S6397`/`S6353`: a one-token edit inside a regex literal, no dataflow.
+
+**Merged in xwiki-platform (#6186) with front-end approval, no change requested.**
