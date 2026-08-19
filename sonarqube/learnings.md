@@ -36,6 +36,10 @@ rows for the rules you commit to fixing this run.
 | `java:S6916` | [rules/java-S6916.md](rules/java-S6916.md) | false positive on an enum `switch` — guards need pattern labels |
 | `javascript:S7762` `javascript:S7768` | [rules/javascript-S7762.md](rules/javascript-S7762.md) | safe only when the receiver provably IS the node's `parentNode` |
 | `javascript:S6637` | [rules/javascript-S6637.md](rules/javascript-S6637.md) | the flagged `}.bind(this)` text is never unique — and the sibling binds must stay |
+| `java:S3415` | [rules/java-S3415.md](rules/java-S3415.md) | **not** a default drop (15/18): the free classifier is whether either operand is `null` |
+| `javascript:S7781` | [rules/javascript-S7781.md](rules/javascript-S7781.md) | fires only on single-character regexes, and pairs with `S6397` — one edit clears two issues |
+| `javascript:S6660` | [rules/javascript-S6660.md](rules/javascript-S6660.md) | the drop condition is diff size, and a comment between `else {` and `if` must move |
+| `javascript:S6644` | [rules/javascript-S6644.md](rules/javascript-S6644.md) | `\|\|`, never `??` — the original test was truthiness |
 
 ## Picking a target rule (find phase)
 
@@ -112,6 +116,20 @@ rows for the rules you commit to fixing this run.
   `S6582` optional chaining, `S7741` `typeof x === 'undefined'`, `S4138` `for`→`for-of`, `S7740`
   `var self = this` and `S7761` `.dataset` all change behaviour in at least one shape. The
   provably-safe subset found so far is `S7773` (partly) and `S6353` — see the Rule index.
+- **A drop verdict phrased as a PRIOR ("usually unsafe", "default DROP") is not a drop CONDITION —
+  re-derive it from the flagged line.** Third instance after `S1117` and `S3252`, and the cheapest yet:
+  `java:S3415` was "default DROP" here and "usually unsafe — default to dropping it" in the OKF, yet a
+  platform pass went **15/18** green first try. The condition the caution was really about (an
+  `assertNotEquals(obj, null)` contract assertion, an asymmetric `equals()`) is decidable **from the
+  one line the issue already points at** — does either operand read `null`? Whenever a recorded
+  rejection reads as a probability rather than a test, spend one `ps=5` query and read the flagged
+  lines: if the discriminator is visible there, the rule is a pool, not a drop.
+- **Intersect the `(file, line)` sets of your shortlisted rules — CO-LOCATED rules double the yield per
+  edit.** `javascript:S7781` and `javascript:S6397` both fire on `temp.replace(/[Ĳ]/g,"IJ")`, so going
+  straight to `replaceAll("Ĳ","IJ")` cleared **14 issues from 7 edits**. This is the opposite of the
+  known "two issues on the same line will not both land" hazard: it is that hazard turned into a lever,
+  and it is free — one set-intersection over the fresh list, no source reads. Also worth checking
+  across languages/families, since the pairing is about the code shape, not the rule family.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -326,6 +344,16 @@ rows for the rules you commit to fixing this run.
   one edit re-wraps a statement onto two lines, every later line pairs with the wrong original and the
   guard fires on pre-existing over-long lines. `for line in new: if line not in set(old_lines): assert
   len(line) <= 120` is index-independent and still catches exactly the lines you wrote.
+- **A merged Sonar sweep is a RELIABLE source of fresh issues in the very files it touched — and the
+  `git log` provenance check is what finds them.** The known form of this ("S1130 regenerates in the
+  files you just fixed") generalises to any rule whose *fix shape* creates another rule's shape: #6178's
+  `S3824` `Map.get` → `computeIfAbsent` conversion left the assigned-to local unread (a fresh
+  `S1854`+`S1481` pair on one line) and introduced a `name ->` lambda parameter that shadows a field
+  (a fresh `S1117`). So run `git log -1 --format='%h %s' -- <file>` over the candidate files at triage
+  time, not only before deleting: a recent `[Misc] Fix various SonarQube issues` parent is **positive**
+  evidence — it means your fix *completes* that one rather than re-fighting it, which is worth one line
+  in the PR body and pre-empts "didn't we just change this?". The negative case (a JIRA-numbered commit
+  that deliberately introduced the shape) is the one below.
 - **Check the flagged line's own git history before DELETING anything — a rationale is not always a
   comment, sometimes it is a commit message.** The universal drop conditions say to respect a comment on
   the flagged code; that is not enough. A run deleted a `.toString()` from a log call whose `toString()`
@@ -422,6 +450,19 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   LGTM, then `@manuelleduc`'s formal approval ~7h later with no change requested, and merged. So the
   provable JS subset (`parseInt`/`parseFloat`, the `Number.isNaN`-on-a-Number sites, regex character
   classes) clears specialist review as-is; the routing costs a day of latency, not a rework.
+- **A Java+JS split verifies in ONE reactor — put `web-war` in the `-pl` list next to the Java
+  modules.** 4 Java modules (oldcore, notifications-filters-api, store-filesystem, filter-stream-xar)
+  **plus** `xwiki-platform-web/xwiki-platform-web-war` ran **11:21** on a cold-ish `~/.m2` with
+  **1302 tests** green (oldcore 1149) and the WAR leg at 1:32 doing all four
+  `closure-compiler:minify` / `yuicompressor:compress` executions. So the "apply both halves, build
+  once, split by file" trick works across the Java/JS boundary too, not just between two Java branches
+  — and it costs one reactor for two PRs.
+- **The `cd`-per-`mvn` guard: put it in unconditionally and do not trust EITHER cwd signal.** The Bash
+  tool sometimes reports "cwd was reset to /home/user" and sometimes silently keeps the repo — a
+  background `bash build.sh` with a bare `mvn` line happened to inherit the right repo and built fine,
+  which is luck, not a rule. Corollary the other way: an `awk`/`grep` guard that demands
+  `^cd /home/user/<repo> &&` on every `mvn` line will "fail" a script that actually works, so fix the
+  script rather than debating the guard — one edit, no build round lost either way.
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.

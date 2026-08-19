@@ -743,3 +743,41 @@ both unwanted — the reviewer's answer, not a guess. Treat both rules as perman
   HibernateDataMigrationManager:346 (`getLiquibaseChangeLogFooter()`),
   `AYZ7IjPH9c9uyqlx3uGB` XWikiRightServiceImpl:781 (`hasDenyRights()`) — java:S3400.
 - `AW5-S6s91Yj5qvzeRnnN` DocumentInfo:141 — java:S4165 (the other two S4165 sites are above).
+
+### java:S3415 (swap assertion operands) — `null` on one side IS the test
+Same shape as the commons/rendering entries above: `assertNotEquals(new X(...), null)` deliberately
+exercises `x.equals(null)`, and swapping short-circuits inside `Objects.equals`. **This is the rule's
+only common drop condition** — see [rules/java-S3415.md](rules/java-S3415.md); 15 of 18 platform sites
+were clean, so do NOT treat the rule as a drop pool.
+- `AYUsLksItp4wiQKQFvG-` CodeMacroSourceTest:53, `AXG6od5sUBz12AiapMr8` DefaultEventTest:47 (which
+  asserts both directions on consecutive lines — the point of the test),
+  `AW5-S8qr1Yj5qvzeRoOB` DocumentRenamingEventTest:54.
+
+### javascript:S7781 (`replaceAll`) — third-party file
+`js/xwiki/panelwizard/ieemu.js` is IE Emu, © Erik Arvidsson / WebFX — XWiki redistributes it rather
+than maintaining it, like the other vendored WAR scripts. Permanent drop.
+- `AZlyHat4lYnK6j8fkQdN`, `AZlyHat4lYnK6j8fkQdO`, `AZlyHat4lYnK6j8fkQdP`, `AZlyHat4lYnK6j8fkQdQ`.
+
+### javascript:S6660 (`if` alone in an `else` block) — merging would re-indent a long block
+Mechanically correct, but the dedent moves every line of a 30+-line `if/else if` chain, so the diff
+dwarfs the fix for a cosmetic rule. The two short sites in `dashboard.js`/`suggest.js` shipped.
+- `AY1U1sR60GHv9uFD3jkv` suggest.js:902, `AY1U1sR60GHv9uFD3jk2` suggest.js:987.
+
+### javascript:S2201 (unused return value) — the `reduce()` IS the sequencing
+`suggestAttachments.js:425` threads a promise chain through the accumulator to upload files
+sequentially (per the comment naming XWIKI-13473), so "use the result" is a design decision.
+`actionButtons.js:44` is in a file an open agent PR already claims.
+- `AZIFl7cT2p5gib56Ksjp`, `AZIFl7Su2p5gib56Ksjo`.
+
+### javascript:S1125 (boolean literal) — false positive in these scripts
+Confirmed on two more sites: the flagged operand is a `String`-or-`false` return value, not a boolean,
+so the "redundant" comparison is doing real work. Treat the rule as a drop pool in the WAR scripts.
+- `AY1U1sK70GHv9uFD3jM3` xwiki.js:533, `AY1U1sK70GHv9uFD3jM9` xwiki.js:725.
+
+### javascript:S6637 (unnecessary `.bind(this)`) — DEFERRED, not dropped
+Six sites, all in `uicomponents/dashboard/dashboard.js` (lines 368, 376, 481, 489, 525, 636). Each
+needs its own check that the callback truly does not use `this`, and per
+[rules/javascript-S6637.md](rules/javascript-S6637.md) the flagged text is never unique. A viable next
+batch, not a drop — do not skip these keys, triage them.
+- `AY1U1sV50GHv9uFD3jwm`, `AY1U1sV50GHv9uFD3jwo`, `AY1U1sV50GHv9uFD3jw0`, `AY1U1sV50GHv9uFD3jw2`,
+  `AY1U1sV50GHv9uFD3jw7`, `AY1U1sV50GHv9uFD3jxQ`.

@@ -115,7 +115,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S125** commented-out code | Commons 36, of which only **7** were real (the `dumpCert` debug leftovers in `BcX509CertificateGeneratorFactoryTest`). Platform/rendering not yet counted. Comment-only, so it is as safe as S7476 *once you have triaged the site*. | **~80% drops** — see `dropped-issues.md`: a `TODO`/`FIXME` naming a JIRA issue, or a block that documents what the code under it covers. Only a debug helper with no anchor is a genuine fix. |
 | **S5778** `assertThrows` lambda | **Platform was the real pool: 53**, and 37 of them sat in `xwiki-platform-model-api`'s `*ReferenceTest` family alone (`new XReference(new EntityReference(…))` — one shape, ~70% of the pool); the rest are 1-3 per module over 11 modules. 51 shipped in one PR. Commons 4 → 1 left (a recorded drop), rendering 1 (dropped). | **0 real drops (51/51)**; the 2 not shipped were dropped only for a same-FILE open PR. The discriminator is unchanged — read the call you are about to hoist; if IT is the thrower, drop. In practice the hoisted expression is a *fixture* (a valid `EntityReference`, a `WordBlock`, a `DefaultParameterizedType`) and the thrower is the constructor under test, so the whole family converts. Block-bodied lambdas (`() -> { setup; call; }`) convert too and become expression lambdas — that is a bonus, not a drop. |
 | **S2093** try-with-resources | Rendering 2 → 1 fixed. | **50%** here, and the discriminator is one look at the `finally`: a real `close()` converts, a state *restore* (`pop()`, `setX(previous)`, `release()`) never does. |
-| **S3415** swap operands | — | **Default DROP.** |
+| **S3415** swap operands | *Superseded — see the `S3415` row above.* | **Correction: NOT a default drop (15/18 fixed).** The earlier one-line "Default DROP" verdict was a prior, not a condition. |
 | **S117** local-variable/parameter naming | **Platform 45 in just 2 modules** — 36 in oldcore `src/main` (BaseClass 9, XWiki 6, BooleanClass 5, XWikiHibernateStore 4, + 12 singletons over 9 files) and 9 in one notifications-filters test. Commons **2** (one extension-api test), rendering **0**. Swept. | **0 drops (47/47).** Splits cleanly into *locals* (28, pure mechanical) and *method parameters* (17, public legacy APIs → own PR). Not to be confused with the rejected **S1117** (shadowing rename). |
 | **S3012** manual array copy | Platform 5 — **drained** (feed-api, model-api, oldcore, rest-server, webjars-api, one each). Commons 1 (a recorded drop). | **0 drops (5/5).** Four were whole-array → `Collections.addAll(list, array)`; one copied a prefix → `list.addAll(Arrays.asList(a).subList(0, n))`. `Collections`/`Arrays` is usually NOT yet imported. |
 | **S2589** condition always true | Platform 21 → **7 fixed, 14 permanent drops**. The clean sites cluster in one file (`DefaultNotificationCacheManager` gave 4). | **~65% drops.** Clean = a sub-expression made redundant by the PRECEDING branch (`else if (count && !composite)` after `if (count && composite)` → `else if (count)`), a null check after an `instanceof` pattern binding, or a null check inside a block already guarded by `instanceof`. Drop every dead *defensive* null check and any numbered case-analysis block whose comments document the cases. |
@@ -134,6 +134,13 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6876 / S6877** manual reverse iteration | Platform 2 + 2 — **all fixed** (`ExtensionIndexJob`, `RootClassLoaderTranslationBundle`; `AbstractImportMojo`, `PackageMojo` in the packager plugin). Commons 1 (a drop), rendering 0. | **0 drops on the 4 platform sites.** Both rules are the same fix — a for-each over `List#reversed()` replacing either a backward `ListIterator` walk (S6876) or a `Collections.reverse()` copy-mutation (S6877). The single drop condition is a body that mutates through the iterator (`it.remove()`/`it.set()`). Watch the orphaned `java.util.ListIterator` import. |
 | **S3655** `Optional#get()` without `isPresent()` | Platform 3 → 2 fixed, 1 dropped. | **~33%.** Clean when the fix is a one-liner: `isPresent()` + a second `get()` on the same expression → `map(pred).orElse(false)`, and `stream…reduce((a,b) -> a + sep + b).get()` → `collect(Collectors.joining(sep))`. Drop when presence is established by an earlier statement Sonar cannot follow (a boolean computed from `map(…).orElse(false)`). |
 | **S4030** collection populated but never read | Platform 2 — both fixed (`DefaultIOService`, `ColumnsDashboardRenderer`). | **0 drops (2/2)**, and the check is one grep: if every occurrence of the local is its declaration plus `add(…)` calls, delete both. Remove the enclosing `else` when the `add` was its only statement, or the fix trades S4030 for S108. Removes covered instructions, so it is a (small) JaCoCo-ratio risk. |
+| **S3415** swap assertion operands | **Was recorded as "Default DROP" — wrong.** Platform 18: `FileSaveTransactionRunnableTest` 8, `ScopeNotificationFilterPreferenceTest` 3, `RangeTest` 2, `PropertyClassTest` 2, + 3 contract-test drops. Rendering 2 (recorded drops), commons 0. | **17% drops (15/18).** The only drop shape is `null` on one side of an `assertNotEquals`. See [rules/java-S3415.md](rules/java-S3415.md); convert the whole FILE (Sonar flags only some of a file's reversed assertions). |
+| **javascript:S7781** `replace`→`replaceAll` | Platform 17: `xwiki.js` 8 (7 of them the transliteration table, PAIRED with `S6397`), `ieemu.js` 4 (vendored, permanent), `usersandgroups.js` 3 + `locationPicker.js` 1 (open-PR files), `simpletoolbar.js` 1. Commons/rendering 0 JS at all. | **0 drops on the 9 workable sites.** Fires only on single-character regexes → a literal string pattern. 14 issues from 7 edits thanks to the `S6397` pairing. |
+| **javascript:S6397** char class → char (JS) | Platform 7, all the same `xwiki.js` transliteration table as `S7781`. | **0 drops (7/7)**, cleared as a side effect of the `replaceAll` edit. |
+| **javascript:S6644** `x?x:y` → `x\|\|y` | Platform 3, one each in `xwiki.js`, `livetable.js`, `entityReference.js`. | **0 drops (3/3).** `\|\|`, never `??`. |
+| **javascript:S6660** `else { if }` | Platform 4: `dashboard.js` 1, `suggest.js` 3. | **50%** — the drop condition is diff size (a long `else` body would fully re-indent), not correctness. |
+| **javascript:S7762** `childNode.remove()` | Platform 1 left (`livetable.js:280`) after the earlier sweep — done. | 0 drops; the receiver was `this.displayNode` and the node its `firstChild`. |
+| **javascript:S1854** dead assignment (JS) | Platform 4: `livetable.js` 1 (done), the other 3 in open-PR files. | 0 drops on the workable site. |
 | **S2447** null returned from a `Boolean` method | Platform 12, commons 6 — **all dropped, permanently.** | **100% drops.** The `null` is the API contract ("no answer" ≠ `false`) on script services and bridges. Keys recorded in `dropped-issues.md`. |
 
 
@@ -398,3 +405,23 @@ level with one grep before rejecting a modernization rule.
 
 Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.
+
+
+**After the S3415 + JS-long-tail sweep (platform 48 = 25 Java + 23 JS, commons 0, rendering 0):**
+
+- **Platform's Java allowlist is 298 open keys / 82 not already dropped, and after this run the fresh
+  part is essentially the `S1130` `src/main` residue (54, permanent) plus 3 `S3415` contract-test
+  drops.** What paid was, again, a rule a past run had written off too fast (`S3415`) plus three
+  singletons that a *previous sweep's own fix* had created (`S1854`+`S1481`+`S1117` in the two files
+  #6178 touched). Re-query the files of the last merged Sonar PR before concluding the repo is dry.
+- **The JS pool is still the deep one: 315 keys under a ~23-rule JS allowlist, 283 of them fresh.**
+  This run took 23. Remaining, descending: `S7765` 90 (`indexOf`→`includes`), `S6582` 76 (optional
+  chaining), `S2814` 32, `S1121` 25, `S3504` 14 (`var`→`let`) — all untriaged — plus `S6637` 6
+  (deferred, all in `dashboard.js`, a good next batch) and `S1125` 2 (false positives, now recorded).
+- **Commons and rendering: CLOSED, seventh confirmation, one call each.** The ~90-rule mechanical
+  allowlist returns commons **89** and rendering **28** open keys and **zero** of either is absent from
+  `dropped-issues.md`. Their full facets (83 and 51 rules) add nothing: commons' volume is
+  `S6355`/`S1135`/`S5993`/`S3776`/`S112`/`S1133`/`S1186`/`S1168`/`S9149`/`S2065` and rendering's is
+  `S1135`/`javabugs:S2259`/`S1186`/`S3776`/`S5993` — all denylisted or design work. Neither has any
+  `javascript:` issue, so the JS pivot does not apply there. Budget both at zero and spend the whole
+  run on platform.
