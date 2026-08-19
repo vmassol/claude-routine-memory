@@ -838,6 +838,22 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
   `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 8** (opened as `xwiki/xwiki-dev-llm#67`, a *correction* not a nuance addition,
+  so it should merge like `#61` did; if it is closed for a conflict, re-author it on fresh master — do
+  NOT re-push that branch). One entry, `S3415` in `test-code-rules`:
+  - The section opened with **"Usually unsafe — default to dropping it"**, which is a prior rather than
+    a condition and is wrong by a factor of five: a full platform sweep needed a drop on about one site
+    in six. Rewritten so the two drop shapes it already listed (asymmetric `equals`,
+    `assertNotEquals(obj, null)`) are *the drop list*, preceded by the free classifier — **does either
+    operand read `null`?** Also narrowed "read the asserted type's `equals`" to the case where the type
+    name suggests asymmetry (`Regex*`, a matcher), since doing it per site is what made the rule look
+    expensive.
+  - Two mechanics added: Sonar flags only *some* of a file's reversed assertions (one oldcore test had
+    five times as many as reported), so convert the whole file or it reads two ways; and a swap never
+    changes overload resolution even across numeric types (`Math.signum(int)` returns `float`, and both
+    argument orders resolve to `assertEquals(double, double)`).
+  - The JavaScript rules of the same run (`S7781`, `S6660`, `S6644`) were **not** put in the OKF: its
+    sonarqube corpus is Java-only, so they live in `sonarqube/rules/` here.
 - **Owed to the OKF, batch 7** (four rules with no OKF entry at all plus one drop taxonomy; fold into
   a PR a later run is opening anyway):
   - **`S116` field naming, sharpening the batch-5 entry** — the drop line is not `src/main`, it is
