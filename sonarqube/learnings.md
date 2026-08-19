@@ -845,7 +845,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   entry at all**, or for a correction to an entry that is actively wrong. When the family file already
   has the rule and you only sharpened a shape or two, record it here under *Owed to the OKF* and let a
   later run fold it into a PR it was opening anyway. **A brand-new rule entry is not exempt**: the
-  `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
+  `S117` PR (#49) documented a rule with no OKF entry at all and was closed with the same words. What DOES get merged is a **correction to an entry that is actively wrong**: `#61` moved `S3252` off the denylist (the listed reason belonged to `S1845`) and merged the same day, version bump and all. **Third datapoint, and it settles the rule: `#67` (the `S3415` "default to dropping" verdict) merged
+  ~30 minutes after opening, version bump and all** — a close-then-reopen within four seconds is that
+  merge flow, not a rejection, so do not react to the `closed` webhook by re-authoring anything. What
+  made it land, and worth copying: the body led with the *cost* of the wrong entry (the rule was almost
+  skipped) and cited the sweep it unblocked **by its merged PR number**, so the reviewer could see the
+  correction had already been validated in production. Open the code PR first, let it merge, then cite
+  it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
 - **Owed to the OKF, batch 8** (opened as `xwiki/xwiki-dev-llm#67`, a *correction* not a nuance addition,
   so it should merge like `#61` did; if it is closed for a conflict, re-author it on fresh master — do
