@@ -2,8 +2,9 @@
 
 The OKF's `test-code-rules` entry says **"usually unsafe — default to dropping it"**, and
 `pool-state.md` used to say **"Default DROP"**. Both mis-set the prior: a real platform sweep went
-**15 fixed / 3 dropped (83%)**, green first try. The drop conditions in the OKF are correct; what is
-wrong is treating them as the common case.
+**15 fixed / 3 dropped (83%)**, green first try, and **the PR merged with no review comment at all**
+(#6196, ~14 h). The drop conditions in the OKF are correct; what is wrong is treating them as the
+common case.
 
 ## The free classifier: does either operand read `null`?
 

@@ -123,7 +123,10 @@ rows for the rules you commit to fixing this run.
   `assertNotEquals(obj, null)` contract assertion, an asymmetric `equals()`) is decidable **from the
   one line the issue already points at** — does either operand read `null`? Whenever a recorded
   rejection reads as a probability rather than a test, spend one `ps=5` query and read the flagged
-  lines: if the discriminator is visible there, the rule is a pool, not a drop.
+  lines: if the discriminator is visible there, the rule is a pool, not a drop. **Outcome datapoint:
+  that PR merged with no review comment at all**, which is the same verdict `S1117`/`S3252` got — a
+  rule rescued from a prior-shaped rejection has now merged uncommented three times running, so the
+  re-derivation is cheap insurance rather than a gamble.
 - **Intersect the `(file, line)` sets of your shortlisted rules — CO-LOCATED rules double the yield per
   edit.** `javascript:S7781` and `javascript:S6397` both fire on `temp.replace(/[Ĳ]/g,"IJ")`, so going
   straight to `replaceAll("Ĳ","IJ")` cleared **14 issues from 7 edits**. This is the opposite of the
@@ -777,6 +780,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     never land. Re-query the keys by `rules=…&issueStatuses=ACCEPTED` (the accept script rewrites its own
     key file to empty on success, so the original list is gone), post a correction comment naming the
     closed PR, then `do_transition transition=reopen` and verify the status went back to `OPEN`.
+  - **The split axis can be LANGUAGE, not risk, and it works the same way.** A 25-issue Java PR and a
+    23-issue JavaScript PR cut from one reactor (see the `web-war`-in-the-`-pl`-list datapoint above)
+    kept the JS half — which gets routed to a front-end reviewer and costs a day of latency — from
+    holding up the Java half: the Java PR merged in ~14 h, uncommented, while the JS one was still
+    waiting. Same mechanics as the safe/unsure split (disjoint file sets, one build, split by file
+    afterwards), and the sibling cross-links in both bodies are what tell the reviewer it is one sweep.
   - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
     the usual candidate). Preferring FILES the safe batch does not touch keeps the split-by-file step
     trivial — but a **shared file is NOT a drop condition when both branches are YOURS and both are cut
