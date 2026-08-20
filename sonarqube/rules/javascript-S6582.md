@@ -37,6 +37,14 @@ evaluates `(0).f()` and throws.** Same for a further member access after the `?.
    is `''`, and `''.startsWith(…)`/`''.substr(…) === 'x'`/`''.endsWith(…)` are all `false`, i.e. the
    same branch `&&` took. Safe, and worth saying so explicitly in the PR.
 
+## Outcome datapoint — both halves merged
+
+The split shipped as #6201 (43 mechanical) + #6202 (5 judgement). **#6202 merged uncommented** and
+#6200 (the Java sibling) merged too; the mechanical #6201 was still awaiting the front-end reviewer at
+that point, exactly the day-of-latency the JS-routing note in `learnings.md` predicts. So the
+assigned-to-a-variable judgement half is NOT a coin toss for this rule — write it to be merged and keep
+splitting only so the mechanical half is not held up, not because the judgement half is unwelcome.
+
 ## Where the judgement half sits
 
 The result **assigned to a variable** (`var icon = option && option.icon;`) is the one shape whose
