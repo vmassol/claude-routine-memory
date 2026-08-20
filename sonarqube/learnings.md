@@ -786,16 +786,23 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   it). If the answer is "the code is right but non-obvious", the deliverable is a comment commit, not a
   revert. Push it to `master` only when explicitly asked to — and still build the module first: a
   comment can trip Checkstyle, and there is no PR gate to catch it.
-- **A reviewer QUESTION about pure STYLE is not yet a decision — reply first, push after they confirm.**
-  This cost a round trip on #6197: `@manuelleduc` asked *"Shouldn't this comment apply to the `else if`?"*,
-  I changed the code to the only placement that binds a comment to a condition (a trailing comment), and
-  Vincent then said he dislikes trailing comments and that my **original** placement was the house style
-  — so it went back. Distinguish the two cases: an ask with correctness content (a bug, a wrong operator,
-  a CI failure) → push the fix and explain; a question with none (comment placement, naming, formatting)
-  → answer with the reasoning and the options *first*, since the reviewers may not agree with each other
-  and the existing code is often already the convention. Two reviewers disagreeing in the same thread is
-  the signal that you were never the one to decide. Cheap tell: the comment is phrased as a question, or
-  begins "Personally I …".
+- **A reviewer's GENERAL PRINCIPLE is not a verdict on YOUR construct — check whether it applies, and
+  reply with that check instead of pushing.** #6197 cost two full round trips this way, both reverted to
+  what was originally pushed. (1) `@manuelleduc` asked *"Shouldn't this comment apply to the `else if`?"*;
+  I moved it to the only placement that binds a comment to a condition (trailing), and Vincent then said
+  he dislikes trailing comments and that my original placement was the house style. (2) The same reviewer
+  said `??` is preferred over `||` because it does no type conversion — true as JS style — so I switched
+  all three sites; he then replied *"don't replace `||` with `??` if it's a behavioral change"*, which for
+  `S6644` it always is, since the rule fires on a **truthiness** ternary. Both times the principle was
+  right and its application to the flagged construct was wrong, and I was the one holding the information
+  needed to see that. So: an ask with correctness content (a bug, a CI failure, a concrete wrong value) →
+  push the fix. A general style principle, or a question ("Shouldn't this…?", "Personally I…") → verify it
+  against the actual construct, then answer with the finding; change the code only once the answer says to.
+  Two reviewers disagreeing in one thread is the signal it was never yours to decide.
+- **Reverting is cheap when you can prove the revert lands on already-built code.** After both round trips
+  the files went back byte-for-byte to an earlier verified commit — `git diff <builtSha> -- <files>`
+  returning zero differing lines is the whole verification, so `node --check` plus that diff is enough and
+  no rebuild is needed. State it in the reply; it is also what makes a same-day revert uncontroversial.
 - **Handling a reviewer objection** (verify the mechanism, judge whether the objection is about intent
   clarity, withdraw rather than argue, then ship the `@SuppressWarnings` + rationale version as its own
   PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. Note the dev.xwiki.org

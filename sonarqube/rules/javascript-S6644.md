@@ -1,35 +1,36 @@
 # `javascript:S6644` — "Unnecessary use of conditional expression for default assignment"
 
-`(x) ? x : y` → **`x ?? y`**. This is a reviewer style call from `@manuelleduc` on #6197, so apply it
-from the start: *"while `||` is valid, `??` is preferred as it does not implicitly apply type
-conversion — `||` accepts `0`, `''` or `false`, while `??` only accepts `null` and `undefined`."*
+**Use `x || y`, not `x ?? y`.** Settled on #6197 after a full round trip in both directions, so do not
+re-litigate it.
 
-**An earlier version of this file said "`||`, never `??`". That was wrong as a default** — it
-optimised for matching the original ternary's truthiness test, but the codebase prefers the operator
-that says what is actually meant. Do not revert to `||` on the grounds of literal equivalence.
+The reasoning is structural to the rule and is what a future run must carry: **`S6644` fires on
+`(x) ? x : y`, a *truthiness* test.** `||` is therefore the exact translation, while `??` narrows the
+fallback to nullish only and so changes behaviour for `false`, `0`, `-0`, `NaN`, `''` and `0n`.
 
-## But `??` IS a behaviour change — check the operand per site
+`@manuelleduc` prefers `??` **as a general JavaScript style** ("`||` accepts `0`, `''` or `false`,
+while `??` only accepts `null` and `undefined`") — and that preference is real, so expect to be told
+it on any PR touching a default assignment. But he closed the loop himself once the consequence was
+visible: *"don't replace `||` with `??` if it's a behavioral change."* For this rule it essentially
+always is one, because of what the rule fires on. `??` would be right only if the original code had
+tested `!= null`.
 
-The two forms agree **only** on `null` and `undefined`; they differ for `false`, `0`, `-0`, `NaN`,
-`''` and `0n`. Since the flagged code tested *truthiness*, switching to `??` changes behaviour at any
-site where a falsy-but-not-nullish value can reach the operand. So:
+**Do not try to rescue `??` with a per-site proof.** Bounding the operand is not worth it in a cleanup
+PR, and two of the three platform sites cannot be bounded at all (`livetable.js#serializeParams` and
+`xwiki.js#shortcut.add` are both reachable from wiki-page and extension code). `xwiki.js` is the
+cautionary one: `opt` is consumed as `'target' in opt`, so `opt = opt ?? {}` turns a caller passing
+`false` into a `TypeError` where `||` quietly supplied `{}` — the "more precise" operator is the less
+robust one there.
 
-- **Optional object/map argument** (`opt`, `newParams`, an options bag) → `??` is equivalent in
-  practice and states the intent. This is most of the pool.
-- **The operand can legitimately be `0`** → do not silently switch. Read it: this is usually a
-  *finding*, not a blocker. In `entityReference.js` `parentType` comes from `typeSetup[currentChar]`
-  guarded by `typeof … === 'number'` (a guard written to admit `0`) and `EntityType.WIKI` **is** `0`,
-  so `||` was discarding a valid parent type and falling through to `DEFAULT_PARENT[currentType]` —
-  correct today only because the sole `0`-valued entry's default happens to be `WIKI` as well. `??`
-  removed a latent trap, and saying so is what turned a style nit into an accepted fix.
-- **Watch the consumer when switching a defaulted object.** `opt = opt ?? {}` followed by
-  `'target' in opt` means a caller passing a falsy primitive now throws a `TypeError` where `||` gave
-  it `{}`. No real caller does that, but flag it in the reply rather than letting the reviewer find it.
+## A `0`-valued enum is worth noticing, but it is not this rule's business
 
-`??` is ES2020 and had no precedent in the WAR scripts; `mvn install -Plegacy,quality -pl
-…/xwiki-platform-web-war` came back `BUILD SUCCESS` (3:52 warm) with the `.min.js` files regenerated,
-so closure-compiler parses and minifies it. Never mix `??` with `||`/`&&` in one expression without
-parentheses — that is a `SyntaxError`.
+`entityReference.js:453` has `parentType || DEFAULT_PARENT[currentType]` where `parentType` can be
+`EntityType.WIKI`, which **is `0`** — the guard above it (`typeof … === 'number'`) exists precisely to
+admit `0`. So `||` discards a legitimate value and leans on `DEFAULT_PARENT` to return the same thing.
+It is provably harmless today (`parentType` is `0` only when `currentType === SPACE`, and
+`DEFAULT_PARENT[SPACE]` is `WIKI` too), but that is a property of the lookup tables, not of the code.
+Report it as an observation for a possible JIRA issue; do **not** "fix" it inside a Sonar sweep — the
+reviewer will read the operator swap as the behaviour change it is.
 
-Drop only if the two branches are not the same expression (then it is not this rule's shape) or if
-the condition has a side effect, which would then run twice. Neither has appeared yet.
+`||` clears the issue just as well as `??`, so nothing is lost. Drop the site only if the two branches
+are not the same expression (then it is not this rule's shape) or if the condition has a side effect,
+which would run twice. Neither has appeared yet.
