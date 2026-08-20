@@ -21,6 +21,21 @@ parent; the old form acts on whatever object you called it on.
   **`removeChild()`/`replaceChild()` throw `NotFoundError` when the node is not a child; `remove()`
   and `replaceWith()` silently do nothing.** Ship these in the sibling judgement PR.
 
+## Sonar UNDER-reports this shape — convert the whole file, not the flagged lines
+
+`panelWizard.js` held **eight** `X.parentNode.replaceChild(Y, X)` / `removeChild` calls and Sonar
+flagged only **four**. A reviewer (manuelleduc) spotted the mismatch immediately — *"shouldn't this
+be updated too to stay consistent with the change on line 210?"* — pointing at an un-flagged line
+two lines above a converted one. So for this rule, `grep -n 'replaceChild\|removeChild' <file>` and
+convert every site of the shape; the flagged keys are a subset, and the extra sites cost nothing
+(they are not Sonar issues, so they only change the file, not the count).
+
+**Put the un-flagged extras in the MECHANICAL PR, not the judgement one.** Splitting on "receiver is
+provably the node's `parentNode`" leaves the file coherent on a stated principle whichever PR
+merges: everything provable is converted, and the only calls left are exactly the invariant-dependent
+ones the judgement PR owns. Say that in both PR bodies and in the reply — it is what turns
+"half-converted file" into a deliberate line.
+
 ## Notes
 
 - Prototype.js also defines `Element#remove()` with the same semantics, so an extended element in a

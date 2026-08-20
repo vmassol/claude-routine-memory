@@ -815,6 +815,25 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the files went back byte-for-byte to an earlier verified commit — `git diff <builtSha> -- <files>`
   returning zero differing lines is the whole verification, so `node --check` plus that diff is enough and
   no rebuild is needed. State it in the reply; it is also what makes a same-day revert uncontroversial.
+- **Replying inside a review THREAD needs the replies endpoint, and the lock dance in one command**:
+  `gh api "repos/{o}/{r}/pulls/{n}/comments/{commentId}/replies" -X POST -F body=@reply.md`. Get the
+  id from `gh api "repos/…/pulls/{n}/comments?per_page=20" --jq '.[]|"\(.id) \(.user.login) L\(.line)
+  \(.path) \(.body[0:80])"'` — cheap, and it does NOT dump patches. Chain
+  `DELETE …/issues/{n}/lock` → reply → `PUT …/issues/{n}/lock` in a single call. Your own reply then
+  arrives back as a `pull_request_review_comment.created` event authored by `claude[bot]` — skip it.
+- **The most likely reviewer objection to a Sonar sweep is INTRA-FILE INCONSISTENCY, not the
+  transform.** Sonar under-reports several rules (`javascript:S7762`/`S7768` flagged 4 of 8 sites of
+  the same shape in one file), so a batch keyed to the issue list leaves a file speaking two dialects
+  and the reviewer points at an *un-flagged* line next to a converted one. Cheap prevention: after
+  applying a shape-based batch, grep the pattern across every changed file and convert the rest too —
+  they add nothing to the issue count and cost one commit. When a safe/judgement split exists, put the
+  un-flagged extras in the MECHANICAL PR and state the splitting principle in both bodies, so the file
+  stays coherent on a stated line whichever PR merges. This objection is answered by a push, not an
+  argument: verified follow-up commit, then a reply naming every site converted and why the remaining
+  ones are the other PR's. This is the ONE reviewer ask that survives the "verify before you push"
+  rule above, and only because the check passes trivially — the extra sites are the identical shape
+  and provably equivalent, so there is no construct-specific reason the principle could fail on them.
+  Run the check anyway and put its result in the reply.
 - **Handling a reviewer objection** (verify the mechanism, judge whether the objection is about intent
   clarity, withdraw rather than argue, then ship the `@SuppressWarnings` + rationale version as its own
   PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. Note the dev.xwiki.org
