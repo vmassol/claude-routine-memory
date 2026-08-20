@@ -477,6 +477,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   one*, and when a transform MOVES a comment, say where it went and why. Bonus: chasing the `??`
   question turned up a latent trap `||` had been masking, which is the kind of thing that converts a
   style nit into an accepted fix — so investigate the objection rather than just complying.
+  **A JS batch is SOMETIMES routed to a front-end reviewer — it is not the default, so do not budget a
+  day of latency for it.** The `S7773`+`S6353` batch (#6186) was ("this is javascript and I'd like an
+  opinion from someone with more expertise, cc @manuelleduc"), and merged ~7 h later with no change
+  requested. But the later `S6582`+`S7765` batch (#6201, 43 issues over 18 files) was **merged directly
+  with no routing and no comment**, 14 minutes after its own judgement sibling. What both have in common
+  is the thing worth copying: write the body for a reviewer who did none of the analysis — the
+  equivalence proof per rule, and the list of sites you deliberately did NOT convert. Original note,
+  still true when routing does happen:
   **Expect a JS batch to be routed to a front-end reviewer even when Vincent LGTMs it** ("this is
   javascript and I'd like an opinion from someone with more expertise, cc @manuelleduc") — so write the
   body for a reviewer who did none of the analysis: state the equivalence proof per rule and list the

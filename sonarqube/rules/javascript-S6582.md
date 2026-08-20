@@ -37,13 +37,19 @@ evaluates `(0).f()` and throws.** Same for a further member access after the `?.
    is `''`, and `''.startsWith(…)`/`''.substr(…) === 'x'`/`''.endsWith(…)` are all `false`, i.e. the
    same branch `&&` took. Safe, and worth saying so explicitly in the PR.
 
-## Outcome datapoint — both halves merged
+## Outcome datapoint — all three PRs of the sweep merged the same day, uncommented
 
-The split shipped as #6201 (43 mechanical) + #6202 (5 judgement). **#6202 merged uncommented** and
-#6200 (the Java sibling) merged too; the mechanical #6201 was still awaiting the front-end reviewer at
-that point, exactly the day-of-latency the JS-routing note in `learnings.md` predicts. So the
-assigned-to-a-variable judgement half is NOT a coin toss for this rule — write it to be merged and keep
-splitting only so the mechanical half is not held up, not because the judgement half is unwelcome.
+The split shipped as #6201 (43 mechanical) + #6202 (5 judgement) + #6200 (the Java sibling). **All three
+merged within ~13.5 h of being opened, none with a single review comment on the change itself** — and
+#6201 merged *14 minutes after* #6202, so the judgement half did not trail the mechanical half either.
+Two conclusions:
+
+- The assigned-to-a-variable judgement half is **not** a coin toss for this rule. Write it to be merged;
+  keep splitting only so a disagreement cannot hold up the mechanical half, not because the judgement
+  half is unwelcome.
+- **The JS half was NOT routed to a front-end reviewer** this time, unlike the earlier `S7773`/`S6353`
+  batch. See the corrected routing note in `learnings.md`: the day-of-latency is not a property of "a JS
+  batch", so do not pre-emptively budget for it.
 
 ## Where the judgement half sits
 
