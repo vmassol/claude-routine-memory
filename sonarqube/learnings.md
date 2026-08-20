@@ -874,7 +874,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     collected an "LGTM" plus a second committer's approval and merged two days after the mechanical half.
     The discriminator is what the change costs the reader — trading a documented method for a constant
     (`S3400`) was unwanted, whereas deleting a provably dead local collection was not. So write the
-    judgement PR to be merged, not as a formality. Two consequences. (1) Keep splitting — had those three ridden along, they would have taken 51
+    judgement PR to be merged, not as a formality. A third pair (32 + 3, the JS DOM-API sites) went the
+    same way and the judgement half merged **FIRST**, within ten minutes of the review round — what it
+    had was a per-site table naming *exactly what could differ* (`removeChild` throws where `remove()`
+    is silent; a default parameter only applies to `undefined`) plus an explicit "closing this costs
+    nothing". Write that table and the judgement half stops being a coin toss.
+    **When the judgement half merges first, the mechanical PR needs `master` merged into it**, since by
+    construction the two touch the same files: `git fetch --deepen=250 origin master` (the clones are
+    shallow, so without this there is no real merge base), then `git merge --no-commit --no-ff
+    origin/master` to see whether it is even contentious — hunks four lines apart auto-merged here.
+    Rebuild the MERGED tree before pushing: it is new content neither earlier build saw. Two more consequences. (1) Keep splitting — had those three ridden along, they would have taken 51
     good fixes down with them — and when the judgement half is fine it merges anyway, so the split costs
     nothing. (2) **A silent close IS the review verdict**: record the rule as a
     permanent drop for that repo rather than waiting for an explanation or re-attempting it later.
