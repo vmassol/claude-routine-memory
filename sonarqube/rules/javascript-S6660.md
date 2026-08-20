@@ -26,20 +26,22 @@ becomes
 } else if (this.resultContainer.down("ul")) {
   // In mono-source mode, reset the list if present
 ```
-The comment cannot stay above the `} else if` line (it would land inside the *previous* branch). Do
-**not** park it on the first line of the new body either: that reads as describing the statement, and
-it drew a review comment on #6197 (*"Shouldn't this comment apply to the `else if`?"*) precisely
-because the "if present" clause had become the condition. **The only placement that binds a comment to
-an `else if` is a trailing comment on that line:**
+The comment cannot stay above the `} else if` line (it would land inside the *previous* branch), so it
+goes on its own line at the top of the merged branch's body. **That is the settled house style** — it
+is what the rest of the code base does, and both reviewers converged on it on #6197 ("the original
+version was good enough for me … something we do in lots of other places"; "leading comment is fine as
+long as the line length is within the rules").
 
-```js
-} else if (this.resultContainer.down("ul")) { // In mono-source mode, reset the list if present
-```
+Two things NOT to do, both tried and rejected on that PR:
 
-Check the resulting column count (99 here). If a trailing comment on a condition line is unwelcome,
-the honest alternative is dropping the site and leaving the original `else { if (…) }` — it is a
-cosmetic rule, so a commented `else` block is worth more than clearing the issue. Offer both in the
-reply rather than guessing.
+- **A trailing comment on the `else if` line.** It is the only placement that syntactically binds the
+  comment to the condition, which is why it looks like the answer when a reviewer asks whether the
+  comment should apply to the `else if` — but trailing comments on a condition line are not wanted here.
+- **Dropping the site to preserve the original commented `else`.** Also rejected: the `else if` merge
+  is worth having, and the comment placement is not a reason to keep the nested shape.
+
+So the earlier advice in this file — "prefer dropping the site if the comment describes the `else` case
+as a whole" — was wrong; keep the merge and leave the comment in the body.
 
 ## Mechanics
 

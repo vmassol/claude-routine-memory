@@ -782,6 +782,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   it). If the answer is "the code is right but non-obvious", the deliverable is a comment commit, not a
   revert. Push it to `master` only when explicitly asked to — and still build the module first: a
   comment can trip Checkstyle, and there is no PR gate to catch it.
+- **A reviewer QUESTION about pure STYLE is not yet a decision — reply first, push after they confirm.**
+  This cost a round trip on #6197: `@manuelleduc` asked *"Shouldn't this comment apply to the `else if`?"*,
+  I changed the code to the only placement that binds a comment to a condition (a trailing comment), and
+  Vincent then said he dislikes trailing comments and that my **original** placement was the house style
+  — so it went back. Distinguish the two cases: an ask with correctness content (a bug, a wrong operator,
+  a CI failure) → push the fix and explain; a question with none (comment placement, naming, formatting)
+  → answer with the reasoning and the options *first*, since the reviewers may not agree with each other
+  and the existing code is often already the convention. Two reviewers disagreeing in the same thread is
+  the signal that you were never the one to decide. Cheap tell: the comment is phrased as a question, or
+  begins "Personally I …".
 - **Handling a reviewer objection** (verify the mechanism, judge whether the objection is about intent
   clarity, withdraw rather than argue, then ship the `@SuppressWarnings` + rationale version as its own
   PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. Note the dev.xwiki.org
