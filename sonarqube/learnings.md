@@ -40,6 +40,9 @@ rows for the rules you commit to fixing this run.
 | `javascript:S7781` | [rules/javascript-S7781.md](rules/javascript-S7781.md) | fires only on single-character regexes, and pairs with `S6397` — one edit clears two issues |
 | `javascript:S6660` | [rules/javascript-S6660.md](rules/javascript-S6660.md) | the drop condition is diff size, and a comment between `else {` and `if` must move |
 | `javascript:S6644` | [rules/javascript-S6644.md](rules/javascript-S6644.md) | `\|\|`, never `??` — the original test was truthiness |
+| `java:S3457` | [rules/java-S3457.md](rules/java-S3457.md) | ONE rule key, five unrelated defects — triage it by `message` |
+| `javascript:S6582` | [rules/javascript-S6582.md](rules/javascript-S6582.md) | `0?.f()` THROWS where `0 && 0.f()` short-circuits |
+| `javascript:S7765` | [rules/javascript-S7765.md](rules/javascript-S7765.md) | `includes` differs from `indexOf` only for `NaN`; the receiver must really be an Array |
 
 ## Picking a target rule (find phase)
 
@@ -133,6 +136,12 @@ rows for the rules you commit to fixing this run.
   known "two issues on the same line will not both land" hazard: it is that hazard turned into a lever,
   and it is free — one set-intersection over the fresh list, no source reads. Also worth checking
   across languages/families, since the pairing is about the code shape, not the rule family.
+- **A rule key that bundles several UNRELATED defects is triaged by `message`, not by rule.** When a
+  rule's own name is generic (`java:S3457` "printf-style format strings should be used correctly"),
+  one `issues/search` grouped by `message[:60]` splits the pool before any source read: 41 platform
+  issues came out as five shapes with five different verdicts (18 `toString()`, 12 no-format-specifier,
+  8 `%n`, 2 unused-argument, 1 concatenation → 7 fixable, 34 drops). Print the message histogram first;
+  it *is* the triage, and it stops a run rejecting a whole rule because its biggest shape is a drop.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -235,6 +244,14 @@ rows for the rules you commit to fixing this run.
   removed instructions are uncovered, so coverage goes UP), just not a one-liner. If the `catch`
   also covers something else (`catch (IOException)` around a `getOutputStream()`), it stays. The
   same shape applies to any rule that swaps a String-typed API for a typed one.
+- **Write the equivalence-PROOF program BEFORE classifying the sites — its output IS the classifier.**
+  For `javascript:S6582` the intuition "`a && a.b` is equivalent to `a?.b` whenever the result is only
+  tested for truthiness" is right for a property access and **wrong for a call**: `?.` short-circuits
+  only on `null`/`undefined`, so `0?.f()` evaluates `(0).f()` and throws where `0 && 0.f()` yielded `0`.
+  A 20-line `node` program run BEFORE the triage moved 19 of 31 sites out of "trivially safe" and into
+  "receiver must be checked"; run after the edits it would only have documented what already shipped.
+  Same lever as the throwaway `javac`/`java` file for a Java question — and the same payoff, since the
+  output is also the strongest thing to put in the PR body.
 - **An "unnecessary" cast on an argument of an OVERLOADED method is not a mechanical fix** — removing
   it can silently re-dispatch to a different overload and still compile. Check the callee's overload
   set before trusting S1905.
@@ -498,6 +515,24 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   2365 tests green, and it sidesteps the `-pl`-subset risk around `xwiki-commons-tool-*` modules that
   supply Checkstyle/Spoon rules as *plugin* dependencies to later modules. Rendering (2 modules) and
   platform (13 modules) stay on `-pl`: 1:26 and 9:35. Whole three-repo chain ≈ 28 min.
+- **Datapoint for a 9-module reactor spanning Java AND two `*-war` JavaScript modules** (warm `~/.m2`):
+  oldcore 7:31 (1149 tests), rest-server 1:55 (131), search-solr-api 1:28 (120),
+  legacy-events-hibernate-api 0:42 (41), chart-macro 0:25 (22), notifiers-default 0:54 (16),
+  **web-war 1:16** and **tree-war 0:15** (both running all their `closure-compiler:minify` executions)
+  = **15:11 for 1479 tests**. A JS batch that spills into a SECOND `*-war` module (here
+  `xwiki-platform-tree-war` for one site) still verifies in the same reactor — add the module, don't
+  drop the site.
+- **A logging fix can be contradicted by a TEST asserting the RAW log message.** Converting a
+  concatenated log call to the SLF4J parameterized form (`warn("[DEPRECATED] " + m)` →
+  `warn("[DEPRECATED] {}", m)`) renders identically but changes `LogEvent.getMessage()`, and
+  `LoggingScriptServiceTest#deprecate` asserts exactly that string — i.e. the flattened form is the
+  contract, so revert rather than adapt the test. Pre-check for free by grepping the module's tests for
+  the message's literal prefix. Generalises to any fix that changes a log call's *pattern/argument
+  split* rather than its rendered output, and it is invisible to the compiler.
+- **`-fae` is what lets a one-site failure cost one site instead of one run.** With it, the single
+  failing module was the only failure and all eight others' greens stood, so the batch shipped minus
+  that site in the same turn — no second reactor. Use it by default on a multi-module Sonar batch, not
+  only when a failure is *expected*.
 - **After a COMPILE error, rebuild only the failed module plus the ones the reactor skipped behind
   it.** The modules that already reported `Tests run:` in the failed run are green for sources you
   have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
@@ -632,6 +667,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   grep it: every `mvn` line must begin with its own `cd /home/user/<repo> &&`. The failure is silent
   and total (`Could not find the selected project in the reactor` + a Develocity Groovy NPE from the
   *other* repo's `.mvn/`), and it costs a whole build round.
+- **A `cd` into the SCRATCHPAD mid-chain breaks every later git command in the same call.** Third
+  symptom of the known cwd hazard, and it is not about multi-repo chains:
+  `git checkout -B <b> <sha> && cd <scratchpad> && python3 apply.py --write && git add -A && git commit`
+  runs the checkout in the repo and the commit in the scratchpad (`fatal: not a git repository`), and
+  `git diff --name-only` degrades into `git diff --no-index` *usage output* rather than an error, which
+  reads like a flag problem. Put `cd /home/user/<repo> &&` on every git line too, or run the apply
+  script by absolute path and never leave the repo.
 - **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
   repos B and C from building, since each ships its own PR.
 - **Read the OKF from the SOURCE REPO, not the session cache, before deciding any fix.** This is the
@@ -853,6 +895,26 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 9** (NOT opened as a PR — `java:S3457` has no OKF entry at all, and the
+  recorded rule is that a brand-new entry gets closed for the structural version-bump conflict just as
+  a nuance addition does; fold it into a PR a later run is opening anyway). One rule, `java:S3457`,
+  belongs in `constant-and-resource-rules` (or its own row) — full text in
+  [rules/java-S3457.md](rules/java-S3457.md):
+  - The rule key bundles **five unrelated defects** and the OKF's Sonar corpus has nothing on it, so a
+    run either skips the whole 41-issue pool or triages it from scratch. The five shapes and their
+    verdicts are decidable from the `message` alone, with no source read.
+  - Two are clean: an SLF4J `{}` placeholder used inside a `String.format` (the argument is silently
+    dropped — a real defect, `{}` → `%s`, same length) and an unused format argument (usually a caught
+    exception that should have been the exception's cause).
+  - Three are drops: `%n`-for-`\n` (behaviour change), `Formatter.format("<literal>")` (no cheap
+    equivalent — `Formatter` has no `append`), and the `toString()` shape, which is already owned by
+    `okf/conventions/logging.md` and needs a cross-reference from the Sonar corpus (the same missing
+    pointer that cost the `S2629` withdrawal).
+  - Plus the generic build lesson, which belongs in `verification.md`: a fix that changes a log call's
+    *pattern/argument split* rather than its rendered output can be contradicted by a test asserting
+    `LogEvent.getMessage()`.
+  - The JavaScript rules of the same run (`S6582`, `S7765`, `S7721`) were **not** put in the OKF: its
+    sonarqube corpus is Java-only, so they live in `sonarqube/rules/` here.
 - **Owed to the OKF, batch 8** (opened as `xwiki/xwiki-dev-llm#67`, a *correction* not a nuance addition,
   so it should merge like `#61` did; if it is closed for a conflict, re-author it on fresh master — do
   NOT re-push that branch). One entry, `S3415` in `test-code-rules`:

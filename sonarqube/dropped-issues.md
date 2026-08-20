@@ -781,3 +781,95 @@ needs its own check that the callback truly does not use `this`, and per
 batch, not a drop — do not skip these keys, triage them.
 - `AY1U1sV50GHv9uFD3jwm`, `AY1U1sV50GHv9uFD3jwo`, `AY1U1sV50GHv9uFD3jw0`, `AY1U1sV50GHv9uFD3jw2`,
   `AY1U1sV50GHv9uFD3jw7`, `AY1U1sV50GHv9uFD3jxQ`.
+
+
+### java:S3457 (`No need to call "toString()"`) — the eager String is load-bearing (see [rules/java-S3457.md](rules/java-S3457.md))
+A log argument is XStream-serialized into the job log, so an explicit `toString()` is normally a
+deliberate snapshot. **12 of these 16 already carry a call-site comment saying exactly that**, which
+makes the universal "a comment explains it" condition the cheap classifier for the whole shape. The
+four without a comment are drops on their own terms: an `Object[]` query row (`result[2]`, type
+unknown at compile time), a `java.net.URI`, and a `Version` from an extension. The clean subset of this
+shape is only the convention's "pass the object" list (a `File`, an enum, a model reference, …) — those
+two sites shipped in #6200. Sites: `MovedAttachmentListener`, `DatabaseMailStatusStore`,
+`MailSenderPlugin` ×3, `MailSenderPluginApi` ×3, `JGroupsNetworkAdapter` ×2, `XWikiHibernateBaseStore`,
+`DefaultQuery`, `ExtensionVersionFileRESTResource`, `R140600000XWIKI19869DataMigration`,
+`R4359XWIKI1459DataMigration` ×2.
+  - `AZ_duy1yaa4LEs-MEU4g`, `AZ_XP-5FkxIS6rT1tShz`, `AZ_XQFXTkxIS6rT1tSh7`,
+    `AZ_XQFXTkxIS6rT1tSh8`, `AZ_XQFXTkxIS6rT1tSh9`, `AZ_XQFW8kxIS6rT1tSh4`,
+    `AZ_XQFW8kxIS6rT1tSh5`, `AZ_XQFW8kxIS6rT1tSh6`, `AZ_XP9aNkxIS6rT1tShw`,
+    `AZ8-G6caE9D-RjRrnZsi`, `AYQ5rjEL-8V8J8eaPoCz`, `AYMiXeniXBPpoazW6ICP`,
+    `AXnpAikEDDFOvAKXAQ4f`, `AXnpAikEDDFOvAKXAQ4g`, `AW5-S6l11Yj5qvzeRngV`,
+    `AW5-S7nD1Yj5qvzeRn8a`
+
+### java:S3457 (`%n` should be used in place of `\n`) — behaviour change on Windows
+Same verdict as commons and rendering, now confirmed for all 8 platform sites: the produced string is
+either asserted by a test (`DefaultAuthenticationFailureManagerTest` ×3, `CssSkinExtensionPluginTest`,
+`R140600000XWIKI19869DataMigrationListenerTest`) or is content compared downstream
+(`XWikiRestExceptionMapper`, `SxDocumentSource` — a CSS comment, `LogCaptureValidator`).
+  - `AY974nHjKZk1650DhyJU`, `AY974qqWKZk1650DhyUQ`, `AY974nHHKZk1650DhyJQ`,
+    `AW5-S4ep1Yj5qvzeRmq9`, `AY974nHHKZk1650DhyJP`, `AY974nHHKZk1650DhyJR`,
+    `AW5-S-Cd1Yj5qvzeRot3`, `AW5-S-Vp1Yj5qvzeRo1T`
+
+### java:S3457 (`String contains no format specifiers` on a `Formatter`) — no cheap equivalent
+All 9 in `DatabaseKeywordSearchSource`, which builds an HQL query through a `java.util.Formatter`.
+`Formatter` has no `append`, so dropping the pointless `f.format("<literal>")` means going through
+`f.out()`, which throws `IOException` — a refactor, not a cleanup. (The *other* no-format-specifier
+shape, an SLF4J `{}` inside a `String.format`, IS a clean fix — see the rule file.)
+  - `AZeKdlNsdMqt9rTWYu_v`, `AZeKdlNsdMqt9rTWYu_w`, `AZeKdlNsdMqt9rTWYu_x`,
+    `AZeKdlNsdMqt9rTWYu_y`, `AZeKdlNsdMqt9rTWYu_z`, `AZeKdlNsdMqt9rTWYu_0`,
+    `AZeKdlNsdMqt9rTWYu_1`, `AZeKdlNsdMqt9rTWYu_3`, `AZeKdlNsdMqt9rTWYu_4`
+
+### java:S3457 (format specifiers instead of concatenation) — a test asserts the RAW log message
+- `AXnpAiy-DDFOvAKXAQ57` LoggingScriptService L207 — `warn("[DEPRECATED] " + message)`. The SLF4J
+  parameterized form renders identically but changes `LogEvent.getMessage()`, and
+  `LoggingScriptServiceTest#deprecate` asserts that exact concatenated string. Tried, caught by the
+  build, reverted.
+
+### javascript:S7721 (move functions to the highest possible scope) — a restructuring, not a cleanup
+Hoisting a function out of a `Class.create` body or an IIFE moves it out of the scope that makes it
+private in these Prototype-era WAR scripts, and the diff is a file reorganisation. 61 keys (38 of them
+in files no other PR claims); permanent drop for the whole rule in this codebase.
+  - `AZ-LGl-7RQLNEUYjlwfW`, `AZpXUsyKZxcWRO8GXhsN`, `AZpXUsyKZxcWRO8GXhsO`,
+    `AZpXUsyKZxcWRO8GXhsP`, `AZnonzjIpn1CLOvpJF2Y`, `AZlyHcCklYnK6j8fkQgY`,
+    `AZlyHcCklYnK6j8fkQgZ`, `AZlyHaSUlYnK6j8fkQXN`, `AZlyHaSUlYnK6j8fkQXS`,
+    `AZlyHaSUlYnK6j8fkQXT`, `AZlyHaSUlYnK6j8fkQXU`, `AZlyHaqrlYnK6j8fkQbo`,
+    `AZlyHaNzlYnK6j8fkQWi`, `AZlyHat4lYnK6j8fkQdK`, `AZlyHat4lYnK6j8fkQdM`,
+    `AZlyHaUzlYnK6j8fkQXZ`, `AZlyHaU0lYnK6j8fkQZ2`, `AZlyHaU0lYnK6j8fkQZ4`,
+    `AZlyHaU0lYnK6j8fkQZ5`, `AZlyHa52lYnK6j8fkQew`, `AZlyHa8nlYnK6j8fkQfZ`,
+    `AZlyHa8nlYnK6j8fkQfa`, `AZlyHa8nlYnK6j8fkQfb`, `AZlyHbAwlYnK6j8fkQgJ`,
+    `AZlyHbAUlYnK6j8fkQgC`, `AZlyHbAUlYnK6j8fkQgD`, `AZlyHbAUlYnK6j8fkQgE`,
+    `AZlyHbIxlYnK6j8fkQgP`, `AZlyHbADlYnK6j8fkQfz`, `AZlyHbADlYnK6j8fkQf2`,
+    `AZlyHbADlYnK6j8fkQgA`, `AZlyHa6NlYnK6j8fkQe2`, `AZlyHa-ZlYnK6j8fkQfj`,
+    `AZlyHa-ZlYnK6j8fkQfl`, `AZlyHa88lYnK6j8fkQfc`, `AZlyHa88lYnK6j8fkQff`,
+    `AZlyHa88lYnK6j8fkQfg`, `AZlyHa88lYnK6j8fkQfh`, `AZlyHa8GlYnK6j8fkQfU`,
+    `AZlyHa1glYnK6j8fkQeG`, `AZlyHa1glYnK6j8fkQeL`, `AZlyHa1glYnK6j8fkQeM`,
+    `AZlyHa1glYnK6j8fkQeN`, `AZlyHa1glYnK6j8fkQeO`, `AZlyHa1glYnK6j8fkQeT`,
+    `AZlyHa1ClYnK6j8fkQeD`, `AZlyHa1ClYnK6j8fkQeE`, `AZlyHa0zlYnK6j8fkQeC`,
+    `AZlyHa49lYnK6j8fkQeq`, `AZlyHa5TlYnK6j8fkQer`, `AZlyHa5TlYnK6j8fkQet`,
+    `AZlyHa5TlYnK6j8fkQeu`, `AZlyHa8WlYnK6j8fkQfW`, `AZlyHa-4lYnK6j8fkQfp`,
+    `AZlyHa_ilYnK6j8fkQft`, `AZlyHa_ilYnK6j8fkQfw`, `AZlyHau1lYnK6j8fkQdi`,
+    `AZlyHau1lYnK6j8fkQdj`, `AZlyHau1lYnK6j8fkQdk`, `AZlyHau1lYnK6j8fkQdl`,
+    `AZlyHau1lYnK6j8fkQdm`
+
+### javascript:* — VENDORED third-party scripts, keys seen on this pass (permanent, ANY rule)
+Addendum to the vendored-scripts section above, from a full `javascript:` allowlist pull:
+`tablefilterNsort.js`, `livevalidation_prototype.js`, `ieemu.js`. The module pom's
+`license-maven-plugin` excludes list (`accordion.js`, `ieemu.js`, `tablefilterNsort.js`,
+`livevalidation_prototype.js`) is the authoritative enumeration — cheaper than reading headers.
+  - `AZlyHat4lYnK6j8fkQdK`, `AZlyHat4lYnK6j8fkQdL`, `AZlyHat4lYnK6j8fkQdM`,
+    `AZlyHalLlYnK6j8fkQaJ`, `AZlyHalLlYnK6j8fkQaK`, `AZlyHalLlYnK6j8fkQaM`,
+    `AZlyHalLlYnK6j8fkQaN`, `AZlyHalLlYnK6j8fkQaY`, `AZlyHalLlYnK6j8fkQaZ`,
+    `AZlyHalLlYnK6j8fkQaa`, `AZlyHalLlYnK6j8fkQab`, `AZlyHalLlYnK6j8fkQac`,
+    `AZlyHalLlYnK6j8fkQae`, `AZlyHalLlYnK6j8fkQaf`, `AZlyHalLlYnK6j8fkQag`,
+    `AZlyHalLlYnK6j8fkQaj`, `AZlyHalLlYnK6j8fkQak`, `AZlyHalLlYnK6j8fkQal`,
+    `AZlyHalLlYnK6j8fkQam`, `AZlyHawolYnK6j8fkQd1`, `AZlyHawolYnK6j8fkQd2`,
+    `AY1U1sQy0GHv9uFD3jfc`, `AY1U1sNB0GHv9uFD3jPp`, `AY1U1sNB0GHv9uFD3jQQ`,
+    `AY1U1sQy0GHv9uFD3jfi`, `AY1U1sQy0GHv9uFD3jfk`, `AY1U1sQy0GHv9uFD3jfn`,
+    `AY1U1sQy0GHv9uFD3jfs`, `AY1U1sQy0GHv9uFD3jfu`, `AY1U1sNB0GHv9uFD3jPD`,
+    `AY1U1sNB0GHv9uFD3jPK`, `AY1U1sNB0GHv9uFD3jPe`, `AY1U1sNB0GHv9uFD3jPf`,
+    `AY1U1sNB0GHv9uFD3jPi`, `AY1U1sNB0GHv9uFD3jPl`, `AY1U1sNB0GHv9uFD3jPn`,
+    `AY1U1sNB0GHv9uFD3jPr`, `AY1U1sNB0GHv9uFD3jPw`, `AY1U1sNB0GHv9uFD3jQX`,
+    `AZv8Dn_JFzGovcQ6Xjte`, `AY1U1sNB0GHv9uFD3jQg`, `AY1U1sNB0GHv9uFD3jQ8`,
+    `AY1U1sNB0GHv9uFD3jQ-`, `AY1U1sNB0GHv9uFD3jRA`, `AY1U1sNB0GHv9uFD3jRW`,
+    `AY1U1sNB0GHv9uFD3jRb`, `AY1U1sNB0GHv9uFD3jRg`, `AY1U1sNB0GHv9uFD3jRq`,
+    `AY1U1sNB0GHv9uFD3jRr`, `AY1U1sNB0GHv9uFD3jRu`, `AY1U1sNB0GHv9uFD3jRv`
