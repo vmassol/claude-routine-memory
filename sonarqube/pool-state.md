@@ -168,7 +168,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 - The `xml:S1135` (TODO) pools — platform 54, commons 14, rendering 6 — are TODO comments, i.e. the
   same non-starter as `java:S1135`.
 
-**After the SECOND JavaScript sweep (platform 32 safe + 3 judgement, commons 0, rendering 0):**
+**After the SECOND JavaScript sweep (platform 32 safe + 3 judgement, commons 0, rendering 0 — BOTH
+PRs merged the same day):**
 
 - **The JS long tail is the pool now, and it behaves like the Java "long tail of one-off mechanical
   rules" did**: 14 small rules queried in ONE call (`&rules=javascript:S6397,…&ps=500`) returned 80

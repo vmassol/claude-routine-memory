@@ -485,6 +485,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   LGTM, then `@manuelleduc`'s formal approval ~7h later with no change requested, and merged. So the
   provable JS subset (`parseInt`/`parseFloat`, the `Number.isNaN`-on-a-Number sites, regex character
   classes) clears specialist review as-is; the routing costs a day of latency, not a rework.
+  **Second outcome datapoint, and it widens the provable subset**: a 32-issue mechanical PR plus a
+  3-issue judgement PR over 11 more JS rules (`S6660`, `S7778`, `S6637`, `S7762`/`S7768`, `S6676`,
+  `S7759`, `S1481`, `S7776`, `S6644`, `S7723`, `S7760`) **both merged the same day**, `@manuelleduc`
+  raising exactly one ask — intra-file API consistency, answered with a push. So the JS pool is
+  ordinary reviewable work, not a specialist minefield; what the review actually rewards is the
+  written-out equivalence per rule plus a per-site "what could differ" table on anything uncertain.
   **Second datapoint, and the reassuring one: a JS batch survives being wrong twice.** A 23-issue PR
   (#6197) drew style objections on two rules, went through two push-and-revert cycles that both landed
   back on the originally-pushed code, and `@manuelleduc` merged it himself ~35 minutes after the review
