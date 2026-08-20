@@ -26,9 +26,20 @@ becomes
 } else if (this.resultContainer.down("ul")) {
   // In mono-source mode, reset the list if present
 ```
-The comment cannot stay above the `} else if` line (it would land inside the *previous* branch), so it
-goes to the first line of the new body. Check that the comment still reads correctly there — if it
-describes the `else` case as a whole rather than the guarded action, prefer dropping the site.
+The comment cannot stay above the `} else if` line (it would land inside the *previous* branch). Do
+**not** park it on the first line of the new body either: that reads as describing the statement, and
+it drew a review comment on #6197 (*"Shouldn't this comment apply to the `else if`?"*) precisely
+because the "if present" clause had become the condition. **The only placement that binds a comment to
+an `else if` is a trailing comment on that line:**
+
+```js
+} else if (this.resultContainer.down("ul")) { // In mono-source mode, reset the list if present
+```
+
+Check the resulting column count (99 here). If a trailing comment on a condition line is unwelcome,
+the honest alternative is dropping the site and leaving the original `else { if (…) }` — it is a
+cosmetic rule, so a commented `else` block is worth more than clearing the issue. Offer both in the
+reply rather than guessing.
 
 ## Mechanics
 

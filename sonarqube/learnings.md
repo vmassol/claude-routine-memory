@@ -462,6 +462,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   falsy/truthy shape, `push(a,b,c)` vs three pushes. Quote the actual output in the PR body, one line
   per rule. For a DOM rule (`S7762`/`S7768`) there is nothing to run: state the receiver/`parentNode`
   identity per site instead, quoting the line where the receiver was assigned.
+  **An equivalence proof answers "is it safe", NOT "is it the form we want" — pre-empt the second
+  question too.** A batch whose body proved every transform byte-identical still drew two style
+  comments from the front-end reviewer: `||` should have been `??` (the codebase prefers the operator
+  that does no type conversion, even though the flagged ternary tested truthiness), and a comment
+  relocated by an `else`→`else if` merge should have been attached to the condition rather than to the
+  first statement. Both were right. So for each rule state *why this form and not the other equivalent
+  one*, and when a transform MOVES a comment, say where it went and why. Bonus: chasing the `??`
+  question turned up a latent trap `||` had been masking, which is the kind of thing that converts a
+  style nit into an accepted fix — so investigate the objection rather than just complying.
   **Expect a JS batch to be routed to a front-end reviewer even when Vincent LGTMs it** ("this is
   javascript and I'd like an opinion from someone with more expertise, cc @manuelleduc") — so write the
   body for a reviewer who did none of the analysis: state the equivalence proof per rule and list the
