@@ -762,6 +762,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   - Label + assignee in one call: `gh api repos/{o}/{r}/issues/{n} -X PATCH -f 'labels[]=llm-agent'
     -f 'assignees[]=vmassol'`. Lock (Vincent's override): `gh api --method PUT
     repos/{o}/{r}/issues/{n}/lock -f lock_reason=resolved`.
+- **Marking a review thread RESOLVED is not possible here** — it is a GraphQL-only mutation and GraphQL
+  is blocked for the session, and the thread IDs it needs come from GraphQL too. Answering in the thread
+  is the only closure available, so make the reply say plainly what was done (and in which commit); do
+  not spend calls hunting for a REST route.
 - **Vincent's PR lock blocks YOUR OWN comments too** (`403 issue is locked`), so a reviewer reply needs
   `DELETE …/issues/{n}/lock` → post the comment → `PUT …/issues/{n}/lock -f lock_reason=resolved` again.
   Do the unlock/re-lock in ONE command so the window stays short. Reviewers can still leave reviews on a
