@@ -416,6 +416,12 @@ rows for the rules you commit to fixing this run.
   `'\n'.join(keys)` produces exactly that, so a 106-key loop processes 105 and the miss looks like a
   transient API failure. End the file with a newline or iterate in Python; either way re-verify the
   count afterwards.
+- **An *Accepted* issue still flips to FIXED on its own once the fix lands** — the accept is interim
+  bookkeeping, not a permanent verdict, so it never leaves a wrong record. Measured on this sweep: hours
+  after the Java PR merged its 25 keys read `FIXED` while the 23 JS keys (PR merged minutes earlier) were
+  still `ACCEPTED`, i.e. the flip happens on the next analysis, per language. So do not re-transition
+  anything after a merge, and do not read a lingering `ACCEPTED` as a failed accept — one
+  `issues/search?issues=<keys>` distinguishes them.
 - **Accept all issues in a loop** (per issue: `add_comment` + `do_transition accept`). Each issue is
   ~2 curls ≈ 4s, so 20+ issues blow a 2-min timeout — run the accept loop as a BACKGROUND task, and/or
   make it idempotent (re-query which keys are still OPEN). **Budget the wall clock from a measured
@@ -479,6 +485,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   LGTM, then `@manuelleduc`'s formal approval ~7h later with no change requested, and merged. So the
   provable JS subset (`parseInt`/`parseFloat`, the `Number.isNaN`-on-a-Number sites, regex character
   classes) clears specialist review as-is; the routing costs a day of latency, not a rework.
+  **Second datapoint, and the reassuring one: a JS batch survives being wrong twice.** A 23-issue PR
+  (#6197) drew style objections on two rules, went through two push-and-revert cycles that both landed
+  back on the originally-pushed code, and `@manuelleduc` merged it himself ~35 minutes after the review
+  started (~33 h after opening). Prompt reverts with the reasoning stated are not held against the PR —
+  so when a reviewer's principle turns out not to apply, say so and put the code back rather than
+  defending the change or withdrawing the PR.
 - **A Java+JS split verifies in ONE reactor — put `web-war` in the `-pl` list next to the Java
   modules.** 4 Java modules (oldcore, notifications-filters-api, store-filesystem, filter-stream-xar)
   **plus** `xwiki-platform-web/xwiki-platform-web-war` ran **11:21** on a cold-ish `~/.m2` with

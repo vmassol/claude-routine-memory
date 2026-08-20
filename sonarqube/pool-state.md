@@ -411,7 +411,8 @@ Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S63
 S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.
 
 
-**After the S3415 + JS-long-tail sweep (platform 48 = 25 Java + 23 JS, commons 0, rendering 0):**
+**After the S3415 + JS-long-tail sweep (platform 48 = 25 Java + 23 JS, commons 0, rendering 0) — all
+of it MERGED, plus the OKF correction PR:**
 
 - **Platform's Java allowlist is 298 open keys / 82 not already dropped, and after this run the fresh
   part is essentially the `S1130` `src/main` residue (54, permanent) plus 3 `S3415` contract-test
