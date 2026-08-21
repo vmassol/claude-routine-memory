@@ -701,12 +701,25 @@ of every WAR JS file before editing it** — this drop applies to every rule, no
 - `uicomponents/widgets/validation/livevalidation_prototype.js` (LiveValidation 1.4, MIT)
 - `js/xwiki/panelwizard/ieemu.js` (WebFX / Erik Arvidsson, "IE Emu")
 
+**A fourth vendored region is a BLOCK inside an owned file**: `js/xwiki/xwiki.js` lines ~1055-1130,
+the `BrowserDetect` function (`Version: 2.1.6`, Chris Nott, CC-BY 1.0). Not a drop by itself — its
+34 `S7765` keys were shipped as a *judgement* commit in PR #6211 with the provenance question stated
+— but grep every candidate file's interior for `^ \* (Author|License|Version|URL):`, not only its
+banner, before assuming the file is XWiki-owned throughout.
+
 Keys seen so far: `S6535` ieemu `AY1U1sPk0GHv9uFD3ja-`; `S6535` tablefilterNsort
 `AY1U1sNB0GHv9uFD3jPT`, `AY1U1sNB0GHv9uFD3jPU`, `AY1U1sNB0GHv9uFD3jPV`, `AY1U1sNB0GHv9uFD3jPW`,
 `AY1U1sNB0GHv9uFD3jPX`; `S1125` tablefilterNsort `AY1U1sNB0GHv9uFD3jQI`, `AY1U1sNB0GHv9uFD3jRB`,
 `AY1U1sNB0GHv9uFD3jQq`, `AY1U1sNB0GHv9uFD3jQw`, `AY1U1sNB0GHv9uFD3jQ5`; `S4030`
 `AY1U1sNB0GHv9uFD3jP6`; `S6644` `AY1U1sNB0GHv9uFD3jRl`; `S7762` `AZlyHalLlYnK6j8fkQai`;
 `S6660` livevalidation `AY1U1sQy0GHv9uFD3jfV`; `S7759` livevalidation `AZlyHawolYnK6j8fkQdy`.
+
+### javascript:S6582 (optional chaining) — a co-located S7765 issue on the SAME line makes it impossible
+- `AZv8DoJhFzGovcQ6Xjtf` `uicomponents/suggest/suggest.js:263` —
+  `checkPropagation && this.options.propagateEventKeyCodes && this.options.propagateEventKeyCodes.indexOf(key) == -1`.
+  The `S7765` half was fixed (`&& !….includes(key)`); the guard must stay, because `!a?.includes(k)`
+  is `true` when `a` is absent — the opposite of the original — and `a?.includes(k) === false` reads
+  worse than the guard. Permanent for as long as both rules sit on this line.
 
 ### javascript:S1125 (boolean literal in a comparison) — false positive on a non-boolean operand
 The rule assumes the compared expression is a boolean. It is not always.

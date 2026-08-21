@@ -1,8 +1,12 @@
 # javascript:S6582 — `a && a.b` → `a?.b` (optional chaining)
 
 Long listed as "changes behaviour in at least one shape", which is true and is also a **free
-classifier**, not a drop condition. Platform: 36 workable sites, **0 drops**, split 31 mechanical +
-5 judgement across two PRs (#6201 / #6202).
+classifier**, not a drop condition. Platform: **0 real drops in 67 shipped** — 36 in #6201/#6202,
+then 26 mechanical + 5 judgement in #6210/#6211. The one site not converted was blocked by a
+co-located `S7765` issue on the same line (see below), not by this rule.
+
+The pool regenerates and the recorded "workable" count expires: the 36-site pass was constrained by
+three concurrent agent PRs claiming files, and a later run with no open agent PR found 32 more.
 
 ## The one difference, and what it implies
 
@@ -67,3 +71,17 @@ test or a plain boolean use treats every falsy value alike, which is what makes 
   `(file, line, old_substring)` is unique; one site per line, several sites per file.
 * Never write `??` — the original test was truthiness, not nullishness (same trap as
   [javascript-S6644](javascript-S6644.md)).
+* **A `while` condition is a drop**, unlike an `if`. `while (r && r.type != type)` exits when `r` is
+  nullish; `while (r?.type != type)` compares `undefined != type`, which is *true*, so the loop never
+  ends. Sonar does not flag these, and the intra-file-consistency sweep must not "fix" them either —
+  three such sites sit in `entityReference.js` next to a converted one.
+* **A same-line `S7765` issue makes the S6582 fix impossible, not merely awkward** —
+  `a && a.indexOf(k) == -1` has no equivalent `?.` form; see
+  [javascript-S7765](javascript-S7765.md). Drop the S6582 key there.
+
+## The judgement/mechanical split axis, generalised
+
+The recorded axis (result assigned to a variable → judgement) held again at 5 sites. A second,
+unrelated axis can share the same judgement PR as its own commit: **provenance** — sites inside a
+vendored block, where the transform is provably safe but touching the code is a policy call. Keep
+them as separate commits so either group can be dropped alone, and say so in the body.

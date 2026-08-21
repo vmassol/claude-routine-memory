@@ -143,8 +143,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **javascript:S1854** dead assignment (JS) | Platform 4: `livetable.js` 1 (done), the other 3 in open-PR files. | 0 drops on the workable site. |
 | **S2447** null returned from a `Boolean` method | Platform 12, commons 6 — **all dropped, permanently.** | **100% drops.** The `null` is the API contract ("no answer" ≠ `false`) on script services and bridges. Keys recorded in `dropped-issues.md`. |
 | **S3457** printf-style format strings | Platform 41 — **triaged in full: 7 fixed, 34 permanent drops.** Commons 8 (1 fixed), rendering 1 (dropped). The 34 are 12 commented `toString()` log sites, 8 `%n`, 9 `Formatter.format("literal")` in one file (`DatabaseKeywordSearchSource`), plus 4 `toString()` on non-value types. | **83% drops, but the split is FREE** — group by `message`, see [rules/java-S3457.md](rules/java-S3457.md). The two clean shapes are the SLF4J `{}` placeholder used inside a `String.format` (a real defect: the argument is dropped) and an unused format argument (usually a caught exception that should have been chained). |
-| **javascript:S6582** optional chaining | Platform 76 open; 36 workable after excluding vendored scripts and other agents' open-PR files — **all 36 shipped** (31 mechanical + 5 judgement, #6201/#6202). Zero in commons/rendering (no JS there at all). Concentrated in `uicomponents/extension/distribution.js` (10), `suggestAttachments.js` (5), `xwiki.selectize.js` (5). | **0 drops (36/36)**, in three buckets — see [rules/javascript-S6582.md](rules/javascript-S6582.md). The rule's reputation as risky is about ONE bucket (a call after the `?.`), and even there it is a receiver check, not a drop. |
-| **javascript:S7765** `indexOf` → `includes` | Platform 90 open, 12 workable (40 of the rest are the vendored `tablefilterNsort.js`, the others in open-PR files) — **all 12 shipped**. Dense in `js/xwiki/editors/dataeditors.js` (6). | **0 drops (12/12).** Only differs for `NaN`; the real check is that the receiver is a String or a real Array, not a NodeList/`arguments`/jQuery object. |
+| **javascript:S6582** optional chaining | Platform 76 → 40 open. **67 shipped over two runs**: 36 (#6201/#6202) then 26 mechanical + 5 judgement (#6210/#6211, `actionButtons.js` 7, `xwiki.js` 8, `livetable.js` 3, `suggest.js` 3, `extension.js` 3, + singletons). The "36 workable" was PR-constrained; with no open agent PR the next run found 32 more. Zero in commons/rendering (no JS there at all). | **0 real drops (67/67)**, in three buckets — see [rules/javascript-S6582.md](rules/javascript-S6582.md). The rule's reputation as risky is about ONE bucket (a call after the `?.`), and even there it is a receiver check, not a drop. The single unconverted site was blocked by a co-located `S7765` on the same line. |
+| **javascript:S7765** `indexOf` → `includes` | Platform 90 → 78 open. **73 shipped over two runs**: 12 (#6201) then 27 mechanical + 34 judgement (#6210/#6211). Of the residue, ~40 are the vendored `tablefilterNsort.js` (permanent). **34 of the second run's 61 sat in ONE vendored-derived block** — `BrowserDetect` inside `xwiki.js`. | **0 drops (73/73).** Only differs for `NaN`; the real check is that the receiver is a String or a real Array, not a NodeList/`arguments`/jQuery object. Do NOT "make consistent" the residual `indexOf(x) > 0` / `== 0` sites — those are position tests. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
 
 
@@ -433,26 +433,36 @@ of it MERGED, plus the OKF correction PR:**
   run on platform.
 
 
-**After the S3457 + S6582/S7765 sweep (platform 55 = 7 Java + 48 JS, commons 0, rendering 0):**
+**Current standing state — after the S6582/S7765 second pass (platform 92 JS, commons 0, rendering 0):**
 
-- **Commons and rendering: CLOSED, eighth confirmation, one call each.** The ~90-rule mechanical
-  allowlist returns commons **96** and rendering **29** open keys and **zero** of either is absent from
-  `dropped-issues.md`. Two calls answered the whole "also check the siblings" ask with no source read.
-- **Platform's Java allowlist is down to two rules.** 317 open keys under the ~90-rule allowlist, 95 not
-  already dropped, and those 95 are exactly `S1130` 54 (the permanent `src/main` residue — it keeps
-  reading as "fresh" because it is recorded by shape, so cross-check the path) plus `S3457` 41, now fully
-  triaged. The full facet adds nothing new: beyond the allowlist it is `javabugs:S2259` 130,
-  `javabugs:S6416` 8, `java:S106` 4, `java:S4165` 3, `javabugs:S2190` 3, `java:S1710` 2 — all rejected
-  or permanent drops. **Budget the Java half of a future platform run at ~0-5 and spend the run on JS.**
-- **The JS pool is still deep and is now the whole story: 561 open, 458 fresh, 147 workable** after
-  excluding the vendored scripts (51 keys, permanent) and the ~24 files three concurrent agent PRs
-  claimed. Remaining workable, descending: `S7721` 38 (**now rejected**), `S3504` 14 (`var`→`let`),
-  `S4138` 13 (`for`→`for-of`), `S7741` 12, `S7740` 11, `S2392` 6, `S7761` 2, `S1874` 2, `S2814` 1. The
-  big untriaged counts are almost all inside claimed or vendored files — **filter by file BEFORE reading
-  a facet count as a pool size**: `S7765` read 90 project-wide and was 12 workable.
-- **Concurrent agent PRs are the binding constraint in the WAR resources, not the rule pool.** Three
-  open JS PRs claimed 24 of the ~40 files that carry issues. Pull `pulls/N/files` for each up front and
-  filter the whole fresh list by basename; it costs one call per PR and it is what makes the remaining
-  count meaningful.
+- **Commons and rendering: CLOSED, ninth confirmation, one call each.** A ~90-rule Java mechanical
+  allowlist returns commons **131** and rendering **39** open keys; cross-checked against
+  `dropped-issues.md` the only "fresh" ones are `java:S1172` (25 / 5) and `java:S4144` (2 / 6), both
+  OKF-denylisted. Neither repo has a single `javascript:` issue. Two calls answer the whole "also
+  check the siblings" ask with no source read — budget both at zero.
+- **Platform's Java allowlist is effectively closed too.** 472 open keys under the ~90-rule
+  allowlist, 223 not already dropped, and those 223 are `S1172` 132 + `S1130` 54 (the permanent
+  `src/main` residue — recorded by shape, so it keeps reading as "fresh"; cross-check the path) +
+  `S2629` 25 + `S4144` 12, i.e. all denylisted or permanent. **Budget the Java half of a platform
+  run at ~0 and spend the run on JS.**
+- **The JS pool is the whole story: 723 open in platform.** Excluding only the three vendored files
+  (`tablefilterNsort.js` 106 keys, `livevalidation_prototype.js` 14, `ieemu.js` 12 — permanent), a
+  35-rule JS shortlist returned **353 keys, 340 of them fresh**. This run took 92 of them.
+  Remaining, descending: `S4138` 43 (`for`→`for-of`), `S7741` 33, `S7740` 32, `S7761` 26,
+  `S2814` 23, `S2392` 21, `S1874` 16, `S3504` 14 (`var`→`let`), then `S7780` 5, `S3696` 5,
+  `S7746` 4, `S7781` 4, `S6671` 4, `S6557` 3 and a dozen singletons — **all untriaged**, and the
+  small ones are the obvious next batch. `S7721` 61 and `S1848` 76 are rejected (permanent).
+- **When the open-agent-PR list is empty, the recorded "workable" counts are worthless — re-derive
+  them.** The previous entry read `S7765` at "12 workable of 90" and `S6582` at "36 workable"; with
+  zero open agent PRs the same two rules yielded **92 issues in one run**. Concurrent agent PRs, not
+  the rule pool, are the binding constraint in the WAR resources: pull `pulls/N/files` per open PR
+  and filter the fresh list by basename, and when there are none, treat every recorded count as a
+  lower bound.
+- **Vendored code hides INSIDE owned files.** The `BrowserDetect` block of `xwiki.js` (own header:
+  `Version: 2.1.6`, Chris Nott, CC-BY 1.0) held 34 of one rule's 61 sites. Grep each candidate
+  file's interior for `^ \* (Author|License|Version|URL):`, not just its banner.
 - `xwiki-platform-tree-war` also holds WAR JavaScript (`uicomponents/widgets/tree.js`) — the pool is not
   100% `xwiki-platform-web-war`. Adding the second module to `-pl` costs 15 seconds.
+- Build datapoint: `xwiki-platform-web-war` alone, warm-ish `~/.m2`, **6:12**, BUILD SUCCESS (all
+  three `closure-compiler:minify` executions + `yuicompressor:compress`). No unit tests exist for
+  these files, so `node --check` plus a `node` equivalence program is the behaviour evidence.

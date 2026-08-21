@@ -63,6 +63,14 @@ rows for the rules you commit to fixing this run.
 - **The BLOCKER/CRITICAL mechanical pool is frequently exhausted.** BLOCKER/CRITICAL-first is the
   skill's guidance but not a hard gate — a clean MAJOR fix beats forcing a risky higher-severity one.
   There is a deep MAJOR-severity clean pool.
+- **A recorded "N workable" count is PR-constrained and expires the moment those PRs merge — when the
+  open-agent-PR list comes back EMPTY, re-derive every pool from scratch.** The rule that a past run
+  wrote down as "12 workable of 90" was 61 workable on a day with zero open agent PRs, and its
+  sibling went 12 → 32 the same way; two rules that `pool-state.md` described as nearly spent
+  yielded 92 issues in one run. Concurrent PRs are the binding constraint in the WAR resources, so
+  the *first* call of the run (`pulls?state=open` filtered by the `llm-agent` label) decides whether
+  the recorded counts mean anything at all. An empty list is the strongest "re-query everything"
+  signal there is — treat the recorded numbers as a lower bound, never as the pool.
 - **Check open agent PRs up front** — `gh api "repos/xwiki/<repo>/pulls?state=open&per_page=100" --jq
   '.[]|select(.labels[]?.name=="llm-agent")|"\(.number) \(.title)"'`. A recent PR can drain a WHOLE
   rule family. Scope the off-limits check by **(rule + module)**, not rule alone: a per-module batch PR
@@ -114,6 +122,16 @@ rows for the rules you commit to fixing this run.
   Excluding the vendored ones cost 22 issues out of 65 and is the right call — say so under
   *Clarifications*. **`git log` cannot answer this here**: the clones are shallow, so every file's
   history collapses to the same boundary commit.
+  **Provenance is a BLOCK-level property, not only a file-level one — grep the file's INTERIOR, not
+  just its first 20 lines.** `xwiki.js` carries the standard LGPL banner and is XWiki-owned, yet its
+  `BrowserDetect` function (~lines 1055-1130) is a third-party snippet with its own header
+  (`Version: 2.1.6`, an author, a CC-BY URL) — and it held **34 of the 61** non-vendored-file
+  `S7765` sites, i.e. more than half the pool, invisible to a header-only check. One
+  `grep -nE "^ \* (Author|License|Version|URL):"` per candidate file finds these. The right move is
+  not to drop them: the transform was provably safe, so they went into the **judgement PR as their
+  own commit** with the policy question stated ("does XWiki want to diverge an attributed snippet
+  further from upstream?"), which keeps the mechanical half clean and still puts the 34 issues in
+  front of a maintainer.
 - **Triage the JS pool by RULE SEMANTICS first — several of the big ones are traps.** `S1848` "useless
   object instantiation" is a false positive on Prototype (`new Ajax.Request(…)` *is* the side effect);
   `S6582` optional chaining, `S7741` `typeof x === 'undefined'`, `S4138` `for`→`for-of`, `S7740`
@@ -881,6 +899,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   batch on the designated branch, and put a judgment-heavy family (e.g. S6126 text blocks, S8714
   assertThrows) on a SIBLING branch (`<designated>-<rule>`) as its own PR, so a reviewer can merge the
   easy PR without the hard one blocking it. Both PRs still get the label/assignee/lock treatment.
+  - **The split axis is "what open question does this raise", and one judgement PR can carry SEVERAL
+    axes as separate commits.** A run split 92 issues into 53 mechanical + 39 judgement where the
+    judgement half held two unrelated groups: 5 sites whose *value* (not just truthiness) is
+    observable, and 34 sites whose transform is provably safe but sits in a **vendored block** — a
+    policy question, not a correctness one. One commit per group, each named for its group, plus a
+    body section per group saying exactly what is being asked; then the maintainer can drop one
+    group by dropping one commit. Cheaper than a third PR and it keeps the mechanical half at zero
+    open questions.
   - **Outcome datapoint: the split works, and the judgement half is a coin toss — not a lost cause.** A
     51-issue mechanical PR and a 3-issue judgement PR (`S3400`, `S4165`) opened together from one reactor
     were merged and closed-unmerged respectively, within the same hour, the closure carrying **no comment

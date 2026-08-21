@@ -1,7 +1,8 @@
 # javascript:S7765 — `x.indexOf(y) !== -1` → `x.includes(y)`
 
-Platform: 12 workable sites, **0 drops** (shipped in #6201). The pool is ~90 project-wide but most of
-it sits in the vendored scripts and in files other agent PRs claim.
+Platform: **0 drops in 73 shipped** (12 in #6201, then 27 + 34 in #6210/#6211). The "12 workable"
+figure of the first pass was **PR-constrained, not rule-constrained** — on a later day with no open
+agent PR the same rule read 61 non-vendored sites. Re-derive the workable count every run.
 
 ## The only semantic difference
 
@@ -32,7 +33,31 @@ Watch the **ternary** shape: `url.indexOf('?') < 0 ? '?' : '&'` becomes
 compiles, minifies and silently builds a wrong query string, so eyeball those sites in the dry-run
 diff.
 
+## What the rule does NOT fire on, and must not be "made consistent"
+
+After a batch, the residual `indexOf(…)` comparisons in the touched files read like missed sites but
+are not: **`indexOf(x) > 0` and `indexOf(x) == 0` are POSITION tests** ("found, but not at the
+start" / "starts with"), which `includes` cannot express. Sonar is right not to flag them; leave
+them and say so in *Clarifications*, or the intra-file-consistency sweep breaks the file.
+
+## The densest platform cluster is vendored-inside-an-owned-file
+
+34 of the 61 non-vendored-file sites sat in the `BrowserDetect` block of `xwiki.js` (lines
+~1055-1130), a third-party snippet with its own header (`Version: 2.1.6`, Chris Nott, CC-BY 1.0)
+embedded in an otherwise XWiki-owned file. The transform is provably safe there (`ua` is
+`navigator.userAgent.toLowerCase()`), so this is a *policy* question, not a correctness one — see
+the vendored-block note in `learnings.md`. Shipped as the judgement half of the split.
+
+## Co-location with javascript:S6582
+
 Often co-located with the surrounding `&&` guard flagged by
 [javascript:S6582](javascript-S6582.md) — check the `(file, line)` intersection, but note the two
 rules usually sit on *different* lines of the same file rather than the same line, so they are two
 edits, not one.
+
+**When they DO share a line, fix only S7765 and drop the S6582 key.** The shape is
+`a && a.indexOf(k) == -1` ("`a` exists AND `k` is not in it"). The S7765 fix keeps the guard
+(`a && !a.includes(k)`), and there is no readable `?.` form: `!a?.includes(k)` is `true` when `a` is
+absent — the exact opposite of the original — and `a?.includes(k) === false` reads worse than the
+guard it replaces. This is the "two issues on the same line" hazard in its unrecoverable form: the
+two fixes are not merely order-dependent, they are mutually exclusive.
