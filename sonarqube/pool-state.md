@@ -145,6 +145,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S3457** printf-style format strings | Platform 41 — **triaged in full: 7 fixed, 34 permanent drops.** Commons 8 (1 fixed), rendering 1 (dropped). The 34 are 12 commented `toString()` log sites, 8 `%n`, 9 `Formatter.format("literal")` in one file (`DatabaseKeywordSearchSource`), plus 4 `toString()` on non-value types. | **83% drops, but the split is FREE** — group by `message`, see [rules/java-S3457.md](rules/java-S3457.md). The two clean shapes are the SLF4J `{}` placeholder used inside a `String.format` (a real defect: the argument is dropped) and an unused format argument (usually a caught exception that should have been chained). |
 | **javascript:S6582** optional chaining | Platform 76 → 40 open. **67 shipped over two runs**: 36 (#6201/#6202) then 26 mechanical + 5 judgement (#6210/#6211, `actionButtons.js` 7, `xwiki.js` 8, `livetable.js` 3, `suggest.js` 3, `extension.js` 3, + singletons). The "36 workable" was PR-constrained; with no open agent PR the next run found 32 more. Zero in commons/rendering (no JS there at all). | **0 real drops (67/67)**, in three buckets — see [rules/javascript-S6582.md](rules/javascript-S6582.md). The rule's reputation as risky is about ONE bucket (a call after the `?.`), and even there it is a receiver check, not a drop. The single unconverted site was blocked by a co-located `S7765` on the same line. |
 | **javascript:S7765** `indexOf` → `includes` | Platform 90 → 78 open. **73 shipped over two runs**: 12 (#6201) then 27 mechanical + 34 judgement (#6210/#6211). Of the residue, ~40 are the vendored `tablefilterNsort.js` (permanent). **34 of the second run's 61 sat in ONE vendored-derived block** — `BrowserDetect` inside `xwiki.js`. | **0 drops (73/73).** Only differs for `NaN`; the real check is that the receiver is a String or a real Array, not a NodeList/`arguments`/jQuery object. Do NOT "make consistent" the residual `indexOf(x) > 0` / `== 0` sites — those are position tests. |
+| **S1172** unused method parameter | **OKF-denylisted, wrongly for `private` methods.** Platform 132 (39 private: oldcore 21, `DocumentLocaleReader` 7, + singletons over 7 modules), commons 25 (5 private, 5 different modules), rendering 5 (1). **41 shipped** in three PRs; what is left is the non-`private` residue (platform 56 public / 18 protected / 18 package-private) plus 4 recorded drops. Regenerates from ordinary refactoring. | **9% drops (41/45)**, all decidable up front — see [rules/java-S1172.md](rules/java-S1172.md). The three shapes: the shortened signature collides with an existing overload, a `TODO` in the body explains the parameter, or the parameters mirror a sibling method the callers pair it with. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
 
 
@@ -371,6 +372,26 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
 ~85-rule mechanical allowlist queried per repo returned commons 89 / rendering 27 open keys and
 **zero** of them absent from `dropped-issues.md`. Neither repo has any `javascript:`, `css:` or
 `web:` issue at all, so the JS pivot does not apply there either. Budget both at zero.
+
+**After the S1172 sweep (platform 35, commons 5, rendering 1 — the first run in a while to ship in
+all three repos):**
+
+- **"Commons and rendering are CLOSED" was true only of the ALLOWLIST, not of the repos.** Nine
+  recorded confirmations of closure all came from querying the mechanical allowlist and the facet's
+  top rules against `dropped-issues.md` — and `java:S1172` sat above both, in the OKF denylist, with
+  25 commons / 5 rendering / 132 platform open issues that no run had ever bucketed. Before writing a
+  sibling repo off again, spend one bucketing pass on the denylisted rules with 20+ issues.
+- **Two concurrent agent PRs can take the JS pool with them.** #6210/#6211 claimed 13 WAR files
+  including `xwiki.js`, `livetable.js`, `suggest.js`, `actionButtons.js` and `dashboard.js`, which cut
+  a 403-key JS shortlist down to **103 workable** and left the small rules as scattered singletons.
+  That is the recorded "a PR-constrained count is not a pool size" effect running the other way —
+  check the open-PR file list *before* budgeting the JS half of a run.
+- **JS rules triaged this run and NOT taken** (no source edits, ~10 sites read): `S7741`
+  (`typeof x === 'undefined'`) is a genuine split — a property access or a declared local converts,
+  but `typeof(XWiki)` / `typeof(FileUploader)` on a possibly-undeclared **global** would become a
+  `ReferenceError`, so `history.js`, `confirmationBox.js` and `confirmedAjaxRequest.js` are permanent
+  drops (keys recorded). Untouched and still untriaged: `S4138` 17, `S3504` 14, `S2004` 13, `S7740`
+  12, `S1874` 9, `S2392` 9 workable.
 
 **XWiki's source level is Java 21** (`<xwiki.java.version>21</xwiki.java.version>` in the commons root
 pom), so a rule is never disqualified for needing a recent JDK — `S6876`/`S6877` (`List#reversed()`,

@@ -43,6 +43,7 @@ rows for the rules you commit to fixing this run.
 | `java:S3457` | [rules/java-S3457.md](rules/java-S3457.md) | ONE rule key, five unrelated defects — triage it by `message` |
 | `javascript:S6582` | [rules/javascript-S6582.md](rules/javascript-S6582.md) | `0?.f()` THROWS where `0 && 0.f()` short-circuits |
 | `javascript:S7765` | [rules/javascript-S7765.md](rules/javascript-S7765.md) | `includes` differs from `indexOf` only for `NaN`; the receiver must really be an Array |
+| `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool |
 
 ## Picking a target rule (find phase)
 
@@ -89,6 +90,18 @@ rows for the rules you commit to fixing this run.
   now been found wrong this way (`S1117`, `S3252`), and both were rules that *sound* like renames.
   Run the check when the allowlist is dry, not before — and record the correction as an OKF PR, since
   a wrong entry (unlike a missing nuance) is worth the version-bump conflict risk.
+- **A denylist reason that is a property of only PART of a rule's pool splits it — and the split axis
+  is almost always VISIBILITY.** Fourth denylist rescue after `S1117`/`S3252`/`S3415`, and the first
+  found by reading the *denylist itself* rather than the allowlist: `java:S1172` is listed as "a real
+  behaviour or signature change", which is true of a `public`/`protected`/package-private method and
+  false of a `private` one, where no caller can exist outside the compilation unit and the compiler is
+  therefore the whole verification. One bucketing pass over the modifier on each flagged declaration
+  line (no snippet reads beyond that line) turned "132 platform / 25 commons / 5 rendering, all
+  denylisted" into a **45-site three-repo pool, 41 of them shipped**. So when the allowlist is dry,
+  re-read the DENYLIST for entries whose reason reads "API change" / "signature change" /
+  "breaks callers" and ask *which subset of the pool that is actually true of* — `private`, `internal`
+  package, and test-only sites are the standard escapes. Same lever as `S1130`'s
+  annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
 - **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
   `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF
@@ -270,6 +283,20 @@ rows for the rules you commit to fixing this run.
   "receiver must be checked"; run after the edits it would only have documented what already shipped.
   Same lever as the throwaway `javac`/`java` file for a Java question — and the same payoff, since the
   output is also the strongest thing to put in the PR body.
+- **A batch that REMOVES an element from a parameter/argument list needs three guards the obvious
+  script does not have.** (Learned removing 41 unused private-method parameters; applies to any rule
+  that shortens a call.) (a) **The collision guard must use the RESULTING arity**: asserting that only
+  one declaration of that name has `nparams` arguments correctly refuses a same-arity overload pair,
+  but misses the case where the *shortened* signature equals an existing one — a private
+  `display(A, B, C)` minus one argument became the public `display(A, C)` it delegates from, i.e. a
+  compile error found only at minute 2 of the reactor. Scan for `nparams - 1` too. (b) **Removing an
+  argument can orphan the local that produced it** — here an `instanceof T name` pattern binding, so
+  Checkstyle `UnusedLocalVariable` failed the module *after* its tests passed. Post-apply scan, nearly
+  free: for every bare identifier removed from a call line, count remaining word-boundary occurrences
+  in the file and flag `<= 1`. (c) **Removing element 0 leaves the next one holding its whitespace**
+  (`f( b, c)`), which no compiler and no line-length check complains about — strip it in the same
+  edit. Splitting the list itself needs a scanner that tracks parens, brackets, **angle brackets**
+  (`Map<String, Serializable>` is one element) and string literals; plain `split(',')` is wrong.
 - **An "unnecessary" cast on an argument of an OVERLOADED method is not a mechanical fix** — removing
   it can silently re-dispatch to a different overload and still compile. Check the callee's overload
   set before trusting S1905.
@@ -536,6 +563,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   which is luck, not a rule. Corollary the other way: an `awk`/`grep` guard that demands
   `^cd /home/user/<repo> &&` on every `mvn` line will "fail" a script that actually works, so fix the
   script rather than debating the guard — one edit, no build round lost either way.
+- **Datapoint for a signature-narrowing three-repo sweep** (warm `~/.m2`): commons 5 modules **3:35**
+  (336 tests) + rendering 1 module **0:49** (182) + platform 10 modules **1:49** — then a re-run of
+  the 5 modules the platform failure had SKIPPED, **7:28** (1476 tests, oldcore 1149 of them, 3:45).
+  Two lessons in the same run: `-fae` does **not** save the modules that depend on the failed one
+  (oldcore sat behind a leaf `sheet-api` compile error and was skipped along with four others), and
+  re-running only the failed-plus-skipped set is a 7-minute recovery rather than a second full
+  reactor. Whole three-repo chain incl. the recovery ≈ 14 min for 2300 tests.
 - **Datapoint for a narrow three-repo `src/main` sweep** (warm `~/.m2` for commons/rendering, cold for
   the platform leg): commons 2 modules **3:11** (33 tests) + rendering 2 modules **1:05** (214) +
   platform **14** modules incl. oldcore **13:29** (1623) = **~18 min** for 123 sites, all green.

@@ -355,6 +355,31 @@ refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
 
+### java:S1172 (unused method parameter) — the 4 non-`private` -independent drops
+The rule's workable subset is `private` methods only (see
+[rules/java-S1172.md](rules/java-S1172.md)); every `public`/`protected`/package-private site is a
+permanent drop for backward compatibility and is NOT listed key-by-key. These four are `private`
+sites that still must not be fixed:
+- `AW5-S-ln1Yj5qvzeRo4g` SheetDocumentDisplayer#display L239 — removing `document` makes the private
+  3-arg helper collide with the public `display(DocumentModelBridge, DocumentDisplayerParameters)`
+  it delegates from; the compiler rejects it.
+- `AW5-S4w-1Yj5qvzeRmtt` AsyncRendererResourceReferenceHandler#sendRUNNINGResponse L143 — the body
+  carries `// TODO: Send back a REST version of the job status`, i.e. the parameter is the TODO.
+- `AYbrRz0gM5HAxHRCjFBc` XWikiBlogNewsCategoryConverter#getMappedCategoriesForURL L101 — a BLOG-198
+  `TODO` with the code that uses `categories` commented out underneath it.
+- `AY974q9gKZk1650DhyVD` MessageStreamTest#setupForLimitQueries L154 — the parameters mirror the
+  `verifyLimitQueries(expectedLimit, expectedOffset)` call each test pairs it with, and Sonar flags
+  only one of the two, so "fixing" it breaks the pairing.
+
+### javascript:S7741 (`typeof x === 'undefined'`) — the operand is a possibly-undeclared GLOBAL
+`x === undefined` throws a `ReferenceError` where `typeof x` is safe, so a bare global is a permanent
+drop. (Property accesses — `typeof node.data`, `typeof this.defaultOptions[type]` — and declared
+locals/parameters are fine and remain workable.)
+- `AZlyHa6NlYnK6j8fkQey` history.js L108 (`typeof(FileUploader)`),
+  `AZlyHa0flYnK6j8fkQeA` + `AZlyHa0flYnK6j8fkQeB` confirmationBox.js L21 and
+  `AZlyHawMlYnK6j8fkQdt` + `AZlyHawMlYnK6j8fkQdu` confirmedAjaxRequest.js L21 — all guard on
+  `typeof(XWiki)`, the namespace-existence check these widgets open with.
+
 ### java:S125 (commented-out code) — anchored by a TODO/FIXME, or a Sonar false positive
 The rule's clean subset is an *unanchored* leftover (a disabled `verify(…)`/`when(…)` in a test, a
 dead alternative implementation); 17 of the 28 fresh platform sites are drops and every reason is
