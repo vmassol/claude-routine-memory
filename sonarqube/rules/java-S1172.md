@@ -40,6 +40,11 @@ Decidable from the flagged declaration plus the call sites in the same file:
 
 Everything else converted: **41 of 45 private sites, 0 build failures beyond the two below.**
 
+**Outcome: all three PRs merged, none with a single review comment** — platform #6214 (35 sites,
+mostly oldcore `src/main`), commons #1918, rendering #408. So the private subset is not merely safe,
+it is uncontroversial: `src/main` is not a reason to hold a site back, and the visibility split is
+the whole judgement this rule needs.
+
 ## Applying it
 
 * Rewrite the declaration **and every call site**, from the last file offset backwards. Locate call

@@ -100,7 +100,9 @@ rows for the rules you commit to fixing this run.
   denylisted" into a **45-site three-repo pool, 41 of them shipped**. So when the allowlist is dry,
   re-read the DENYLIST for entries whose reason reads "API change" / "signature change" /
   "breaks callers" and ask *which subset of the pool that is actually true of* — `private`, `internal`
-  package, and test-only sites are the standard escapes. Same lever as `S1130`'s
+  package, and test-only sites are the standard escapes. **Outcome: all three PRs merged with no
+  review comment at all**, which is now the fourth denylist rescue to land that way — the
+  re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
 - **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
