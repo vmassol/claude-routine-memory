@@ -1039,6 +1039,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF: nothing this run** — the `S1172` correction went out as
+  `xwiki/xwiki-dev-llm#71` (an actively-wrong entry, the fourth of that kind after `S1117`,
+  `S3252` and `S3415`, and the pattern that merges). It cites the three sweep PRs it unblocked
+  (platform #6214, commons #1918, rendering #408) while they were still OPEN rather than merged —
+  worth checking next run whether that weakened it, since #67 could cite a merged one.
 - **Owed to the OKF, batch 9** (NOT opened as a PR — `java:S3457` has no OKF entry at all, and the
   recorded rule is that a brand-new entry gets closed for the structural version-bump conflict just as
   a nuance addition does; fold it into a PR a later run is opening anyway). One rule, `java:S3457`,
