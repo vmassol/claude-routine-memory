@@ -105,6 +105,18 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+- **When you LOOSEN a classifier regex mid-run, re-test it against the cases the strict version
+  rejected — the rejects are the test set.** The `S6355` triage ran twice: a first pass whose version
+  pattern was `\b(…)\b` and correctly rejected the malformed versions in the pool (`4.4MA`, `5.2M`,
+  `14.0CR1`), and a second, tightened-in-other-ways pass that dropped the trailing boundary and so
+  matched their numeric *prefix*. Three sites shipped with a truncated version in the annotation and
+  the orphaned tail (`MA`, `M`, `CR1`) left behind in the Javadoc — compiles, passes Checkstyle,
+  Revapi and 4738 tests, and is the first thing the reviewer commented on. Two guards, both cheap:
+  keep the earlier regex's rejects as an explicit expectation when you rewrite it, and after applying,
+  **audit each site for a capture that is a PREFIX of a longer token** in the original text (the next
+  character is alphanumeric, or `.` + digit). That audit took one pass over the recorded rows, needed
+  no source reads, and found all three — including the two the reviewer had not spotted, which is what
+  turns one comment into one push instead of three rounds.
 - **When a fix MOVES a fact into a machine-readable form, deleting the prose copy is part of the same
   change — expect to be asked for it.** The `S6355` sweep put the deprecating version into
   `@Deprecated(since = …)` and left the `@deprecated since 8.3RC1, use {@link X} instead` Javadoc tag

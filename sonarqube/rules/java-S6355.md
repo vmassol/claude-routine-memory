@@ -31,10 +31,22 @@ whole-file reads, and it is scriptable end to end**:
 1. From the flagged line walk up over `@…`/blank lines to the Javadoc `*/`, then back to its `/**`.
 2. Cut the `@deprecated` tag's text at the next block tag (`\n\s*\*\s*@\w`) — otherwise a later
    `@since` (which means *when the element appeared*, not when it was deprecated) is captured instead.
-3. Take the version from `(?:since|starting with|as of|from)\s+(\d+\.\d+(?:\.\d+)?(?:(?:RC|M|BETA|DEV)\d+)?)`.
+3. Take the version from
+   `(?:since|starting with|as of|from)\s+(\d+\.\d+(?:\.\d+)?(?:(?:RC|M|BETA|DEV)\d+)?)(?![\w.])`.
    Requiring a `since`-style keyword is what keeps a version-looking token in a `{@link}` or in prose
-   out. Bad-looking version strings in the wild (`5.ORC1` with a letter O, `4.4MA`) fail the regex on
-   their own, which is the correct outcome — do not "repair" them.
+   out. **The trailing `(?![\w.])` is not optional and shipping without it cost a review round:** the
+   pool contains MALFORMED versions (`4.4MA`, `5.2M`, `14.0CR1`, `5.ORC1`), and without the boundary
+   the regex silently matches their numeric *prefix* — the annotation gets `since = "4.4"` and the
+   strip pass then leaves the orphaned `MA` sitting in the Javadoc tag
+   (`@deprecated MA use {@link #getRoleType()} instead`). Compiles, passes every gate, and is the
+   first thing a reviewer sees. With the boundary these sites simply drop out, which is the right
+   outcome — do not "repair" a malformed version silently; if a reviewer rules on the intent
+   (`4.4MA` → `4.4M1`) apply that, and read the analogous ones the same way (`14.0CR1` → `14.0RC1`).
+
+   **Audit for it after the fact in one pass, no source reads**: for each site, look at the character
+   following the captured version *in the original tag text* — an alphanumeric or a `.<digit>` means
+   the capture was a truncation. 3 of 464 sites, and it found all three including the two the reviewer
+   had not seen yet.
 
 Buckets measured over all 768: **439 single-version (mechanical)**, **25 multi-version (judgement)**,
 **304 drops** — 123 with no Javadoc at all, 21 with a Javadoc but no `@deprecated` tag, 160 with a
@@ -70,6 +82,13 @@ Three gotchas, all found by scanning the rewritten lines rather than by the buil
   the hits rather than assuming the regex was wrong.
 * Also assert, per rewritten line: no leading punctuation, no double space, ≤120 columns. That scan
   (439 + 25 lines) found exactly the four real problems above and nothing else.
+* **A removed phrase can leave prose that only made sense WITH it.** `already deprecated since 3.1M2,
+  use {@link X}` strips to `already deprecated, use {@link X}` — grammatical, redundant, and the
+  reviewer's second comment. Scan the remainder for a description that restates the deprecation
+  (`^(already |now )?deprecated\b`) and delete that clause too; 2 of 464
+  (`DefaultLogger`, `DocumentAccessBridge#getDocument`). The other remainder shapes the same scan
+  flags — a leading `this`/`This` (`@deprecated this is now part of the official Velocity library,
+  use …`) — read fine and must be left alone; ~20 of those.
 
 Cost: one extra reactor. Second run over the same 77 modules, warm `~/.m2`: commons **3:53**/1177
 tests, rendering **0:52**/524, platform **15:48**/3037 — **all green, ~21 min**, i.e. roughly half the
