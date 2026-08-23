@@ -1094,6 +1094,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   already MERGED (squash-merged, so the local commits look distinct) → `git checkout -B <branch>
   <realMasterSha>` and start fresh. If it's genuinely ahead, rebase the unmerged commits onto the real
   HEAD.
+- **Keep an OKF change MINIMAL — it is shipped config, not a notebook.** Asked to trim
+  `xwiki-dev-llm#72`: *"make the changes minimal for the sonarqube OKF parts and in general try to
+  avoid duplications as much as possible. Make the text succinct and remove non-essential
+  information."* The `S6355` entry had grown to ~55 lines by absorbing the sweep's history (which
+  review comment prompted what, per-site examples, counts) and by restating the convention that the
+  same PR had just added to `conventions/versioning.md`. Trimmed to 24 lines: only what a *Sonar
+  fixer* needs beyond the convention file, with a `[[versioning]]` pointer instead of a paraphrase.
+  The division of labour to hold to: **the OKF gets the rule, this repo gets the story** — drop
+  counts, per-site tables, "asked for in review", build datapoints and outcome history are memory
+  content, and a family file that repeats another OKF file is a review comment waiting to happen.
 - **An OKF PR must be branched off a FRESH plugin master, kept small, and pushed the same turn.**
   `xwiki-dev-llm` takes several commits a day and every shipped change bumps the version in four
   manifests, so a branch cut at the start of a long run conflicts on exactly those lines and gets closed
