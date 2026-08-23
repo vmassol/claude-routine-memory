@@ -146,6 +146,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **javascript:S6582** optional chaining | Platform 76 → 40 open. **67 shipped over two runs**: 36 (#6201/#6202) then 26 mechanical + 5 judgement (#6210/#6211, `actionButtons.js` 7, `xwiki.js` 8, `livetable.js` 3, `suggest.js` 3, `extension.js` 3, + singletons). The "36 workable" was PR-constrained; with no open agent PR the next run found 32 more. Zero in commons/rendering (no JS there at all). | **0 real drops (67/67)**, in three buckets — see [rules/javascript-S6582.md](rules/javascript-S6582.md). The rule's reputation as risky is about ONE bucket (a call after the `?.`), and even there it is a receiver check, not a drop. The single unconverted site was blocked by a co-located `S7765` on the same line. |
 | **javascript:S7765** `indexOf` → `includes` | Platform 90 → 78 open. **73 shipped over two runs**: 12 (#6201) then 27 mechanical + 34 judgement (#6210/#6211). Of the residue, ~40 are the vendored `tablefilterNsort.js` (permanent). **34 of the second run's 61 sat in ONE vendored-derived block** — `BrowserDetect` inside `xwiki.js`. | **0 drops (73/73).** Only differs for `NaN`; the real check is that the receiver is a String or a real Array, not a NodeList/`arguments`/jQuery object. Do NOT "make consistent" the residual `indexOf(x) > 0` / `== 0` sites — those are position tests. |
 | **S1172** unused method parameter | **OKF-denylisted, wrongly for `private` methods; all three sweep PRs merged uncommented.** Platform 132 (39 private: oldcore 21, `DocumentLocaleReader` 7, + singletons over 7 modules), commons 25 (5 private, 5 different modules), rendering 5 (1). **41 shipped** in three PRs; what is left is the non-`private` residue (platform 56 public / 18 protected / 18 package-private) plus 4 recorded drops. Regenerates from ordinary refactoring. | **9% drops (41/45)**, all decidable up front — see [rules/java-S1172.md](rules/java-S1172.md). The three shapes: the shortened signature collides with an existing overload, a `TODO` in the body explains the parameter, or the parameters mirror a sibling method the callers pair it with. |
+| **S6355** `@Deprecated` without arguments | **The biggest pool ever found here: 768 open** (platform 630, commons 119, rendering 19), never touched because the OKF denylisted it. **464 shipped in one three-repo sweep** (mechanical 349/80/10 + judgement 21/1/3): platform `oldcore` alone held 199 of its 349, then `bridge` 20 / `rest-server` 12 / `extension-script` 11 / 1-9 each over 43 more modules; commons `extension-api` 18 / `legacy-component-api` 12 / `job-api` 9 / 19 more modules; rendering `rendering-api` 5 / `legacy-api` 4 / `transformation-macro` 1. **304 remain and are permanent** (no Javadoc / no `@deprecated` tag / a tag with no version). Regenerates from every new deprecation that omits `since`. | **0 drops in 464.** The version is copied from the element's own `@deprecated` Javadoc tag, never invented — see [rules/java-S6355.md](rules/java-S6355.md). Zero drift risk (the flagged line IS the bare `@Deprecated` line, 768/768) and `revapi:check` passed in all 77 modules. |
+| **S1123** missing `@Deprecated` / `@deprecated` | Platform 171, commons 35, rendering 3 — **analyzed, not attempted** (see the S6355 file): one shape needs prose only the API author can write, the other adds an annotation that changes what tools report about a published API. | Not a sweep, but the *"add the missing annotation"* half is mechanically derivable if a run wants to argue it on merit. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
 
 
@@ -352,7 +354,8 @@ rendering 1, platform 18 and nearly all already dropped), and so is the test-cod
   triaged). Budget a rendering PR at 0-2 issues and do not hunt for volume there.
 - **Commons is nearly closed too.** After the S125/S5778/S1130 pass its whole facet is 87 rules and
   the mechanical part of it is spent; the only deferred-not-dropped item is S3358 (3). What is left is
-  S6355/S1123 (154 — needs the deprecating version), S1135/S1134 (TODO/FIXME), S5993, S3776, S112,
+  S6355/S1123 (154 — **CORRECTED: this was wrong, 81 of the 119 commons S6355 sites were shipped, see
+  the S6355 row below**), S1135/S1134 (TODO/FIXME), S5993, S3776, S112,
   S1133, S1186, S1168, S2065 — all denylisted or design work, plus `javabugs:S2259` (16).
 
 **After the S1117/S116 sweep (platform 107, commons 2, rendering 0):**
@@ -429,8 +432,9 @@ level with one grep before rejecting a modernization rule.
   `S2583`, `S4838`, `S2097` (real-bug rules needing a per-site decision), `S1165` (make a field
   final), `S2440`, `S3599`, `S1860`, `S5998`, `S1171`, `S3400` beyond the 3 above.
 
-Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S1172, S6355/S1123, S2143/S2160/
-S1141, …) are in the OKF denylist — check `okf/sonarqube/index.md` before adding one here.
+Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S2143/S2160/
+S1141, …) are in the OKF denylist — but note **`S1172` and `S6355` were both on that list and both
+paid** (45 and 464 sites); a denylist entry is a claim to re-derive, not a fact — check `okf/sonarqube/index.md` before adding one here.
 
 
 **After the S3415 + JS-long-tail sweep (platform 48 = 25 Java + 23 JS, commons 0, rendering 0) — all
@@ -487,3 +491,25 @@ of it MERGED, plus the OKF correction PR:**
 - Build datapoint: `xwiki-platform-web-war` alone, warm-ish `~/.m2`, **6:12**, BUILD SUCCESS (all
   three `closure-compiler:minify` executions + `yuicompressor:compress`). No unit tests exist for
   these files, so `node --check` plus a `node` equivalence program is the behaviour evidence.
+
+**Current standing state — after the S6355 sweep (464 issues: platform 370, commons 81, rendering 13,
+the first run to ship a real batch in all three repos):**
+
+- **"Commons and rendering are CLOSED" has now been falsified twice in a row by the same move**, and
+  both times by a rule sitting in the OKF DENYLIST rather than in the allowlist or the facet's top
+  rules: `S1172` (25/5 open) last run, `S6355` (119/19 open) this one. Nine-plus recorded
+  "confirmations of closure" were all derived from the mechanical allowlist, which by construction
+  cannot see a denylisted rule. **Before writing any repo off, list the denylisted rules with 20+
+  open issues in it and re-derive each reason.** Two calls, and it has been worth 545 issues.
+- **The next candidates on that list, in descending commons+rendering volume**: `S1123` 38 (analyzed —
+  see [rules/java-S6355.md](rules/java-S6355.md)), `S1135`/`S1134` (TODO/FIXME comments — genuinely
+  not fixable), `S5993`, `S3776`, `S112`, `S1133` (deprecated code should be removed — worth a look,
+  the `-legacy` module machinery exists for exactly that), `S1186`, `S1168`, `S9149`, `S2065`,
+  `javabugs:S2259`.
+- **Platform's S6355 residue is 260 permanent drops**, its Java allowlist is unchanged (the `S1130`
+  `src/main` residue plus denylisted rules), and its JS pool is the same ~340 fresh keys minus
+  whatever #6210/#6211 claimed — those two were still open during this run, which is why the run went
+  Java rather than JS.
+- **`xwiki-platform-legacy-oldcore` must be in the `-pl` list of any batch touching an oldcore class**
+  — it is the only module that compiles the compatibility aspects, and it is where the previous run's
+  merged PR left `master` red (fixed by #6218). See [rules/java-S1172.md](rules/java-S1172.md).

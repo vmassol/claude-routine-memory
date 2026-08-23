@@ -911,3 +911,26 @@ Addendum to the vendored-scripts section above, from a full `javascript:` allowl
     `AY1U1sNB0GHv9uFD3jQ-`, `AY1U1sNB0GHv9uFD3jRA`, `AY1U1sNB0GHv9uFD3jRW`,
     `AY1U1sNB0GHv9uFD3jRb`, `AY1U1sNB0GHv9uFD3jRg`, `AY1U1sNB0GHv9uFD3jRq`,
     `AY1U1sNB0GHv9uFD3jRr`, `AY1U1sNB0GHv9uFD3jRu`, `AY1U1sNB0GHv9uFD3jRv`
+
+## All three repos — `java:S6355` / `java:S1123` (recorded by SHAPE, not by key)
+
+304 of the 768 open `java:S6355` issues were analyzed and are **permanent drops**; they are recorded
+by shape because the classifier is deterministic and a future run re-derives the identical split in
+one pass (see [rules/java-S6355.md](rules/java-S6355.md) for the exact regex). **A site is a drop iff
+the flagged `@Deprecated` has no Javadoc `@deprecated` tag naming a version** — filling `since` in
+would mean inventing a version number, which is what the OKF denylist entry is legitimately about:
+
+- **no Javadoc comment at all** — platform 93, commons 27, rendering 3;
+- **a Javadoc comment with no `@deprecated` tag** — platform 17, commons 4, rendering 0;
+- **a `@deprecated` tag that states no version** (`@deprecated use {@link X} instead`) — platform 150,
+  commons 7, rendering 3.
+
+Everything else (464) was fixed. Do **not** re-triage these one by one: run the classifier, take the
+derivable bucket, and leave the rest. They become fixable only if someone documents the versions.
+
+**`java:S1123` (platform 171, commons 35, rendering 3) was analyzed and not attempted** — the whole
+rule, both of its shapes: *"add the missing `@deprecated` Javadoc tag"* needs prose (why, and what to
+use instead) that only the API's author can supply, and *"add the missing `@Deprecated` annotation"*
+makes every existing call site emit a deprecation warning, i.e. a product decision rather than a
+cleanup. The version for the second shape *is* derivable from the existing tag, so it is arguable on
+merit — but it is not a mechanical sweep.

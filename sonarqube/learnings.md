@@ -43,7 +43,8 @@ rows for the rules you commit to fixing this run.
 | `java:S3457` | [rules/java-S3457.md](rules/java-S3457.md) | ONE rule key, five unrelated defects — triage it by `message` |
 | `javascript:S6582` | [rules/javascript-S6582.md](rules/javascript-S6582.md) | `0?.f()` THROWS where `0 && 0.f()` short-circuits |
 | `javascript:S7765` | [rules/javascript-S7765.md](rules/javascript-S7765.md) | `includes` differs from `indexOf` only for `NaN`; the receiver must really be an Array |
-| `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool |
+| `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool; and `private` is NOT airtight, an AspectJ ITD can call it |
+| `java:S6355` `java:S1123` | [rules/java-S6355.md](rules/java-S6355.md) | OKF-denylisted for "needs the deprecating version" — which the element's own `@deprecated` Javadoc tag already states in 464 of 768 sites |
 
 ## Picking a target rule (find phase)
 
@@ -104,6 +105,18 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+- **A denylist reason of the form "the fix needs information X" is a question about whether the code
+  already WRITES X DOWN — and in XWiki it often does, two lines above the flagged line.** Fifth
+  denylist rescue (after `S1117`, `S3252`, `S3415`, `S1172`) and the biggest pool any run has found:
+  `java:S6355`/`S1123` were denylisted as "needs the deprecating version; see versioning", which
+  reads like an unanswerable question. But the flagged `@Deprecated` sits directly under a Javadoc
+  `@deprecated since 8.3RC1, use {@link …} instead` tag — **464 of the 768 open sites state their own
+  version** and the fix copies it. So this is a *different escape axis from the visibility one*: not
+  "which subset of the pool is the reason false for", but "is the missing input already documented on
+  the element?". Ask it of every denylist entry whose reason is a missing *fact* (a version, a
+  replacement API, an owner) rather than a missing *safety* argument. Related, and worth trying next:
+  `S6355`'s own siblings `S1123` (the tag exists, the annotation is missing — the version is equally
+  derivable) and `S1133`.
 - **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
   `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF
@@ -565,6 +578,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   which is luck, not a rule. Corollary the other way: an `awk`/`grep` guard that demands
   `^cd /home/user/<repo> &&` on every `mvn` line will "fail" a script that actually works, so fix the
   script rather than debating the guard — one edit, no build round lost either way.
+- **A batch verified by "the compiler is the whole verification" must include every compiler that sees
+  the member — and in XWiki one of them is `ajc`, in a DIFFERENT module.** The `*-legacy-*` modules
+  compile `src/main/aspect/**/*Compatib*Aspect.aj` with AspectJ, and an inter-type declaration
+  (`public String BooleanClass.displaySelectSearch(…)`) is compiled *as a member of its target class*,
+  so it can call that class's **`private`** methods from another module, in a source file `javac`
+  never reads and Sonar never scans. That is how the previous run's merged `S1172` PR (#6214) left
+  `master` red: oldcore compiled with 1149 tests green, then `xwiki-platform-legacy-oldcore` failed
+  `ajc` (`The method getDisplayValue(int) … is not applicable for the arguments (XWikiContext, int)`).
+  Two cheap guards for any batch that changes a member of an oldcore class: grep
+  `--include=*.aj` for the member name, and put the matching `*-legacy-*` module in the `-pl` list.
+- **Datapoint for a three-repo annotation-only sweep across 77 modules** (warm `~/.m2`, 464 sites):
+  commons **22** modules **6:10** (1177 tests) + rendering 3 modules **1:26** (524) + platform **52**
+  modules incl. oldcore **25:37** (2989) ≈ **33 min** for 4690 tests. A 52-module platform `-pl` list
+  is entirely practical; `revapi:check` ran in all 77 and passed.
 - **Datapoint for a signature-narrowing three-repo sweep** (warm `~/.m2`): commons 5 modules **3:35**
   (336 tests) + rendering 1 module **0:49** (182) + platform 10 modules **1:49** — then a re-run of
   the 5 modules the platform failure had SKIPPED, **7:28** (1476 tests, oldcore 1149 of them, 3:45).
@@ -675,6 +702,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   marker over-counted platform 3× (2951 instead of 949 — the slice still held commons and rendering),
   and that wrong figure reached a PR description before it was caught. Same regex both times, so the
   cross-check that catches it is per-module pairing, not a second sum.
+- **When the master breakage is THIS ROUTINE'S OWN regression, "don't repair master in a cleanup PR"
+  becomes "repair it in its own PR, the same run".** A reactor failure that traces back to the
+  previous run's merged Sonar PR is not someone else's problem and nobody else is fixing it: it is
+  blocking every build of that module, including the verification of the batch in flight. The shape
+  that worked (platform #6218, one file, two lines): keep the cleanup batch untouched on its own
+  branch, cut a third branch from `master` with only the repair, build the affected module with
+  *both* applied (that single build proves the repair works AND verifies the batch's sites in that
+  module), then state in the cleanup PR's *Clarifications* that the module is red on `master`, why,
+  which PR fixes it, and that it builds green with the fix on top. Name the offending PR and the
+  mechanism in the repair PR's description — a regression report is more useful than a silent patch.
 - **Do not repair unrelated master breakage inside a Sonar cleanup PR.** Ship the batch, and state the
   breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
   the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
@@ -1041,7 +1078,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
-- **Owed to the OKF: nothing this run** — the `S1172` correction went out as
+- **Owed to the OKF: nothing this run** — the `S6355` correction went out as
+  `xwiki/xwiki-dev-llm#72` (moves `S6355` off the denylist into `syntax-rules`, leaves `S1123` on it
+  with its own reason; the **fifth** actively-wrong entry after `S1117`, `S3252`, `S3415`, `S1172`).
+  It cites the six sweep PRs it unblocked while they were still OPEN, same as `#71`. **`#71` is still
+  open and uncommented**, so the "cite a merged PR" question from last run is still unanswered — and
+  note the two PRs touch adjacent lines of the same denylist list plus the same four version lines, so
+  whichever merges second will conflict. If one is closed for that, condense it here rather than
+  re-pushing (the recorded rule).
+- **Superseded (kept for the citation experiment)** — the `S1172` correction went out as
   `xwiki/xwiki-dev-llm#71` (an actively-wrong entry, the fourth of that kind after `S1117`,
   `S3252` and `S3415`, and the pattern that merges). It cites the three sweep PRs it unblocked
   (platform #6214, commons #1918, rendering #408) while they were still OPEN rather than merged —

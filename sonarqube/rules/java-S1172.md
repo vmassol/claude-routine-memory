@@ -13,7 +13,7 @@ prior-shaped rejection after `S1117`, `S3252` and `S3415`.
   already narrowed, and the only remaining question is **visibility**.
 * A `private` method cannot be called from outside its compilation unit, so **the compiler is the
   complete verification**: a missed call site, or a shortened signature that collides with an
-  overload, cannot compile.
+  overload, cannot compile. **With one exception that broke `master`, see below.**
 * Non-`private` is a permanent drop (Revapi / cross-module callers). The split is free — read the
   modifier at the start of the flagged declaration line. Platform's 132 split 39 private / 56 public /
   18 protected / 18 package-private.
@@ -44,6 +44,33 @@ Everything else converted: **41 of 45 private sites, 0 build failures beyond the
 mostly oldcore `src/main`), commons #1918, rendering #408. So the private subset is not merely safe,
 it is uncontroversial: `src/main` is not a reason to hold a site back, and the visibility split is
 the whole judgement this rule needs.
+
+## The one thing "private ⇒ the compiler is the whole verification" misses: AspectJ
+
+**Platform #6214 broke `master`.** It shortened the private
+`BooleanClass#getDisplayValue(XWikiContext, int)` to `getDisplayValue(int)`; oldcore compiled and its
+1149 tests passed, but `xwiki-platform-legacy-oldcore` then failed its **`ajc`** compile —
+`BooleanClassCompatibiityAspect.aj` still called `getDisplayValue(context, 0)`. An **inter-type
+declaration (`public String BooleanClass.displaySelectSearch(…)`) is compiled *as* a member of its
+target class, so it can call that class's `private` methods** — from a different module, in a source
+file `javac` never sees and Sonar never scans. The breakage surfaced only a run later, in a reactor
+that happened to include the legacy module; fixed by `xwiki/xwiki-platform#6218`.
+
+Two guards, both nearly free, for any rule that changes a `private` (or any) member of an oldcore
+class:
+
+* Grep the aspect sources for the member name before applying:
+  `grep -rn "\bname(" --include=*.aj .` — the compatibility aspects live in
+  `xwiki-platform-*-legacy-*/src/main/aspect/**` (and `xwiki-commons-legacy-*`,
+  `xwiki-rendering-legacy-*`). A hit means the "private" argument does not hold for that site.
+* **Put the matching `*-legacy-*` module in the `-pl` list** whenever the batch touches a class that
+  has a `*CompatibilityAspect.aj` / `*CompatibiityAspect.aj` (both spellings exist in-tree). A
+  reactor that builds `xwiki-platform-oldcore` but not `xwiki-platform-legacy-oldcore` cannot see
+  this class of failure at all.
+
+Generalises past this rule: **"the compiler is the whole verification" is only true when every
+compiler that sees the member is inside your reactor** — and in XWiki one of them is `ajc`, in
+another module, on sources no other tool reads.
 
 ## Applying it
 
