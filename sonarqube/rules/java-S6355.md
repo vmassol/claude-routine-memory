@@ -131,7 +131,11 @@ miss this) before treating anything about deprecation as a judgement call.**
   applying hundreds of edits.
 * No behaviour, no signature, no line-length risk (the annotation line is short), and Checkstyle has
   nothing to say about it.
-* **Outcome: the commons half (#1920, 81 issues) merged the same day**, after two review comments —
+* **Outcome: 441 of the 464 issues merged the same day** — platform #6216 (349), commons #1920 (81) +
+  #1921 (1), rendering #409 (10); platform #6217 (21) and rendering #410 (3) still open. The OKF
+  correction (`xwiki-dev-llm#72`) merged too. So the whole rule, denylisted for years, is now a
+  documented, reviewed, largely-landed sweep.
+* **The commons half merged the same day**, after two review comments —
   and both were about **text my strip pass mangled** (the truncated `4.4MA`, the dangling "already
   deprecated"), not about the rule, the version derivation, the 28 bare tags or the multi-version
   split. So the classification is not where this rule's risk lives; the prose transformation is.

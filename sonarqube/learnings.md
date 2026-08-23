@@ -1127,14 +1127,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
-- **Owed to the OKF: nothing this run** — the `S6355` correction went out as
-  `xwiki/xwiki-dev-llm#72` (moves `S6355` off the denylist into `syntax-rules`, leaves `S1123` on it
-  with its own reason; the **fifth** actively-wrong entry after `S1117`, `S3252`, `S3415`, `S1172`).
-  It cites the six sweep PRs it unblocked while they were still OPEN, same as `#71`. **`#71` is still
-  open and uncommented**, so the "cite a merged PR" question from last run is still unanswered — and
-  note the two PRs touch adjacent lines of the same denylist list plus the same four version lines, so
-  whichever merges second will conflict. If one is closed for that, condense it here rather than
-  re-pushing (the recorded rule).
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#72` MERGED** (plugin 1.1.1). It moved `S6355` off
+  the denylist into `syntax-rules`, left `S1123` on it with its own reason, and added the missing
+  `@Deprecated` section to `conventions/versioning.md`. **Fifth "actively-wrong entry" correction, and
+  the pattern keeps merging** — but note two things about how it got there: it needed a **trim** round
+  (*"make the changes minimal … avoid duplications … remove non-essential information"*), so write the
+  entry minimal the first time; and it cited its sweep PRs while they were still open, which did not
+  weaken it. **A consequence to expect: merging one OKF PR makes every other open one conflict** on
+  the four version lines — `#71` (the previous run's `S1172` correction, still open and uncommented)
+  went `dirty` the moment `#72` merged. Whichever of two OKF PRs is second needs a master merge and a
+  re-derived bump, so land them one at a time and fix the loser immediately (a session may only push
+  to its own designated branch, so an older run's branch has to wait for its owner or be re-authored).
 - **Superseded (kept for the citation experiment)** — the `S1172` correction went out as
   `xwiki/xwiki-dev-llm#71` (an actively-wrong entry, the fourth of that kind after `S1117`,
   `S3252` and `S3415`, and the pattern that merges). It cites the three sweep PRs it unblocked
