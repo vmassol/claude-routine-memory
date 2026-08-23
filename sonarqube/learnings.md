@@ -491,8 +491,9 @@ rows for the rules you commit to fixing this run.
   `issueStatuses=ACCEPTED` count query rather than tailing its log. **An unthrottled loop silently loses about
   half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
   EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
-  throttle from the start and still run the confirm pass (**168/168 landed on the first pass, zero
-  stragglers**, but budget ~30 min of wall clock for 168 keys through this container's proxy — launch
+  throttle from the start and still run the confirm pass (**464/464 landed on the first pass, zero
+  stragglers, ~35 min for 464 keys ≈ 4.5 s/key** — so the 0.3 s throttle costs nothing and the loop
+  comfortably covers the whole write-up; earlier: **168/168 first pass**, but budget ~30 min of wall clock for 168 keys through this container's proxy — launch
   it BEFORE the memory write-up, not after, and it comfortably covers the whole write-up plus the OKF PR): loop `issues/search?issues=<keys>` → re-POST
   `accept` for anything not yet ACCEPTED → repeat until zero. `do_transition`'s response does NOT
   reliably contain an `issues` key (don't index it → KeyError; the transition still applied), and a

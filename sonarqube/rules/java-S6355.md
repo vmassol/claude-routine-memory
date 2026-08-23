@@ -63,7 +63,9 @@ since then)?
   applying hundreds of edits.
 * No behaviour, no signature, no line-length risk (the annotation line is short), and Checkstyle has
   nothing to say about it.
-* **0 drops in 464 applied sites**, three repos, 2:16-verified + 4690 tests green.
+* **0 drops in 464 applied sites**, three repos, 4690 tests green — and the accept pass confirms the
+  arithmetic exactly: platform 370 ACCEPTED / 260 still OPEN, commons 81 / 38, rendering 13 / 6, i.e.
+  the OPEN remainder equals the recorded non-derivable count in every repo.
 
 ## The sibling rule `java:S1123` — analyzed, NOT attempted
 
