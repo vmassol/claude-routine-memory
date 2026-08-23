@@ -94,13 +94,25 @@ Cost: one extra reactor. Second run over the same 77 modules, warm `~/.m2`: comm
 tests, rendering **0:52**/524, platform **15:48**/3037 — **all green, ~21 min**, i.e. roughly half the
 cold-ish first pass.
 
-## Multi-version tags are the only judgement call
+## Multi-version tags — NOT a judgement call, list them all
 
-`@deprecated since 14.10.2, 15.0RC1 …` (also `7.4.5 and 8.2RC1`, `14.10.2 / 15.0RC1`) — the API was
-deprecated on a stable branch *and* on master, and `since` takes one string. 25 sites (platform 21,
-commons 1, rendering 3). Shipped as the sibling judgement PR using the **last (highest)** version,
-with the question stated: highest (the line this code lives on) or earliest (it *has been* deprecated
-since then)?
+`@deprecated since 14.10.2, 15.0RC1 …` (also `7.4.5 and 8.2RC1`, `14.10.2 / 15.0RC1`, and 3-version
+forms) — the API was deprecated on a stable branch *and* on master. `since` is a single `String`, which
+is why a first sweep treated "which version?" as an open question and shipped the highest one in a
+judgement PR. **That was wrong and review caught it**: the
+[Java Code Style](https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HDeprecation)
+says *"If the deprecation is done in several branches, the since parameter should use a comma-separated
+list of all versions in which the deprecation has been done"* — `@Deprecated(since = "15.5RC1,14.10.12")`.
+So emit **every** version, comma-separated, no space, newest first (the format of that page's example);
+25 sites (platform 21, commons 1, rendering 3). A version sort needs the qualifier rank `M < BETA/DEV <
+RC < release` and a missing patch segment read as 0.
+
+The same page settles the other two questions this rule raises: **never `forRemoval`** (XWiki does not
+break APIs), and the `@deprecated` tag must state **WHY and WHAT INSTEAD** — which the 28 bare-marker
+sites below do not, so expect to owe a follow-up there.
+
+**Read that page (it is reachable — a stale note claiming Cloudflare 403 is what made a whole sweep
+miss this) before treating anything about deprecation as a judgement call.**
 
 ## Why it is safe
 

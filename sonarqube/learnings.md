@@ -105,6 +105,20 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+- **When a fix's correctness turns on a CONVENTION, read the convention's own page before inventing
+  an open question — and never trust a recorded "that source is unreachable".** The `S6355` sweep hit
+  a Javadoc tag naming two versions, reasoned that `@Deprecated(since)` takes one `String`, picked one
+  and shipped the choice as the open question of a judgement PR. The Java Code Style page answers it
+  outright — *"If the deprecation is done in several branches, the since parameter should use a
+  comma-separated list of all versions"*, `@Deprecated(since = "15.5RC1,14.10.12")` — and the same
+  section also mandates the two things review had already asked for (no version in the `@deprecated`
+  tag; a WHY/WHAT sentence in it). Two failures compounded: the OKF's `versioning.md` covered the
+  version *format* and the `@since` backport rule but nothing about `@Deprecated`, and a note in THIS
+  file said the page 403s behind Cloudflare, so no run re-tested it (it returns 200). Both fixed
+  (`xwiki-dev-llm#72`). Generalises: **a "judgement call" you are about to hand a reviewer is first a
+  documentation lookup** — if the question is "which of these does XWiki want", the answer usually
+  exists, and asking it in a PR body is how a run discovers that the OKF was incomplete *after*
+  shipping rather than before.
 - **When you LOOSEN a classifier regex mid-run, re-test it against the cases the strict version
   rejected — the rejects are the test set.** The `S6355` triage ran twice: a first pass whose version
   pattern was `\b(…)\b` and correctly rejected the malformed versions in the pool (`4.4MA`, `5.2M`,
@@ -963,9 +977,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   Run the check anyway and put its result in the reply.
 - **Handling a reviewer objection** (verify the mechanism, judge whether the objection is about intent
   clarity, withdraw rather than argue, then ship the `@SuppressWarnings` + rationale version as its own
-  PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. Note the dev.xwiki.org
-  JavaCodeStyle page sits behind Cloudflare (403 to both WebFetch and curl) — derive the convention by
-  grepping the repos, or read `okf/conventions/code-style.md`.
+  PR and reopen the issues) is in the `xwiki-fix-sonarqube-issue` skill. **The dev.xwiki.org JavaCodeStyle page IS reachable** (plain
+  `curl` returns HTTP 200); an older note here said it 403s behind Cloudflare, and acting on that
+  stale note is what made a sweep miss a documented convention — see the bullet below. **Re-test a
+  recorded "source unreachable" before trusting it**, and read
+  <https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/> directly when a
+  convention question is what the fix turns on; `okf/conventions/` is the cache, not the source.
 
 ## Process / conventions
 
