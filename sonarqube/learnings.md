@@ -1138,11 +1138,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   went `dirty` the moment `#72` merged. Whichever of two OKF PRs is second needs a master merge and a
   re-derived bump, so land them one at a time and fix the loser immediately (a session may only push
   to its own designated branch, so an older run's branch has to wait for its owner or be re-authored).
-- **Superseded (kept for the citation experiment)** — the `S1172` correction went out as
-  `xwiki/xwiki-dev-llm#71` (an actively-wrong entry, the fourth of that kind after `S1117`,
-  `S3252` and `S3415`, and the pattern that merges). It cites the three sweep PRs it unblocked
-  (platform #6214, commons #1918, rendering #408) while they were still OPEN rather than merged —
-  worth checking next run whether that weakened it, since #67 could cite a merged one.
+- **The citation experiment RESOLVED: `xwiki/xwiki-dev-llm#71` MERGED** (plugin 1.1.7). The `S1172`
+  correction — an actively-wrong entry, the fourth of that kind after `S1117`, `S3252` and `S3415`,
+  so four for four now. It was opened citing the three sweep PRs it unblocked (platform #6214,
+  commons #1918, rendering #408) while they were still **open**, with each merge added to the body as
+  it landed. That did not weaken it, so **don't wait for a sweep PR to merge before opening the OKF
+  correction** — open it the same turn and update the body as the evidence arrives.
 - **Owed to the OKF, batch 9** (NOT opened as a PR — `java:S3457` has no OKF entry at all, and the
   recorded rule is that a brand-new entry gets closed for the structural version-bump conflict just as
   a nuance addition does; fold it into a PR a later run is opening anyway). One rule, `java:S3457`,
@@ -1349,9 +1350,9 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
 - **A version-bump conflict on an OKF PR is not always fatal — one was REBASED for me rather than
   closed.** The `S1172` correction (#71) was pushed at `1.0.33`; by the next day master was at
   `1.1.6` (a minor bump plus five patches in ~24 h) and the PR had been rebased onto it with the bump
-  re-derived to `1.1.7`, content intact, still open and green. So the recorded expectation ("it gets
-  closed for the conflict") holds for a *nuance addition*; a correction to an actively-wrong entry can
-  instead get fixed up. Two consequences: keep such a PR small enough that a rebase is trivial, and
+  re-derived to `1.1.7`, content intact — and it **merged** minutes later. So the recorded expectation
+  ("it gets closed for the conflict") holds for a *nuance addition*; a correction to an actively-wrong
+  entry gets fixed up and landed instead. Two consequences: keep such a PR small enough that a rebase is trivial, and
   after any wake-up on an OKF PR **check the head SHA before touching the branch** — reset the local
   branch to the remote rather than pushing your stale commit over someone's rebase.
 - **An OKF PR must re-derive the plugin version from the LIVE master right before pushing.**
