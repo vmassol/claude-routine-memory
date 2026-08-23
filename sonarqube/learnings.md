@@ -1346,6 +1346,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   - **S2589** condition always true — safe when the condition is the negation of the branch it sits in,
     or a guard repeated inside its own guarded block; **drop** a dead defensive null check in concurrent
     code (it costs nothing to keep and reads as intentional).
+- **A version-bump conflict on an OKF PR is not always fatal — one was REBASED for me rather than
+  closed.** The `S1172` correction (#71) was pushed at `1.0.33`; by the next day master was at
+  `1.1.6` (a minor bump plus five patches in ~24 h) and the PR had been rebased onto it with the bump
+  re-derived to `1.1.7`, content intact, still open and green. So the recorded expectation ("it gets
+  closed for the conflict") holds for a *nuance addition*; a correction to an actively-wrong entry can
+  instead get fixed up. Two consequences: keep such a PR small enough that a rebase is trivial, and
+  after any wake-up on an OKF PR **check the head SHA before touching the branch** — reset the local
+  branch to the remote rather than pushing your stale commit over someone's rebase.
 - **An OKF PR must re-derive the plugin version from the LIVE master right before pushing.**
   Concurrent sessions bump `1.0.N` too, so a bump computed from the commit you branched off is stale
   by the time you push, and the PR gets closed for it ("the versions are wrong") — the content is
