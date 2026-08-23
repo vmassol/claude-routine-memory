@@ -116,6 +116,12 @@ since then)?
   applying hundreds of edits.
 * No behaviour, no signature, no line-length risk (the annotation line is short), and Checkstyle has
   nothing to say about it.
+* **Outcome: the commons half (#1920, 81 issues) merged the same day**, after two review comments —
+  and both were about **text my strip pass mangled** (the truncated `4.4MA`, the dangling "already
+  deprecated"), not about the rule, the version derivation, the 28 bare tags or the multi-version
+  split. So the classification is not where this rule's risk lives; the prose transformation is.
+  Budget the review scrutiny accordingly: scan every rewritten line before pushing, and expect the
+  annotation half to pass without comment.
 * **0 drops in 464 applied sites**, three repos, 4690 tests green — and the accept pass confirms the
   arithmetic exactly: platform 370 ACCEPTED / 260 still OPEN, commons 81 / 38, rendering 13 / 6, i.e.
   the OPEN remainder equals the recorded non-derivable count in every repo.
