@@ -8,11 +8,16 @@ any run has found: **768 open (platform 630, commons 119, rendering 19), of whic
 
 ```java
     /**
-     * @deprecated since 8.3RC1, use {@link #AbstractCache(CacheConfiguration)} instead
+-    * @deprecated since 8.3RC1, use {@link #AbstractCache(CacheConfiguration)} instead
++    * @deprecated use {@link #AbstractCache(CacheConfiguration)} instead
      */
 -   @Deprecated
 +   @Deprecated(since = "8.3RC1")
 ```
+
+**Both halves are the fix.** Vincent asked for the Javadoc strip on review of the first sweep: the
+version is *moved*, not duplicated. Do it in the same run (as a second commit, so the reviewer can see
+the annotation change on its own) rather than leaving the tag restating what the annotation now says.
 
 Nothing is invented: the edit moves a documented fact into the form Java 9's `@Deprecated` contract
 and the IDEs can read. `@Deprecated(since = "…")` is already the house convention (125 platform files,
@@ -40,6 +45,35 @@ A `since` keyword away from the head of the tag is still the deprecation version
 positive — `replaced by {@link #exists(DocumentReference)} since 2.2.1`, `not used anymore since 6.0`,
 `does not do anything since 11.5RC1`. 24 of 439 read that way and all were right; classify on the
 regex, not on the position.
+
+## Stripping the version out of the `@deprecated` tag
+
+Three shapes, all on the single line that holds the phrase (it is never split across lines in 464
+sites), and all scriptable off the same `since`-keyword regex used to find the version:
+
+* **Leading** — `since 8.3RC1, use {@link X} instead` → `use {@link X} instead`. Capitalise the
+  remainder when the tag started with a capital (`Since 10.11 the MoveRequest …` → `The MoveRequest …`).
+* **Embedded / trailing** — `replaced by {@link #exists(…)} since 2.2.1` → `replaced by
+  {@link #exists(…)}`; `not used since 10.1RC1 because …` → `not used because …`.
+* **The whole tag text was the version** — 28 of 464 sites (`@deprecated since 12.5RC1`), which become
+  a bare `@deprecated` marker. Nothing is lost (the annotation carries it) and nothing objects: XWiki
+  does **not** enable Checkstyle's `NonEmptyAtclauseDescription`, and `S1123` fires on a *missing* tag,
+  not an empty one. Say so in the PR body and offer to write a sentence per site.
+
+Three gotchas, all found by scanning the rewritten lines rather than by the build:
+
+* **A phrase alone on a *continuation* line leaves a dangling ` * ` line** that must be deleted
+  (`@deprecated replaced by {@link A} and {@link B}` / `since 2.2.1` — 2 sites in
+  `DocumentAccessBridge`). Nothing in the build complains; it just looks wrong in the diff.
+* **One surviving `since <number>` was correct** — `Velocity supports the same functionality natively
+  since 1.6` is a *third-party* version. Re-scan every rewritten line for a leftover version and read
+  the hits rather than assuming the regex was wrong.
+* Also assert, per rewritten line: no leading punctuation, no double space, ≤120 columns. That scan
+  (439 + 25 lines) found exactly the four real problems above and nothing else.
+
+Cost: one extra reactor. Second run over the same 77 modules, warm `~/.m2`: commons **3:53**/1177
+tests, rendering **0:52**/524, platform **15:48**/3037 — **all green, ~21 min**, i.e. roughly half the
+cold-ish first pass.
 
 ## Multi-version tags are the only judgement call
 

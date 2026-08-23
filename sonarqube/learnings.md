@@ -105,6 +105,15 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+- **When a fix MOVES a fact into a machine-readable form, deleting the prose copy is part of the same
+  change — expect to be asked for it.** The `S6355` sweep put the deprecating version into
+  `@Deprecated(since = …)` and left the `@deprecated since 8.3RC1, use {@link X} instead` Javadoc tag
+  untouched; Vincent's first instruction on the open PRs was to strip the version from the tag too
+  ("once you've moved the since info to the annotation, also remove it from the javadoc"). The
+  duplicate would have drifted, so the ask is right and it generalises: whenever a rule's fix relocates
+  information (a version, a type, a name) into an annotation or a typed API, grep the neighbouring
+  comment for the old copy in the same edit. Cost of getting it wrong: a second full reactor over the
+  same 77 modules (~21 min warm) and a second commit on six open PRs.
 - **A denylist reason of the form "the fix needs information X" is a question about whether the code
   already WRITES X DOWN — and in XWiki it often does, two lines above the flagged line.** Fifth
   denylist rescue (after `S1117`, `S3252`, `S3415`, `S1172`) and the biggest pool any run has found:
