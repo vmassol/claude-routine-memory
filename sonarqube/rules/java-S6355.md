@@ -103,9 +103,12 @@ judgement PR. **That was wrong and review caught it**: the
 [Java Code Style](https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HDeprecation)
 says *"If the deprecation is done in several branches, the since parameter should use a comma-separated
 list of all versions in which the deprecation has been done"* — `@Deprecated(since = "15.5RC1,14.10.12")`.
-So emit **every** version, comma-separated, no space, newest first (the format of that page's example);
-25 sites (platform 21, commons 1, rendering 3). A version sort needs the qualifier rank `M < BETA/DEV <
-RC < release` and a missing patch segment read as 0.
+So emit **every** version, comma-separated, no space, **in the order the Javadoc tag listed them** —
+25 sites (platform 21, commons 1, rendering 3). Do not sort: the page prescribes no order, and sorting
+newest-first (copying the format of its example) drew a second review comment — *"the best practice
+page doesn't mention any order so please keep the order defined in the javadoc"*. Copying the source
+order also needs no version comparator at all, which is the cheaper implementation as well as the
+right one.
 
 The same page settles the other two questions this rule raises: **never `forRemoval`** (XWiki does not
 break APIs), and the `@deprecated` tag must state **WHY and WHAT INSTEAD** — which the 28 bare-marker
