@@ -87,3 +87,7 @@ Comment-only, so the build is a formality — but run it, because the batch touc
 (cold `~/.m2`, 172 sites / 58 files / 20 modules): commons 9 modules **5:19** (470 tests) + rendering
 1 module **1:02** (138) + platform 10 modules incl. oldcore and legacy-oldcore **8:52** (1412, oldcore
 1149) = **~15 min for 2020 tests**, all green, `checkstyle:check` and `revapi:check` included.
+
+**Accept pass: 172/172 on the first pass**, zero stragglers, and the remainder confirms the triage
+exactly — platform 95 accepted / 17 open, commons 48 / 2, rendering 29 / 1, i.e. the OPEN count
+equals the recorded drop list (6 real drops + 14 ROI-deferred singletons) in every repo.
