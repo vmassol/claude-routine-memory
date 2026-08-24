@@ -92,15 +92,18 @@ Comment-only, so the build is a formality — but run it, because the batch touc
 exactly — platform 95 accepted / 17 open, commons 48 / 2, rendering 29 / 1, i.e. the OPEN count
 equals the recorded drop list (6 real drops + 14 ROI-deferred singletons) in every repo.
 
-**Review outcome: commons #1922 and rendering #411 both MERGED within ~6 h of opening**, the only
-comment on the whole sweep being Vincent's LGTM — *"Going to be hard to verify every single comment. I
-propose that we adopt them (a quick check shows that they look ok to me)."* — and he merged both about
-a minute after I posted the distinct-sentence tables. Platform #6220 (the 95-site half) was still open,
-green and unreviewed at that point. Two things this settles:
+**Review outcome: ALL THREE MERGED within ~6 h of opening** — rendering #411 and commons #1922 at
+07:22, platform #6220 (the 95-site half) at 07:24 — the only comment on the whole 172-site sweep being
+Vincent's LGTM: *"Going to be hard to verify every single comment. I propose that we adopt them (a
+quick check shows that they look ok to me)."* He merged each about a minute after the distinct-sentence
+table went up on it, platform included. Final arithmetic: OPEN remainder 17/2/1 = exactly the recorded
+drop list. Two things this settles:
 
-* **The "is a comment-only sweep welcome?" question is answered YES** — this was the run's one real
-  bet (172 comments is a large ask, and the failure mode was a whole-batch style rejection, not a
-  per-site one). It merged uncommented. Do not hedge the next comment-only rule.
+* **The "is a comment-only sweep welcome?" question is answered YES, at full scale** — this was the
+  run's one real bet (172 comments is a large ask, and the failure mode was a whole-batch style
+  rejection, not a per-site one). All three merged, no change requested anywhere. Do not hedge the
+  next comment-only rule, and do not shrink the batch to be polite: the 95-site half merged as
+  readily as the 29-site one.
 * What the review actually wants is a way to **bound the check**, not fewer fixes. Answer it with the
   distinct-sentence count and the per-class table (see the learnings entry), and state the uncommented
   sites explicitly so an "adopt them all" does not sweep up the ones that need a maintainer.
