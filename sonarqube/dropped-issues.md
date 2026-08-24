@@ -16,6 +16,14 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
+### java:S1186 (empty method) — the emptiness may be a genuine gap, not a decision
+
+Comment-only rule, so these are not safety drops: a comment asserting intent the code does not
+support is worse than the open issue. These two need a maintainer's answer.
+
+- `AV4uHS7W5jV1AdqTqB2m` — `ResourceLoader.JarFileHandle#close()` (legacy-classloader-api)
+- `AV2juGi6VSxcxmoV58C3` — `ExtensionMojoHelper()` constructor (tool-extension-plugin)
+
 ### java:S2447 (null returned from a `Boolean` method) — the null IS the API contract
 Same shape as platform's: `ListTool`, `SerializableXStreamChecker` and `Request` return `null` to mean
 "undecided", which is not interchangeable with `false`.
@@ -233,6 +241,11 @@ withdrawn over this. Permanent drop: `AXNSaTSQLv0ks60bJ0DF` L400, `AXNSaTSQLv0ks
 
 ## xwiki-rendering
 
+### java:S1186 (empty method) — the emptiness may be a genuine gap, not a decision
+
+- `AV2j0WmspvRVEt3bvRnj` — `InternalWikiScannerContext#endListItem()` (wikimodel); the list handling
+  ends elsewhere, but nothing in the site says the empty body is deliberate.
+
 ### java:S1118 (add private constructor) — public utility classes in the `wikimodel` public API
 All six are `public final class XxxUtil` with only static members, in the exported
 `org.xwiki.rendering.wikimodel.*` packages: adding a private ctor removes the implicit PUBLIC one →
@@ -354,6 +367,26 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S1186 (empty method) — no statable rationale, or deferred on build ROI
+
+Comment-only rule (see [rules/java-S1186.md](rules/java-S1186.md)). Two different reasons, and only
+the first group is a real drop.
+
+**Real drops — a comment would have to invent the intent:**
+- `AW5-S6Pl1Yj5qvzeRnH0` — `BaseClass#merge(BaseClass)` (oldcore)
+- `AW5-S6Pz1Yj5qvzeRnIS` — `ComputedFieldClass#displayHidden(...)` (oldcore)
+- `AW5-S56l1Yj5qvzeRm8G` — `UserInstanceOutputFilterStream#endUser(...)` (oldcore)
+
+**Deferred, NOT dropped — one singleton alone in its own module, so shipping it would add a whole
+module to the reactor for one issue.** Ride these along whenever a run builds the module anyway:
+- `AZBvgO7Gcj_-G2g1uBrJ` annotation-core, `AZBvgRy4cj_-G2g1uBsB` component-wiki,
+  `AXG6od2tUBz12AiapMr1` eventstream-api, `AZBvgPJrcj_-G2g1uBrL` mail-send-api (test),
+  `AZBvgPG5cj_-G2g1uBrK` mail-send-default, `AW5-S4rZ1Yj5qvzeRms8` rendering-macro-container,
+  `AW5-S40w1Yj5qvzeRmuH` rendering-wikimacro-api, `AZBvgUPscj_-G2g1uBtK` resource-api,
+  `AW5-S4eE1Yj5qvzeRmqc` rest-server, `AZBvgSdPcj_-G2g1uBsx` search-solr-api,
+  `AZBvgSeZcj_-G2g1uBs2` search-solr-embedded, `AW5-S4-J1Yj5qvzeRmwE` security-authentication-default,
+  `AZBvgSAdcj_-G2g1uBsJ` security-authorization-api, `AW5-S-tY1Yj5qvzeRo6a` tool-packager-plugin
 
 ### java:S1172 (unused method parameter) — the 4 non-`private` -independent drops
 The rule's workable subset is `private` methods only (see

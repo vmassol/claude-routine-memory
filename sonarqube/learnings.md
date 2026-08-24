@@ -45,6 +45,7 @@ rows for the rules you commit to fixing this run.
 | `javascript:S7765` | [rules/javascript-S7765.md](rules/javascript-S7765.md) | `includes` differs from `indexOf` only for `NaN`; the receiver must really be an Array |
 | `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool; and `private` is NOT airtight, an AspectJ ITD can call it |
 | `java:S6355` `java:S1123` | [rules/java-S6355.md](rules/java-S6355.md) | OKF-denylisted for "needs the deprecating version" — which the element's own `@deprecated` Javadoc tag already states in 464 of 768 sites |
+| `java:S1186` | [rules/java-S1186.md](rules/java-S1186.md) | comment-only, and the comment is a property of the CLASS — 192 issues are ~20 class-level judgements |
 
 ## Picking a target rule (find phase)
 
@@ -152,6 +153,22 @@ rows for the rules you commit to fixing this run.
   replacement API, an owner) rather than a missing *safety* argument. Related, and worth trying next:
   `S6355`'s own siblings `S1123` (the tag exists, the annotation is missing — the version is equally
   derivable) and `S1133`.
+- **A rule whose REMEDIATION IS A COMMENT is a whole untouched generation — and its unit of judgement
+  is the CLASS, not the site.** Sixth rescue of a never-attempted rule, and the first found by asking
+  what the *fix* costs rather than what the rule's reason says: `java:S1186` ("methods should not be
+  empty", CRITICAL, 192 open across all three repos) had been passed over by every run as "needs
+  prose", the same objection that keeps `S1123`/`S1135`/`S1134` off the table. But prose is only
+  expensive **per site**, and this pool is clustered — 192 issues in 78 files, the top 6 files holding
+  96 of them, every one a deliberate no-op (stub, void/null object, default hook, deprecated no-op,
+  component-manager constructor, Velocity factory constructor). One sentence per *class* covers every
+  empty body in it, so the batch cost ~20 judgements, not 192, and **172 shipped**. Two consequences
+  worth carrying: (a) when the allowlist and the denylist re-derivations are both spent, sort the
+  facet for rules whose remediation is **comment-only** — they are as safe as `S7476` and they survive
+  every cleanup wave, exactly like the naming rules do; (b) before writing off a "needs prose" rule,
+  **group its issues by file first** — a flat count hides whether the prose is per-site or per-class.
+  See [rules/java-S1186.md](rules/java-S1186.md). The drop condition on such a rule is not safety but
+  **truthfulness**: drop the site when you would have to invent the reason (6 of 192 here), because a
+  comment asserting intent the code does not support is worse than the open issue.
 - **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
   `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF

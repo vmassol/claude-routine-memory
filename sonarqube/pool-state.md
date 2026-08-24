@@ -148,6 +148,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S1172** unused method parameter | **OKF-denylisted, wrongly for `private` methods; all three sweep PRs merged uncommented.** Platform 132 (39 private: oldcore 21, `DocumentLocaleReader` 7, + singletons over 7 modules), commons 25 (5 private, 5 different modules), rendering 5 (1). **41 shipped** in three PRs; what is left is the non-`private` residue (platform 56 public / 18 protected / 18 package-private) plus 4 recorded drops. Regenerates from ordinary refactoring. | **9% drops (41/45)**, all decidable up front — see [rules/java-S1172.md](rules/java-S1172.md). The three shapes: the shortened signature collides with an existing overload, a `TODO` in the body explains the parameter, or the parameters mirror a sibling method the callers pair it with. |
 | **S6355** `@Deprecated` without arguments | **The biggest pool ever found here: 768 open** (platform 630, commons 119, rendering 19), never touched because the OKF denylisted it. **464 shipped in one three-repo sweep** (mechanical 349/80/10 + judgement 21/1/3): platform `oldcore` alone held 199 of its 349, then `bridge` 20 / `rest-server` 12 / `extension-script` 11 / 1-9 each over 43 more modules; commons `extension-api` 18 / `legacy-component-api` 12 / `job-api` 9 / 19 more modules; rendering `rendering-api` 5 / `legacy-api` 4 / `transformation-macro` 1. **304 remain and are permanent** (no Javadoc / no `@deprecated` tag / a tag with no version). Regenerates from every new deprecation that omits `since`. | **0 drops in 464.** The version is copied from the element's own `@deprecated` Javadoc tag, never invented — see [rules/java-S6355.md](rules/java-S6355.md). Zero drift risk (the flagged line IS the bare `@Deprecated` line, 768/768) and `revapi:check` passed in all 77 modules. |
 | **S1123** missing `@Deprecated` / `@deprecated` | Platform 171, commons 35, rendering 3 — **analyzed, not attempted** (see the S6355 file): one shape needs prose only the API author can write, the other adds an annotation that changes what tools report about a published API. | Not a sweep, but the *"add the missing annotation"* half is mechanically derivable if a run wants to argue it on merit. |
+| **S1186** methods should not be empty | **Was never attempted** ("needs prose") — wrongly: 192 open (platform 112, commons 50, rendering 30) clustered in 78 files, the top 6 holding 96 (`PrintTextListener` 26, `TestFilterImplementation` 25, `HttpServletResponseStub` 21, `Sax2Dom` 10, `VoidMailListener` 8, `HttpServletRequestStub` 6). **172 shipped in one three-repo sweep** (platform 95 / 44 files / 10 modules, commons 48 / 11 files / 9 modules, rendering 29 / 3 files / 1 module). 20 left open: 6 real drops + 14 one-per-module singletons deferred on build ROI. Regenerates from every new no-op implementation. | **3% drops (172/178 analysed).** Comment-only, so the drop condition is TRUTHFULNESS, not safety — drop only where the emptiness might be a genuine gap. See [rules/java-S1186.md](rules/java-S1186.md); group by FILE, one sentence per class. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
 
 
@@ -491,6 +492,38 @@ of it MERGED, plus the OKF correction PR:**
 - Build datapoint: `xwiki-platform-web-war` alone, warm-ish `~/.m2`, **6:12**, BUILD SUCCESS (all
   three `closure-compiler:minify` executions + `yuicompressor:compress`). No unit tests exist for
   these files, so `node --check` plus a `node` equivalence program is the behaviour evidence.
+
+**Current standing state — after the S1186 sweep (platform 95, commons 48, rendering 29 — the second
+run ever to ship a real batch in all three repos):**
+
+- **The mechanical allowlist is dry in all three repos and that is now a settled fact, not a finding.**
+  A ~93-rule allowlist returns commons 191 / rendering 57 open keys, and cross-checked against
+  `dropped-issues.md` the only "fresh" ones are `S3776` (cognitive complexity, 37/14), `S1172` (22/3,
+  the non-`private` residue), `S1319` (6) and one `S1192`. Platform's Java facet is the same story.
+  **Stop re-deriving the allowlist; go straight to the facet and read it for the FIX SHAPE.**
+- **Rules classified from their name/message this run and confirmed non-starters** (one
+  `api/rules/show` + one `ps=2` each, no source reads — do not re-triage): `java:S2143` "use the
+  java.time API" (platform 193 / commons 24 — a library migration), `S1141` nested try-catch (70/5),
+  `S1168` return an empty collection instead of null (113/46), `S1133` "do not forget to remove this
+  deprecated code someday" (386/51 — an INFO reminder, not a fix), `S2160` override equals (78/36),
+  `S5993` public constructor of an abstract class (142/80 — Revapi break), `S1948` transient/
+  serializable (46/14), `S2065` (24/41).
+- **`java:S1123` re-derived and still NOT worth it, but now for a measured reason**: one `ps=500`
+  message histogram splits its 209 issues into **190 "add the missing `@deprecated` Javadoc tag"**
+  (prose only the API author can write) and **19 "add the missing `@Deprecated` annotation"** (the
+  mechanical half). 19 sites is not worth the "adding `@Deprecated` changes what tools report about a
+  published API" argument. Do not re-triage; the histogram is the whole answer.
+- **Platform's JS pool is PR-constrained again**: #6210/#6211/#6217 claim 14 WAR files (`xwiki.js`,
+  `livetable.js`, `suggest.js`, `actionButtons.js`, `dashboard.js`, `extension.js`,
+  `usersandgroups.js`, `picker.js`, `panelWizard.js`, `editableProperty.js`, `suggestEntities.js`,
+  `suggestUsersAndGroups.js`, `link-protection.js`, `entityReference.js`). Of 631 open JS keys only
+  **215 are in free, non-vendored files**, and 79 of those are the permanently-rejected `S7721` (45)
+  and `S1848` (34). The workable JS remainder is a long tail: `S4138` 17, `S3504` 14, `S2004` 13,
+  `S7741` 12, `S7740` 12, `S1874` 9, `S2392` 9, then singletons — densest free files are
+  `dataeditors.js` 23, `suggestAttachments.js` 12, `locationPicker.js` 9, `gallery.js` 9.
+- **The next comment-only / never-attempted candidates**, in the spirit of what S1186 paid: nothing
+  else in the facet has S1186's shape, but `S108` (empty *block*, platform 83) is its closest sibling
+  — same remediation, and worth one bucketing pass by file before writing it off.
 
 **Current standing state — after the S6355 sweep (464 issues: platform 370, commons 81, rendering 13,
 the first run to ship a real batch in all three repos):**
