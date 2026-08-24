@@ -91,3 +91,9 @@ Comment-only, so the build is a formality — but run it, because the batch touc
 **Accept pass: 172/172 on the first pass**, zero stragglers, and the remainder confirms the triage
 exactly — platform 95 accepted / 17 open, commons 48 / 2, rendering 29 / 1, i.e. the OPEN count
 equals the recorded drop list (6 real drops + 14 ROI-deferred singletons) in every repo.
+
+**Review outcome:** commons #1922 got an LGTM within ~6 h — *"Going to be hard to verify every single
+comment. I propose that we adopt them (a quick check shows that they look ok to me)."* So the batch is
+welcome; what the review wants is a way to BOUND the check. Answer it with the distinct-sentence count
+and the per-class table (see the learnings entry), and state the uncommented sites explicitly so an
+"adopt them all" does not sweep up the ones that need a maintainer.

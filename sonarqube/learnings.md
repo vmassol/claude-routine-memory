@@ -979,6 +979,19 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   \(.path) \(.body[0:80])"'` — cheap, and it does NOT dump patches. Chain
   `DELETE …/issues/{n}/lock` → reply → `PUT …/issues/{n}/lock` in a single call. Your own reply then
   arrives back as a `pull_request_review_comment.created` event authored by `claude[bot]` — skip it.
+- **When a batch's UNIT OF JUDGEMENT is coarser than its site count, put the DISTINCT-VALUE COUNT in
+  the PR body — not just the shape table.** The `S1186` sweep's first review comment was an LGTM
+  carrying a real worry: *"going to be hard to verify every single comment. I propose that we adopt
+  them."* The body already described the six class shapes, but it never said the number that actually
+  answers the worry — the 172 comments are only **46 distinct sentences** (commons 10, rendering 2,
+  platform 34), one per class, so a wrong sentence is wrong for that file and nothing else. Posting
+  the per-class table turned "verify 48 comments" into "verify 10 judgements over 11 files". Say it
+  up front next time: whenever a batch repeats generated content (a comment, a rename scheme, a
+  message), state `N sites / M distinct values` and give the M-row table, because a reviewer who
+  cannot bound the check will either rubber-stamp it or stall on it — and rubber-stamping is the
+  worse outcome for a batch whose only risk is that a sentence might be untrue. Pair it with the
+  sites you did NOT touch: naming the 6 uncommented ones is what keeps an "adopt them all" from
+  covering the sites that genuinely need a maintainer.
 - **The most likely reviewer objection to a Sonar sweep is INTRA-FILE INCONSISTENCY, not the
   transform.** Sonar under-reports several rules (`javascript:S7762`/`S7768` flagged 4 of 8 sites of
   the same shape in one file), so a batch keyed to the issue list leaves a file speaking two dialects
