@@ -261,13 +261,15 @@ rows for the rules you commit to fixing this run.
   it — here there was none), put the two candidate wordings in the PR body, or in a one-line question,
   instead of shipping one flavour at scale. The rule is now in `okf/conventions/code-comments.md`; the
   per-rule text is in [rules/java-S108.md](rules/java-S108.md).
-- **Outcome of the four-PR sweep: three merged same-day, the fourth is the comment one.** `S9142`
-  (platform, after one style round), `S9142`+`S9355` (rendering) and the `S6213` judgement PR
-  (commons, uncommented — the seventh denylist rescue to land) all merged within hours; the `S108`
-  comment PR took **four review rounds**. So the risk in a sweep is not the transform, it is the
+- **Outcome of the four-PR sweep: ALL FOUR MERGED the same day, 119 issues.** `S9142` (platform,
+  after one style round), `S9142`+`S9355` (rendering) and the `S6213` judgement PR (commons,
+  uncommented — the seventh denylist rescue to land) merged within hours; the `S108` comment PR took
+  **four review rounds** and then merged too. So the risk in a sweep is not the transform, it is the
   PROSE: a batch that writes 80 sentences into the codebase is the one that gets read line by line,
-  while 25 mechanical edits merge on sight. Budget review time accordingly, and prefer shipping the
-  mechanical rules as their own PR (which is what let three of these land while the fourth iterated).
+  while 25 mechanical edits merge on sight — but the prose PR does land, so do not avoid the rule:
+  budget the rounds, and ship the mechanical rules as their own PR (which is what let three of these
+  land while the fourth iterated). Each round here was a concrete instruction answered by one
+  verified push, never an argument.
 - **Two review rounds on the same sweep, both concrete, both answered by a push in the same session** —
   the recorded posture (an ask with correctness content → push; a general style principle → verify
   first) held: "add TODO comments" and "never the one-line `/** x */` Javadoc" are both instructions,
