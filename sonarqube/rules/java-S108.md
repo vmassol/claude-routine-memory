@@ -13,33 +13,67 @@ Platform-only (commons and rendering have **zero**), and heavily clustered: 83 i
 `XWikiHibernateStore` 11, `XWikiPluginManager` 10). Nearly all are empty `catch` blocks in
 pre-component-era code. 82/83 shipped, ~35 distinct sentences.
 
-## The shapes and what to write
+## What the comment must SAY — a `// TODO:`, not a rationale (review verdict)
 
-Group by *why the exception is swallowed*; each group needs one sentence, reused verbatim:
+**This is the whole review of the 82-site PR, and it inverts the naive fix.** In XWiki a `catch` that
+neither rethrows nor logs is *a bug to be fixed later*, not a decision to be documented — so a comment
+that only explains why the exception is swallowed reads as blessing it. Vincent: *"any place which has
+a catch and doesn't either rethrow an exception, or log a message is a bug that will need to be fixed.
+The minimum is to log a warning… please add TODO comments (`// TODO:` prefix) so that we remember."*
 
-- **A cleanup call in a `finally`** (`endTransaction`, `statement.close()`, `is.close()`) —
-  `// Ignore: a failure to close the transaction must not hide the original error.` This is the
-  densest shape (16 of the 82) and the least contestable.
+Write the TODO line, then the sentence describing today's behaviour:
+
+```java
+} catch (Exception e) {
+    // TODO: log a warning instead of ignoring this exception.
+    // A plugin failing must not prevent the other plugins from being called.
+}
+```
+
+Two forms, and the split is the same one the shapes below already give you:
+
+- **`// TODO: log a warning instead of ignoring this exception.`** — the default (64 of 78 here): any
+  fallback, and any cleanup in a `finally`.
+- **`// TODO: change the logic so this case is not signalled by an exception.`** — where the exception
+  IS the expected outcome (14 here): a "not found" domain exception used as a signal
+  (`XWikiRightNotFoundException`), a missing constructor detected by catching `Throwable`, a null check
+  written as a `catch`. Expecting an exception as a normal case is the anti-pattern the reviewer names.
+
+Do **not** add the logging itself in the sweep: it changes behaviour and, in the plugin and rights
+loops, output volume on a hot path. Say so in the PR, and flag the consequence — N TODOs become N new
+INFO-level `java:S1135` issues, which is precisely the reminder being asked for.
+
+The rule now lives in the plugin OKF at `okf/conventions/code-comments.md`.
+
+## The shapes — they pick the TODO form and the second line
+
+Group by *why the exception is swallowed*. The group gives you both the TODO form above and the
+explanation line that follows it (one sentence per group, reused verbatim; 78 sites came out as ~33
+sentences):
+
+- **A cleanup call in a `finally`** (`endTransaction`, `statement.close()`, `is.close()`) — *log a
+  warning*; "A failure to close the transaction must not hide the original error." The densest shape
+  (16 of 82) and the least contestable.
 - **A per-element loop over independent handlers** (every `XWikiPluginManager` hook, a `flushCache`
-  over each class) — `// Ignore: a plugin failing must not prevent the other plugins from being
-  called.`
+  over each class) — *log a warning*; "A plugin failing must not prevent the other plugins from being
+  called."
+- **A fallback chain** (a preference/locale/language read whose failure just means the next source is
+  tried) — *log a warning*, and say which fallback happens: "The resource is then read from the file
+  system below."
 - **A domain exception that MEANS "not found here"** — `catch (XWikiRightNotFoundException e) {}` in
-  the rights cascade is the model case: `// No right found at this level, continue with the next
-  check.` These are the sites where the comment adds real value.
-- **A fallback chain** (a preference/locale/language read whose failure just means the next source
-  is tried) — say which fallback happens: *"fall back to reading the resource from the file system
-  below"*, *"this language source is then simply not taken into account"*.
+  the rights cascade — *change the logic*; "No right found at this level, continue with the next
+  check." Same for a missing constructor found by catching `Throwable`, or a null check written as a
+  `catch`.
 - **An empty non-`catch` block**: an empty `else`/`finally` is pure syntax with no effect — **remove
-  it** rather than commenting it (2 of 83, both in `XWiki`). An empty branch that is really a filter
-  (`if (character < 0x20) { }` dropping control characters before an XML escape) keeps its block and
-  gets the best comment of the batch.
-- **An empty `default -> { }`** of an arrow `switch` — `// The other properties don't contribute to
-  the where clause.`
+  it** rather than commenting it (2 of 83, both in `XWiki`). A filter branch (`if (character < 0x20)
+  { }` dropping control characters before an XML escape) and an empty `default -> { }` keep a plain
+  explanatory comment with **no** TODO: they are not exception handling.
 
 ## Drop condition — truthfulness, not safety
 
 Nothing here can break at runtime, so the only reason to drop is **not being able to write a true
-sentence**. One drop in 83: a *test helper* (`SyndEntryDocumentSourceTest#source`) that swallows the
+sentence** (and with the TODO form above, even that shrinks: a TODO asking for a log is true of any
+swallowed exception). One drop in 83: a *test helper* (`SyndEntryDocumentSourceTest#source`) that swallows the
 exception of the call under test — it may be hiding a failing assertion rather than ignoring an
 expected one, and only the test's author knows. Suspect every empty `catch` in `src/test` for the
 same reason; `src/main` legacy fallbacks are self-evident from their surroundings.
@@ -57,9 +91,3 @@ same reason; `src/main` legacy fallbacks are self-evident from their surrounding
 - Afterwards, scan every changed file for *any* remaining empty block (opener → only blank lines →
   closer): Sonar under-reports, and a half-commented file is what a reviewer objects to. On this
   pool the scan came back at 0.
-
-## Do NOT turn these into log statements
-
-Tempting for the swallowed exceptions, but it changes behaviour and (in the plugin and rights loops)
-output volume — that is a JIRA issue, not a Sonar cleanup. Say so in the PR body; it is the obvious
-reviewer question.

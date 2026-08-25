@@ -252,6 +252,21 @@ rows for the rules you commit to fixing this run.
   in two repos — and `css:S4666`. Run it BEFORE re-deriving denylist entries: an unseen rule needs no
   argument against a recorded rejection. (Match on the bare key with a word boundary, or `S108`
   matches inside `S1084`.)
+- **For a comment-only rule, the comment's CONTENT is a policy question — settle it before writing 80
+  sentences.** The `S108` sweep wrote a true, careful rationale into each empty `catch` and the review
+  came back: in XWiki a `catch` that neither rethrows nor logs is *a bug to fix later*, so the wanted
+  comment is a `// TODO:` asking for the fix, not an explanation that reads as blessing the smell.
+  Answered with one push (78 sites, two TODO forms) and both PRs stayed on track — but the cheap
+  guard is to ASK FIRST: when the codebase has no precedent for how that shape is commented (grep for
+  it — here there was none), put the two candidate wordings in the PR body, or in a one-line question,
+  instead of shipping one flavour at scale. The rule is now in `okf/conventions/code-comments.md`; the
+  per-rule text is in [rules/java-S108.md](rules/java-S108.md).
+- **Two review rounds on the same sweep, both concrete, both answered by a push in the same session** —
+  the recorded posture (an ask with correctness content → push; a general style principle → verify
+  first) held: "add TODO comments" and "never the one-line `/** x */` Javadoc" are both instructions,
+  not opinions, so neither deserved a debate. Note the second one also asked to convert the *file's
+  existing* one-line comments, which is the same intra-file-consistency principle reviewers apply to
+  transforms.
 - **A comment-only rule has SIBLINGS, and the family is worth enumerating once.** `S1186` (empty
   *method*) paid 172; its sibling `S108` (empty *block*) then paid 82 the next run, same shape, same
   reviewer-facing story. What makes such a rule cheap is stated in the rule's OWN description under
