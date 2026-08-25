@@ -59,7 +59,10 @@ INFO-level `java:S1135` issues, which is precisely the reminder being asked for.
   class before answering: whether the guarded expression can throw at all is decidable from the
   field initialisation.
 
-The rule now lives in the plugin OKF at `okf/conventions/code-comments.md`.
+**This rule is NOT in the plugin OKF and must not be re-added there.** It was added on the day of the
+review and removed on request — *"there can be false positives and we need only rules that don't
+yield false positives"* — the false positive being the rights-cascade sites in the bullet just above.
+It lives here, with its condition attached, precisely because it is conditional.
 
 ## The shapes — they pick the TODO form and the second line
 

@@ -1223,6 +1223,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **The OKF admits only rules WITHOUT false positives — a conditional rule belongs here, not there.**
+  The empty-`catch` `// TODO:` convention was added to `conventions/code-comments.md` the same day a
+  review asked for it, and was then removed on request: *"there can be false positives and we need
+  only rules that don't yield false positives."* And the FP was one this very sweep had already hit —
+  a `catch` of a domain "not found" exception used as a signal must NOT be TODO-ed. So before writing
+  an OKF rule, ask what its counter-example is; if you can name one (this routine usually can, from
+  the drop list it just built), the rule is a *rule-file* entry here, with the condition attached, and
+  the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
+  wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
+  (the multi-line Javadoc rule survived the same review untouched).
 - **Owed to the OKF, batch 10** (NOT opened as a PR — three rules with no OKF entry at all, and the
   recorded rule is that a brand-new entry gets closed for the structural version-bump conflict; the
   same run's `S6213` *correction* went out on its own, minimal, as `xwiki/xwiki-dev-llm#77` — the
