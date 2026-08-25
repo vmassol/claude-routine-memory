@@ -261,6 +261,13 @@ rows for the rules you commit to fixing this run.
   it — here there was none), put the two candidate wordings in the PR body, or in a one-line question,
   instead of shipping one flavour at scale. The rule is now in `okf/conventions/code-comments.md`; the
   per-rule text is in [rules/java-S108.md](rules/java-S108.md).
+- **Outcome of the four-PR sweep: three merged same-day, the fourth is the comment one.** `S9142`
+  (platform, after one style round), `S9142`+`S9355` (rendering) and the `S6213` judgement PR
+  (commons, uncommented — the seventh denylist rescue to land) all merged within hours; the `S108`
+  comment PR took **four review rounds**. So the risk in a sweep is not the transform, it is the
+  PROSE: a batch that writes 80 sentences into the codebase is the one that gets read line by line,
+  while 25 mechanical edits merge on sight. Budget review time accordingly, and prefer shipping the
+  mechanical rules as their own PR (which is what let three of these land while the fourth iterated).
 - **Two review rounds on the same sweep, both concrete, both answered by a push in the same session** —
   the recorded posture (an ask with correctness content → push; a general style principle → verify
   first) held: "add TODO comments" and "never the one-line `/** x */` Javadoc" are both instructions,
@@ -755,6 +762,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
   11-module one). Confirm the claim first with `git diff` between the two applications of the batch —
   if the second application changed only the failing file, the earlier greens still hold.
+- **`xwiki-platform-legacy-oldcore`'s JUnit4-era tests are ORDER-DEPENDENT — one red run there is not
+  a regression.** A standalone `-pl legacy-oldcore` run failed 30 of 48 tests with
+  `Can't find descriptor for the component … DocumentReference hint [current]` at `setUp`, then the
+  SAME tree passed 48/48 twice in the oldcore+legacy reactor, and a pristine master worktree also
+  passed. The failing tests set static `Utils` component-manager state, so the verdict depends on
+  execution order. Two cheap checks settle it before you believe a red: re-run the same tree (a
+  disagreement between two runs IS the proof), and build the same modules from a master worktree
+  (`git worktree add /tmp/masterwt <masterSha>` — cheap, and it also re-installs master's artifact,
+  so rebuild your own module afterwards). Do not report such a red as "flaky" without both.
 - **A module can be red on master because of an EXTERNAL dependency, and the proof costs nothing.**
   `xwiki-platform-security-authorization-api` failed `testCompile` on `RightSetTest#testSetEquals()`
   — an `@Override` against a method `commons-collections4`'s `AbstractSetTest` no longer declares. The

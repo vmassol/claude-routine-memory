@@ -43,6 +43,22 @@ Do **not** add the logging itself in the sweep: it changes behaviour and, in the
 loops, output volume on a hot path. Say so in the PR, and flag the consequence — N TODOs become N new
 INFO-level `java:S1135` issues, which is precisely the reminder being asked for.
 
+**Two follow-up rounds refined it, and both generalise:**
+
+- **Drop the TODO where catching IS the design.** All 12 `catch (XWikiRightNotFoundException)` of the
+  rights cascade were told *"remove this TODO as it looks valid"* — a domain exception meaning "not
+  found at this level" is a signal, not a defect, so those keep only the explanatory comment. So the
+  "change the logic" form is rarer than it looks: reserve it for a null check written as a `catch`,
+  or a `catch (Throwable)` that also hides a real failure. Apply such a verdict to **every site of
+  that shape**, not only the ones the reviewer annotated (he commented on all 12 one by one; the
+  batch had already covered them, which is what made the round cheap).
+- **Expect "why is there a try/catch here at all?" and answer it by fixing that site.** For
+  `MonitorTimer#toString()` the answer was that `startDate`/`endDate` are only set by
+  `setStartDate()`/`setEndDate()`, so a still-running timer NPEs — a null check written as a `catch`.
+  Replacing it removed the block entirely, which resolves `S108` better than any comment. Read the
+  class before answering: whether the guarded expression can throw at all is decidable from the
+  field initialisation.
+
 The rule now lives in the plugin OKF at `okf/conventions/code-comments.md`.
 
 ## The shapes — they pick the TODO form and the second line
