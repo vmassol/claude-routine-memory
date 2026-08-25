@@ -571,7 +571,8 @@ rows for the rules you commit to fixing this run.
   half of them** — a 70-key run left 35 still OPEN with no error output — whereas a **0.3s sleep after
   EVERY POST** (comment and transition alike) landed 66/66 with nothing left for the retry pass. So
   throttle from the start and still run the confirm pass (**464/464 landed on the first pass, zero
-  stragglers, ~35 min for 464 keys ≈ 4.5 s/key** — so the 0.3 s throttle costs nothing and the loop
+  stragglers, ~35 min for 464 keys ≈ 4.5 s/key**, and **119/119 first pass at a similar rate a run
+  later** — so the 0.3 s throttle costs nothing and the loop
   comfortably covers the whole write-up; earlier: **168/168 first pass**, but budget ~30 min of wall clock for 168 keys through this container's proxy — launch
   it BEFORE the memory write-up, not after, and it comfortably covers the whole write-up plus the OKF PR): loop `issues/search?issues=<keys>` → re-POST
   `accept` for anything not yet ACCEPTED → repeat until zero. `do_transition`'s response does NOT
@@ -1191,7 +1192,8 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   entry in the SAME turn you open the PR, never after review.
 - **Owed to the OKF, batch 10** (NOT opened as a PR — three rules with no OKF entry at all, and the
   recorded rule is that a brand-new entry gets closed for the structural version-bump conflict; the
-  same run's `S6213` *correction* went out on its own, minimal, as the shape that does merge). Fold
+  same run's `S6213` *correction* went out on its own, minimal, as `xwiki/xwiki-dev-llm#77` — the
+  shape that does merge). Fold
   these into a PR a later run is opening anyway; full text in `rules/`:
   - **`java:S108`** belongs next to `S1186` — comment-only remediation (the rule's own *Exceptions*
     section: it ignores a block containing a comment), platform-only, clustered in four oldcore
