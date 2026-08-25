@@ -131,10 +131,13 @@ miss this) before treating anything about deprecation as a judgement call.**
   applying hundreds of edits.
 * No behaviour, no signature, no line-length risk (the annotation line is short), and Checkstyle has
   nothing to say about it.
-* **Outcome: 441 of the 464 issues merged the same day** — platform #6216 (349), commons #1920 (81) +
-  #1921 (1), rendering #409 (10); platform #6217 (21) and rendering #410 (3) still open. The OKF
-  correction (`xwiki-dev-llm#72`) merged too. So the whole rule, denylisted for years, is now a
-  documented, reviewed, largely-landed sweep.
+* **Outcome: ALL 464 issues merged** — platform #6216 (349) + #6217 (21), commons #1920 (81) + #1921
+  (1), rendering #409 (10) + #410 (3), plus the `legacy-oldcore` build fix (#6218) and the OKF
+  correction (`xwiki-dev-llm#72`). The mechanical halves landed the same day; the three multi-version
+  halves landed once the convention question was answered from the code-style page (platform's two
+  days later). **So a "judgement" PR whose open question turns out to have a documented answer merges
+  like any other** — the split still paid (it kept 440 clean fixes moving while the question was
+  settled), but the question itself should have been a documentation lookup, not a PR.
 * **The commons half merged the same day**, after two review comments —
   and both were about **text my strip pass mangled** (the truncated `4.4MA`, the dangling "already
   deprecated"), not about the rule, the version derivation, the 28 bare tags or the multi-version
