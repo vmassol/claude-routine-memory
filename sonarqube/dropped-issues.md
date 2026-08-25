@@ -7,8 +7,8 @@ won't match an open issue). Group by rule; keep the reason to one line. This is 
 history — merge/trim in place, don't append dated anecdotes.
 
 **Whole rules** rejected during triage are NOT listed key-by-key here: the permanent ones are in the
-OKF denylist and the recently-triaged ones in `pool-state.md` (currently S6213 rename-restricted-
-identifier and S4144 identical-method-bodies). Check both before triaging individual keys of a rule.
+OKF denylist and the recently-triaged ones in `pool-state.md` (currently S4144 identical-method-bodies; S6213 is only
+HALF rejected — see below). Check both before triaging individual keys of a rule.
 
 Sections are per REPO — issue keys are unique per SonarCloud project, so a key from
 `org.xwiki.commons:xwiki-commons` never collides with a platform one. Repos with no drops yet are
@@ -23,6 +23,14 @@ support is worse than the open issue. These two need a maintainer's answer.
 
 - `AV4uHS7W5jV1AdqTqB2m` — `ResourceLoader.JarFileHandle#close()` (legacy-classloader-api)
 - `AV2juGi6VSxcxmoV58C3` — `ExtensionMojoHelper()` constructor (tool-extension-plugin)
+
+### java:S6213 (restricted identifier) — the METHOD half only
+
+The `"Rename this variable"` half of this rule shipped (16 sites); see
+[rules/java-S6213.md](rules/java-S6213.md). These two are methods:
+- `AXjqg5DRxIPJry26tvNO` — `QuestionRecorder#record(T)`, published API: a rename breaks callers.
+- `AY-F49DvUnN6kAHHxlWg` — `ExtensionJobHistoryRecorderTest#record()`, a test method whose name is a
+  naming-convention question, not a cleanup.
 
 ### java:S2447 (null returned from a `Boolean` method) — the null IS the API contract
 Same shape as platform's: `ListTool`, `SerializableXStreamChecker` and `Request` return `null` to mean
@@ -367,6 +375,20 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S108 (empty block) — the emptiness may be hiding a test failure
+
+Comment-only rule (see [rules/java-S108.md](rules/java-S108.md)), so this is a truthfulness drop, not
+a safety one. 82 of the 83 platform sites shipped; this is the one that did not.
+- `AZBvgVC0cj_-G2g1uBt_` — `SyndEntryDocumentSourceTest#source(Object, Map)` (feed-api). A test helper
+  swallows the exception thrown by the call under test; it may be hiding a failing assertion rather
+  than ignoring an expected failure. Suspect every empty `catch` in `src/test` for the same reason.
+
+### java:S9142 (expensive compilation in a loop) — `String#split` on ONE character compiles no Pattern
+- `AaAv1TdaObA3UIzK3uTZ` — `DefaultLiveDataEntriesResource:161`, `constraint.split(":", 2)`.
+  `String#split` has a fast path for a single non-metacharacter separator, so no `Pattern` is built
+  per iteration and `Pattern#split` would be slower. A genuine false positive — do not "fix" it.
+
 
 ### java:S1186 (empty method) — no statable rationale, or deferred on build ROI
 

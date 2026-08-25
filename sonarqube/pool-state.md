@@ -150,6 +150,10 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S1123** missing `@Deprecated` / `@deprecated` | Platform 171, commons 35, rendering 3 — **analyzed, not attempted** (see the S6355 file): one shape needs prose only the API author can write, the other adds an annotation that changes what tools report about a published API. | Not a sweep, but the *"add the missing annotation"* half is mechanically derivable if a run wants to argue it on merit. |
 | **S1186** methods should not be empty | **Was never attempted** ("needs prose") — wrongly: 192 open (platform 112, commons 50, rendering 30) clustered in 78 files, the top 6 holding 96 (`PrintTextListener` 26, `TestFilterImplementation` 25, `HttpServletResponseStub` 21, `Sax2Dom` 10, `VoidMailListener` 8, `HttpServletRequestStub` 6). **172 shipped in one three-repo sweep** (platform 95 / 44 files / 10 modules, commons 48 / 11 files / 9 modules, rendering 29 / 3 files / 1 module). 20 left open: 6 real drops + 14 one-per-module singletons deferred on build ROI. **ALL THREE PRs MERGED ~6 h after opening (platform #6220, commons #1922, rendering #411), one LGTM and no change requested anywhere.** Regenerates from every new no-op implementation. | **3% drops (172/178 analysed).** Comment-only, so the drop condition is TRUTHFULNESS, not safety — drop only where the emptiness might be a genuine gap. See [rules/java-S1186.md](rules/java-S1186.md); group by FILE, one sentence per class. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
+| **S108** empty block | **Platform-only** (commons/rendering 0) and clustered: 83 in 20 files, 61 of them in four oldcore legacy files (`XWiki` 19, `XWikiRightServiceImpl` 16, `XWikiHibernateStore` 11, `XWikiPluginManager` 10). **82 shipped in one PR**; nearly all are deliberately-empty `catch` blocks. Regenerates from legacy maintenance. | **1% drops (82/83).** Comment-only (the rule ignores a block containing a comment), so the drop condition is truthfulness, and the single drop is a *test helper* swallowing the exception of the call under test. See [rules/java-S108.md](rules/java-S108.md). |
+| **S9142** expensive compilation in a loop | **Never triaged until 2026-08.** Platform 10, rendering 1, commons 0; thin-spread over 8 modules, ~half in `src/test`. 10 shipped. | **9% drops (10/11).** The transform is javadoc-definitional (`s.matches(r)` IS `Pattern.compile(r).matcher(s).matches()`). The one drop is `String#split` on a single character — it compiles no Pattern, so the rule is a false positive there. See [rules/java-S9142.md](rules/java-S9142.md). |
+| **S9355** comment with Javadoc tags | **Never triaged until 2026-08.** Platform 9 (8 in `MailStatus` alone), rendering 2, commons 0. All 11 shipped. | **0 drops (11/11).** Comment-only and as safe as `S7476`; `/*`→`/**` for a genuine Javadoc, DELETE for `(non-Javadoc)` boilerplate on an `@Override`. See [rules/java-S9355.md](rules/java-S9355.md). |
+| **S6213** restricted identifier | Commons 18, platform 6, rendering 0 — all of them the identifier `record` in the extension-job-history feature. **Commons' 16 variable sites shipped** as a judgement PR; platform's 4 variable sites are the obvious follow-up. | **11% drops (16/18)**, and the split is free: `"Rename this variable"` converts, `"Rename this method"` is an API change. See [rules/java-S6213.md](rules/java-S6213.md). |
 
 
 **After the JavaScript sweep (platform 43 JS + 6 Java, commons 0, rendering 0):**
@@ -248,8 +252,10 @@ PRs merged the same day):**
   says the emptiness is required (`FootnoteMacroParameters`: "the rendering engine requires specifying
   a class for parameters").
 - **`S6213`** "rename this method/variable to not match a restricted identifier" (`record`, `yield`,
-  `var`) — **rejected**: renaming a method or field is an API change, and the pool sits on public
-  `record(…)` methods (`*QuestionRecorder`, `ExtensionJobHistory`). Not a mechanical fix.
+  `var`) — **Correction: the rejection held only for the METHOD half.** `"Rename this method"` is an
+  API change and stays a drop; `"Rename this variable"` is a parameter/local rename that breaks
+  nothing, and it was 16 of commons' 18 and 4 of platform's 6. Commons' 16 shipped as a judgement PR.
+  See [rules/java-S6213.md](rules/java-S6213.md).
 - **`S4144`** "implementation is identical to method X" — **rejected**: deduplicating two methods that
   legitimately mean different things is a design decision, not a cleanup.
 - **`S6035`** "replace this alternation with a character class" (`"^(?:d|F)ownload:.*"` → `"^[dF]…"`)
@@ -524,6 +530,7 @@ run ever to ship a real batch in all three repos):**
 - **The next comment-only / never-attempted candidates**, in the spirit of what S1186 paid: nothing
   else in the facet has S1186's shape, but `S108` (empty *block*, platform 83) is its closest sibling
   — same remediation, and worth one bucketing pass by file before writing it off.
+  **Resolved: that hunch paid — `S108` went 82/83 the next run** (see the row below).
 
 **Current standing state — after the S6355 sweep (464 issues: platform 370, commons 81, rendering 13,
 the first run to ship a real batch in all three repos):**
@@ -546,3 +553,30 @@ the first run to ship a real batch in all three repos):**
 - **`xwiki-platform-legacy-oldcore` must be in the `-pl` list of any batch touching an oldcore class**
   — it is the only module that compiles the compatibility aspects, and it is where the previous run's
   merged PR left `master` red (fixed by #6218). See [rules/java-S1172.md](rules/java-S1172.md).
+
+**Current standing state — after the S108/S9142/S9355/S6213 sweep (platform 100, commons 16,
+rendering 3 — the third run to ship a real batch in all three repos):**
+
+- **The find phase that worked, and it is now the one to open a run with**: the mechanical allowlist
+  returned literally zero fresh keys in all three repos, and the answer was *"which open rules has
+  no run ever looked at?"* — the memory-vs-facet diff described in `learnings.md`. It found
+  `java:S9142` and `java:S9355` (never triaged, both in two repos), and re-reading the comment-only
+  family found `S108`. Two techniques, both one query, both cheaper than any source read.
+- **Platform's remaining never-triaged Java rules**, after this run: `css:S4666` (9, a CSS rule — the
+  css facet has never been opened), `java:S9149` (8, rejected as a public-static rename),
+  `javabugs:S6416` (8) and `javabugs:S2190` (9), both real-bug rules. Everything else in the facet is
+  denylisted, rejected or a recorded drop: `S1135`/`S1134` (614 TODO/FIXME comments), `S1133` 386,
+  `S6355` 260 residue, `S112` 256, `S3776` 218, `S2143` 193, `S1123` 171, `S5993` 142,
+  `javabugs:S2259` 130, `S1168` 113, `S1172` 101 (the non-`private` residue).
+- **Platform's `javascript:` pool is still the deep one** (~600 open) and was NOT touched this run —
+  #6210/#6211/#6217 were still open and claim 14 WAR files. Untouched rules there, descending:
+  `S1848` 76 (rejected, Prototype FP), `S7721` 61 (rejected), `S4138` 60, `S7741` 34, `S7740` 33,
+  `S2814` 32, `S7761` 26, `S1121` 24, `S7773` 22, `S1874` 22, `S2392` 22, `S3504` 14.
+- **Commons is genuinely down to denylisted rules** — its 83-rule facet cross-checked against
+  `dropped-issues.md` left 8 fresh keys, all in rejected rules (`S1150` Enumeration ×4, `S1452`
+  wildcard ×4). `S3878`'s 30 are all in the three `logging-*` classes (the recorded permanent drop),
+  and `S6213` was the only escape. Its `S1123` splits 32 "add the missing `@deprecated` tag" (prose)
+  / 3 "add the missing `@Deprecated` annotation".
+- **Rendering yields ~3 per sweep now, and only from never-triaged rules.** Its whole facet is 53
+  rules; the fresh keys this run were `S9142` 1, `S9355` 2, plus `S1172` 4 (non-`private` residue),
+  `S5843` 1 (regex complexity) and `S9149` 1 — the last three dropped.

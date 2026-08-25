@@ -46,6 +46,10 @@ rows for the rules you commit to fixing this run.
 | `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool; and `private` is NOT airtight, an AspectJ ITD can call it |
 | `java:S6355` `java:S1123` | [rules/java-S6355.md](rules/java-S6355.md) | OKF-denylisted for "needs the deprecating version" — which the element's own `@deprecated` Javadoc tag already states in 464 of 768 sites |
 | `java:S1186` | [rules/java-S1186.md](rules/java-S1186.md) | comment-only, and the comment is a property of the CLASS — 192 issues are ~20 class-level judgements |
+| `java:S108` | [rules/java-S108.md](rules/java-S108.md) | comment-only too (the rule ignores a block containing a comment); 82 sites are ~35 sentences, and an empty `else`/`finally` is deleted instead |
+| `java:S9142` | [rules/java-S9142.md](rules/java-S9142.md) | hoisting a regex out of a loop is javadoc-definitional, but `String#split` on ONE character compiles no Pattern — that shape is a false positive |
+| `java:S9355` | [rules/java-S9355.md](rules/java-S9355.md) | `/*`→`/**` for a real Javadoc; DELETE the `(non-Javadoc)` boilerplate instead of promoting it |
+| `java:S6213` | [rules/java-S6213.md](rules/java-S6213.md) | OKF-denylisted for the *method* half only — `"Rename this variable"` vs `"Rename this method"` splits the pool for free |
 
 ## Picking a target rule (find phase)
 
@@ -240,6 +244,21 @@ rows for the rules you commit to fixing this run.
   issues came out as five shapes with five different verdicts (18 `toString()`, 12 no-format-specifier,
   8 `%n`, 2 unused-argument, 1 concatenation → 7 fixable, 34 drops). Print the message histogram first;
   it *is* the triage, and it stops a run rejecting a whole rule because its biggest shape is a drop.
+- **"Which open rules has no run ever LOOKED at?" is one grep, and it is the cheapest find-phase step
+  there is.** Concatenate this repo's three files + `rules/*.md` + the plugin's `okf/sonarqube/*`,
+  pull each repo's rule facet, and print the rules whose key does not appear in that text. Three
+  calls and a regex; on a day when the whole mechanical allowlist read zero fresh keys in all three
+  repos it surfaced **`java:S9142` and `java:S9355`** — never triaged, both mechanical, both present
+  in two repos — and `css:S4666`. Run it BEFORE re-deriving denylist entries: an unseen rule needs no
+  argument against a recorded rejection. (Match on the bare key with a word boundary, or `S108`
+  matches inside `S1084`.)
+- **A comment-only rule has SIBLINGS, and the family is worth enumerating once.** `S1186` (empty
+  *method*) paid 172; its sibling `S108` (empty *block*) then paid 82 the next run, same shape, same
+  reviewer-facing story. What makes such a rule cheap is stated in the rule's OWN description under
+  *Exceptions* — S108's reads *"ignores code blocks that contain comments"* — so
+  `api/rules/show?organization=xwiki&key=java:SXXXX` decides whether a "needs prose" rule is
+  comment-remediable in one call. Do that before writing off `S1123`/`S1134`/`S1135`-shaped rules,
+  and note the corollary: these rules survive every cleanup wave, exactly like the naming rules.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -461,6 +480,14 @@ rows for the rules you commit to fixing this run.
   brace-scoped** — its scope is flow-sensitive (the `if` body, or the *negation* when the condition is
   inverted). No brace rule models it. Fix those sites as a one-off exact-string edit over the two or
   three lines that use the binding, and keep them out of the scripted table.
+- **A batch that INSERTS a declaration above an anchor lands between that anchor's Javadoc and the
+  anchor itself.** Anchoring a generated `private static final …` on an existing field declaration
+  puts the new field *under* the old field's `/** … */`, silently re-attributing the documentation —
+  it compiles, and the only symptom is in the diff. Guard: if the anchor's preceding non-blank line
+  ends with `*/`, insert above the whole comment block (or re-emit the comment after your
+  declaration). It fired on two of four insertions in one batch. Same family as the empty-block
+  insert: **look at what is immediately ABOVE and BELOW your insertion point, not just at the line
+  you matched**.
 - **Every batch that INVENTS a name must check the new name against the class's own field
   declarations** — otherwise the rename can re-create the very rule you are clearing (or a sibling
   one) under a different name, silently, with a green build. One regex over `^\s{4}(modifiers…)\s(\w+)\s*[=;]`
@@ -641,6 +668,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `ajc` (`The method getDisplayValue(int) … is not applicable for the arguments (XWikiContext, int)`).
   Two cheap guards for any batch that changes a member of an oldcore class: grep
   `--include=*.aj` for the member name, and put the matching `*-legacy-*` module in the `-pl` list.
+- **Datapoint for a three-repo comment-and-constant sweep** (warm `~/.m2`, 119 sites): commons 1
+  module **223 tests** + rendering 2 modules **352** + platform **11** modules incl. oldcore and
+  `legacy-oldcore` **1501** (oldcore 1149) = **2076 tests**, all green, in a single chained
+  background run of well under the 10-minute tool timeout. An 11-module platform `-pl` list
+  spanning `xwiki-platform-core` AND `xwiki-platform-tools` works from the repo root in one reactor.
 - **Datapoint for a three-repo annotation-only sweep across 77 modules** (warm `~/.m2`, 464 sites):
   commons **22** modules **6:10** (1177 tests) + rendering 3 modules **1:26** (524) + platform **52**
   modules incl. oldcore **25:37** (2989) ≈ **33 min** for 4690 tests. A 52-module platform `-pl` list
@@ -1157,6 +1189,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction had already been validated in production. Open the code PR first, let it merge, then cite
   it. So the discriminator is *does the OKF currently mislead a future run*, not how new the content is — and the strongest thing you can put in such a PR is the sweep it unblocked (123 sites, three PRs, all merged uncommented). Write the condensed *Owed to the OKF*
   entry in the SAME turn you open the PR, never after review.
+- **Owed to the OKF, batch 10** (NOT opened as a PR — three rules with no OKF entry at all, and the
+  recorded rule is that a brand-new entry gets closed for the structural version-bump conflict; the
+  same run's `S6213` *correction* went out on its own, minimal, as the shape that does merge). Fold
+  these into a PR a later run is opening anyway; full text in `rules/`:
+  - **`java:S108`** belongs next to `S1186` — comment-only remediation (the rule's own *Exceptions*
+    section: it ignores a block containing a comment), platform-only, clustered in four oldcore
+    files, and the drop condition is truthfulness, with `src/test` the place to suspect.
+  - **`java:S9142`** for `constant-and-resource-rules` — hoisting a regex out of a loop is
+    javadoc-definitional, with ONE drop shape: `String#split` on a single non-metacharacter compiles
+    no `Pattern`, so the rule is a false positive there and the "fix" is a pessimization.
+  - **`java:S9355`** for `syntax-rules` — as safe as `S7476`; `/*`→`/**` for a genuine Javadoc,
+    delete the `(non-Javadoc)` boilerplate on an `@Override` rather than promoting it.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#72` MERGED** (plugin 1.1.1). It moved `S6355` off
   the denylist into `syntax-rules`, left `S1123` on it with its own reason, and added the missing
   `@Deprecated` section to `conventions/versioning.md`. **Fifth "actively-wrong entry" correction, and
