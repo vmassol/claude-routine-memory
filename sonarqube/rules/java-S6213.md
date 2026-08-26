@@ -25,7 +25,11 @@ better, which is the honest argument for it — the rule's own "it looks like th
 since `record` is legal as an identifier forever.
 
 **Ship it as a judgement PR, not in the mechanical batch**: parameter names are visible in Javadoc
-and IDE completion, so it is a taste call, and it is cheap for a reviewer to close.
+and IDE completion, so it is a taste call, and it is cheap for a reviewer to close. **Both halves of
+the pool have now merged uncommented** — commons' 16 (`xwiki/xwiki-commons#1924`) and platform's 4
+(`xwiki/xwiki-platform#6227`, `ExtensionHistoryScriptService`), so the split is cheap insurance
+rather than a sign the rename is unwelcome. Rename every `record` token in the file, not only the
+flagged ones, or it reads two ways.
 
 ## Mechanics
 
