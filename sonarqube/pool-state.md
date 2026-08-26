@@ -153,6 +153,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S108** empty block | **Platform-only** (commons/rendering 0) and clustered: 83 in 20 files, 61 of them in four oldcore legacy files (`XWiki` 19, `XWikiRightServiceImpl` 16, `XWikiHibernateStore` 11, `XWikiPluginManager` 10). **82 shipped in one PR**; nearly all are deliberately-empty `catch` blocks. **Cost 4 review rounds but MERGED** — the only PR of the sweep to need any (see the rule file: the comment must be a TODO). Regenerates from legacy maintenance. | **1% drops (82/83).** Comment-only (the rule ignores a block containing a comment), so the drop condition is truthfulness, and the single drop is a *test helper* swallowing the exception of the call under test. See [rules/java-S108.md](rules/java-S108.md). |
 | **S9142** expensive compilation in a loop | **Never triaged until 2026-08.** Platform 10, rendering 1, commons 0; thin-spread over 8 modules, ~half in `src/test`. 10 shipped, **both PRs merged** (platform #6222 after one style round, rendering #412 uncommented). | **9% drops (10/11).** The transform is javadoc-definitional (`s.matches(r)` IS `Pattern.compile(r).matcher(s).matches()`). The one drop is `String#split` on a single character — it compiles no Pattern, so the rule is a false positive there. See [rules/java-S9142.md](rules/java-S9142.md). |
 | **S9355** comment with Javadoc tags | **Never triaged until 2026-08.** Platform 9 (8 in `MailStatus` alone), rendering 2, commons 0. All 11 shipped; the rendering half **merged uncommented**. | **0 drops (11/11).** Comment-only and as safe as `S7476`; `/*`→`/**` for a genuine Javadoc, DELETE for `(non-Javadoc)` boilerplate on an `@Override`. See [rules/java-S9355.md](rules/java-S9355.md). |
+| **S5993** public ctor of an abstract class | **Was OKF-denylisted; only the non-`internal` half deserves it.** 244 open (platform 142, commons 80, rendering 22) split by path into **81 `internal`** (platform 59, commons 20, rendering 2) and 163 public. All 81 shipped in one three-repo sweep; platform's cluster is oldcore 24 (`internal.event` 12, `internal.mandatory` 5, `internal.skin` 4) then localization-api 6, crypto-store-wiki 4. Regenerates from every new abstract internal class. | **0 drops on the 81.** The 163 non-`internal` sites are a permanent drop (real Revapi break). See [rules/java-S5993.md](rules/java-S5993.md). |
+| **S1161** missing `@Override` | Rendering **23, all in ONE file** (`xwiki-rendering-wikimodel/PrintTextListener`) — swept. Platform and commons 0. A purely additive rule, so it only ever appears where a big legacy file was written pre-Java-6. | **0 drops (23/23).** `javac` rejects a wrong `@Override`, so the module compiling is the whole verification. |
 | **S6213** restricted identifier | Commons 18, platform 6, rendering 0 — all of them the identifier `record` in the extension-job-history feature. **Commons' 16 variable sites shipped as a judgement PR and MERGED uncommented** (#1924) — the seventh denylist rescue to land. Platform's 4 variable sites are the obvious follow-up. | **11% drops (16/18)**, and the split is free: `"Rename this variable"` converts, `"Rename this method"` is an API change. See [rules/java-S6213.md](rules/java-S6213.md). |
 
 
@@ -580,3 +582,30 @@ rendering 3 — the third run to ship a real batch in all three repos):**
 - **Rendering yields ~3 per sweep now, and only from never-triaged rules.** Its whole facet is 53
   rules; the fresh keys this run were `S9142` 1, `S9355` 2, plus `S1172` 4 (non-`private` residue),
   `S5843` 1 (regex complexity) and `S9149` 1 — the last three dropped.
+
+
+**Current standing state — after the S5993/S1161/S6213 sweep (platform 63, commons 20, rendering 25 —
+the fourth run to ship a real batch in all three repos):**
+
+- **The find phase was three calls and no source reads.** The ~95-rule mechanical allowlist
+  cross-checked against `dropped-issues.md` returned platform **61 fresh of 338** (54 of them the
+  permanent `S1130` `src/main` residue, so 7 real), commons **0 of 69**, rendering **23 of 53** — and
+  rendering's 23 were a whole never-swept `S1161` pool in a single file. The volume came, once again,
+  from a **denylisted** rule: `S5993`, bucketed by `/internal/` in the path.
+- **The "never-mentioned rule" diff is now essentially spent**: concatenating this repo + the OKF and
+  diffing against all three facets leaves only `javascript:S878` (4) and `javabugs:S6466` (1). Every
+  other open rule has been looked at. So the remaining levers are (a) denylist re-derivation,
+  (b) rules that regenerate, (c) the JS pool.
+- **Platform's JS pool is PR-constrained again and the proven-safe JS rules are spent in the free
+  files.** #6210/#6211 claim 14 WAR files; of 392 keys under a 36-rule JS shortlist only **96 are
+  fresh in free, non-vendored files**, and every one of them is in an *untriaged and risky* rule:
+  `S4138` 17 (`for`→`for-of`), `S3504` 14 (`var`→`let`), `S2004` 13 (nested functions — a refactor),
+  `S7740` 12, `S1874` 9, `S2392` 9, `S7741` 7, then singletons. Densest free files: `dataeditors.js`
+  18, `gallery.js` 8, `fullScreen.js` 7, `toolTip.js` 6. Nothing in `S7773`/`S7765`/`S6582`/`S6637`
+  survives outside the vendored and claimed files.
+- **Commons has no non-denylisted mechanical fodder left at all** (0 fresh of 69 allowlist keys), so
+  `S5993` was its whole run. Its next candidates are the same denylist re-derivation exercise:
+  `S9149` 45, `S2065` 41, `S1123` 35, `S3878` 30 (the `logging-*` permanent drop), `S125` 29.
+- **`java:S1186`'s 14 ROI-deferred platform singletons are STILL deferred** — none of their 14 modules
+  overlapped this run's reactor except `mail-send-default` and `rest-server`, and both of those sites
+  are anonymous `Iterator#remove()` no-ops, i.e. the shape where an empty body may be a genuine gap.

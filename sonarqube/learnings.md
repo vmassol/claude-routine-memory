@@ -50,6 +50,7 @@ rows for the rules you commit to fixing this run.
 | `java:S9142` | [rules/java-S9142.md](rules/java-S9142.md) | hoisting a regex out of a loop is javadoc-definitional, but `String#split` on ONE character compiles no Pattern — that shape is a false positive |
 | `java:S9355` | [rules/java-S9355.md](rules/java-S9355.md) | `/*`→`/**` for a real Javadoc; DELETE the `(non-Javadoc)` boilerplate instead of promoting it |
 | `java:S6213` | [rules/java-S6213.md](rules/java-S6213.md) | OKF-denylisted for the *method* half only — `"Rename this variable"` vs `"Rename this method"` splits the pool for free |
+| `java:S5993` | [rules/java-S5993.md](rules/java-S5993.md) | OKF-denylisted as a Revapi visibility break — true only outside `internal` packages, which `revapi.json` excludes; and JLS §6.6.2.2 makes it a no-op for an *abstract* class |
 
 ## Picking a target rule (find phase)
 
@@ -110,6 +111,21 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+  **The escape is not always the member's modifier — it can be the PACKAGE, and the authority is the
+  repo's own gate CONFIG rather than your reading of the rule.** `java:S5993` ("make this abstract
+  class's constructor `protected`") was denylisted as a Revapi `visibilityReduced` break; one
+  `'/internal/' in path` bucketing pass over 244 open sites gave **81 in packages
+  `revapi.json` excludes from the API check outright** (`type ^org.xwiki.**.internal.** {}`), i.e. not
+  published API at all — 0 drops, `revapi:check` green in all 32 modules. So when a denylist reason
+  names a BUILD GATE, read that gate's configuration file before believing the reason applies; XWiki's
+  lives in `xwiki-commons-tool-verification-resources/src/main/resources/revapi.json` and excludes
+  `**.internal.**` and `**.test.**` in both `org.xwiki` and `com.xpn.xwiki`.
+  **And a "reduces visibility" objection is sometimes refutable outright, not just scoped away** — for
+  an *abstract* class, JLS §6.6.2.2 permits both `super(...)` and `new AbstractX(…){…}` on a
+  `protected` constructor from any package, and plain `new AbstractX(…)` is already illegal, so no
+  compilable caller can break. A two-package `javac` proving exactly that took one turn and is the
+  strongest thing in the PR body. Generalises: when the denylist reason is a *claim about the
+  language*, spend the throwaway `javac` before accepting it.
 - **When a fix's correctness turns on a CONVENTION, read the convention's own page before inventing
   an open question — and never trust a recorded "that source is unreachable".** The `S6355` sweep hit
   a Javadoc tag naming two versions, reasoned that `@Deprecated(since)` takes one `String`, picked one

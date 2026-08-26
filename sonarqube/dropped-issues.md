@@ -7,8 +7,14 @@ won't match an open issue). Group by rule; keep the reason to one line. This is 
 history — merge/trim in place, don't append dated anecdotes.
 
 **Whole rules** rejected during triage are NOT listed key-by-key here: the permanent ones are in the
-OKF denylist and the recently-triaged ones in `pool-state.md` (currently S4144 identical-method-bodies; S6213 is only
-HALF rejected — see below). Check both before triaging individual keys of a rule.
+OKF denylist and the recently-triaged ones in `pool-state.md` (currently S4144 identical-method-bodies; S6213 and
+S5993 are only HALF rejected — see below). Check both before triaging individual keys of a rule.
+
+**`java:S5993` outside an `internal` package — permanent drop in ALL THREE repos, not listed
+key-by-key** (platform 83, commons 60, rendering 20). Making an abstract class's constructor
+`protected` is a genuine published-API visibility reduction there and Revapi rejects it. The
+`internal` subset is the opposite — it shipped with 0 drops, see
+[rules/java-S5993.md](rules/java-S5993.md). Bucket by `'/internal/' in path` before reading anything.
 
 Sections are per REPO — issue keys are unique per SonarCloud project, so a key from
 `org.xwiki.commons:xwiki-commons` never collides with a platform one. Repos with no drops yet are
@@ -389,6 +395,14 @@ a safety one. 82 of the 83 platform sites shipped; this is the one that did not.
   `String#split` has a fast path for a single non-metacharacter separator, so no `Pattern` is built
   per iteration and `Pattern#split` would be slower. A genuine false positive — do not "fix" it.
 
+
+### java:S1854 (useless assignment) — the assignment looks like LOST INTENT, not dead code
+- `AaAv1NCtObA3UIzK3uTF` — `MockitoOldcore#saveXWikiDoc` answer, L748:
+  `reference = reference.setWikiReference(xcontext.getWikiReference());` under a comment saying "The
+  store is based on the context for the wiki". The adapted `reference` is genuinely never read, so
+  Sonar is right — but the minimal fix empties the enclosing `if` (a fresh S108) and the full fix
+  deletes a comment, a declaration and a guard that together document an intent someone had. That is
+  a maintainer's call in a test helper the whole platform depends on, not a cleanup.
 
 ### java:S1186 (empty method) — no statable rationale, or deferred on build ROI
 
