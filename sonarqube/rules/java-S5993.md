@@ -55,12 +55,12 @@ into a settled point.
 
 ## Outcome
 
-Commons (20 sites, 16 classes, `xwiki/xwiki-commons#1926`) and rendering (2 sites, riding on an
-`S1161` batch, `xwiki/xwiki-rendering#414`) both **merged uncommented** within hours of opening — the
-eighth denylist rescue to land that way, and no reviewer raised the visibility question on either.
-Platform's 59 (`#6226`) was still open at that point. So the JLS-proof framing works: state the two
-independent reasons (the `revapi.json` exclusion *and* the language argument) and the visibility
-reduction stops being the question.
+**All 81 sites merged, in all three repos, within hours of opening, and not one review comment on any
+of the three PRs** (`xwiki/xwiki-platform#6226` 59, `xwiki/xwiki-commons#1926` 20,
+`xwiki/xwiki-rendering#414` 2 riding on an `S1161` batch). The eighth denylist rescue to land that
+way, and the first where the denylist reason was a *build gate* rather than a property of the member.
+Nobody raised the visibility question — so lead with the two independent reasons (the `revapi.json`
+exclusion **and** the JLS argument) and it does not come up.
 
 ## Drop condition
 
