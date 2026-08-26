@@ -55,10 +55,11 @@ into a settled point.
 
 ## Outcome
 
-The commons half (20 sites, 16 classes) **merged uncommented** within hours of opening
-(`xwiki/xwiki-commons#1926`) — the eighth denylist rescue to land that way. Platform (59) and
-rendering (2) were still open at that point. So the JLS-proof framing works on a reviewer: state the
-two independent reasons (the `revapi.json` exclusion *and* the language argument) and the visibility
+Commons (20 sites, 16 classes, `xwiki/xwiki-commons#1926`) and rendering (2 sites, riding on an
+`S1161` batch, `xwiki/xwiki-rendering#414`) both **merged uncommented** within hours of opening — the
+eighth denylist rescue to land that way, and no reviewer raised the visibility question on either.
+Platform's 59 (`#6226`) was still open at that point. So the JLS-proof framing works: state the two
+independent reasons (the `revapi.json` exclusion *and* the language argument) and the visibility
 reduction stops being the question.
 
 ## Drop condition
