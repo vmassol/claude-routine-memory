@@ -1249,12 +1249,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
   wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
   (the multi-line Javadoc rule survived the same review untouched).
-- **Owed to the OKF: nothing new — `xwiki/xwiki-dev-llm#78` opened** (the `S5993` denylist entry
-  narrowed to non-`internal` packages, plugin 1.1.10). Eighth "actively-wrong / partial-pool entry"
-  correction, and written to the shape that merges: minimal (one denylist line rewritten in place, no
-  new family file, no rule-map row), leading with the *cost* of the entry as it stood, and citing the
-  three sweep PRs it unblocked while they were still open. The rule itself is conditional, so its
-  transform lives in [rules/java-S5993.md](rules/java-S5993.md) here, not in the OKF.
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#78` MERGED** (plugin 1.1.10; the `S5993` denylist
+  entry narrowed to non-`internal` packages, verified live on master). Sixth "actively-wrong /
+  partial-pool entry" correction to land, uncommented and same-day, so the recorded discriminator
+  holds without exception now: **a correction merges, a nuance addition and a brand-new entry get
+  closed for the version-bump conflict.** What it was written to, and worth copying verbatim: minimal
+  (one denylist line rewritten in place — no new family file, no rule-map row), leading with the
+  *cost* of the entry as it stood (244 issues never touched), and citing the three sweep PRs it
+  unblocked. Those were still **open** when it was filed and were edited to "**merged**" as each
+  landed — the same tactic as `#71`, and it again did not weaken the PR, so keep opening the
+  correction the same turn rather than waiting on the sweep. The rule itself is conditional (the
+  `internal` split), so its transform stays in [rules/java-S5993.md](rules/java-S5993.md) here and
+  the OKF got only the two-line escape.
 - **Owed to the OKF, batch 10** (NOT opened as a PR — three rules with no OKF entry at all, and the
   recorded rule is that a brand-new entry gets closed for the structural version-bump conflict; the
   same run's `S6213` *correction* went out on its own, minimal, as `xwiki/xwiki-dev-llm#77` — the
