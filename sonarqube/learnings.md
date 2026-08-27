@@ -1291,6 +1291,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
   wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
   (the multi-line Javadoc rule survived the same review untouched).
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#79` OPEN** (plugin 1.1.11; the `S1130`
+  "`src/main` is a permanent drop" line corrected to non-`private`, plus the unreachable-`catch`
+  cascade). Seventh "actively-wrong entry" correction, and the first found in a **family file**
+  rather than the denylist — the entry contradicted itself two bullets apart (it already argued that
+  `private` is proof, for test sources). Written to the shape that keeps merging: one bullet rewritten
+  in place, no new family file, no rule-map row, leading with the cost (19 sites written off) and
+  citing the sweep PR (#6236) that had just shipped them. The three rules with no OKF entry at all
+  (`S2177`, `S6880`) or with a conditional transform (`S1130`'s own mechanics) stay in `rules/` here.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#78` MERGED** (plugin 1.1.10; the `S5993` denylist
   entry narrowed to non-`internal` packages, verified live on master). Sixth "actively-wrong /
   partial-pool entry" correction to land, uncommented and same-day, so the recorded discriminator
