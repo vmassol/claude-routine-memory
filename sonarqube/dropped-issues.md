@@ -1003,3 +1003,65 @@ use instead) that only the API's author can supply, and *"add the missing `@Depr
 makes every existing call site emit a deprecation warning, i.e. a product decision rather than a
 cleanup. The version for the second shape *is* derivable from the existing tag, so it is arguable on
 merit — but it is not a mechanical sweep.
+
+## java:S1700 (field duplicates its class name) — the whole rule, all three repos
+
+Analyzed key by key and **not attempted**. The rename is compiler-safe wherever the field is
+`private`, but every candidate is a *wrapper* class whose field is the wrapped object and whose name
+is the clearest one available (`com.xpn.xwiki.api.XWiki#xwiki` — 263 occurrences in the file —
+`api.User#user`, `api.Attachment#attachment`, `api.DeletedAttachment#deletedAttachment`,
+`api.Notifications#notifications`, `ReviewsMap#reviewsMap`, commons `Message#message`,
+`RootComponentManager#rootComponentManager`, rendering `MetaData#metadata`). A several-hundred-line
+rename that makes the name *less* apt is churn, not cleanup. Two are not even `private`
+(`api.Element#element` protected, commons `AllEvent#ALLEVENT` public API), and the rendering site
+cannot be renamed by regex at all — the word `metadata` also appears in the class's Javadoc prose.
+- platform: `AZ_XQFvWkxIS6rT1tSh-`, `AZXNFf89_HGhmJE0sTP1`, `AYlxgVGbn63GNUZmU0qf`,
+  `AW5-S5g51Yj5qvzeRm2U`, `AW5-S5ly1Yj5qvzeRm3P`, `AW5-S52b1Yj5qvzeRm7S`, `AW5-S50-1Yj5qvzeRm54`,
+  `AW5-S4d71Yj5qvzeRmqM`, `AW5-S5l71Yj5qvzeRm3W`, `AW5-S51K1Yj5qvzeRm6D`
+- commons: `AV4uHSwk5jV1AdqTqB01`, `AV2juHCjVSxcxmoV58OJ`, `AV2juGkOVSxcxmoV58DJ`
+- rendering: `AV2j0WeHpvRVEt3bvRkk`
+
+## java:S115 (constant naming) — the pool is ENUM CONSTANTS, i.e. public API
+
+OKF-denylisted as a cross-module rename, and the denylist is right here for a reason worth writing
+down: 25 of the 29 open sites are **enum constants in camelCase**, which are `public static final`
+fields of a published type (`VisitStats`/`DocumentStats`/`RefererStats`/`XWikiStats` in oldcore,
+commons `KeyUsage`). Renaming one is a Revapi break, not a naming tidy-up. Do not re-triage.
+- platform: `AW5-S6tI1Yj5qvzeRnn-`, `AW5-S6tI1Yj5qvzeRnn_`, `AW5-S6tI1Yj5qvzeRnoA`,
+  `AW5-S6wr1Yj5qvzeRnsM`, `AW5-S6wr1Yj5qvzeRnsN`, `AW5-S6wr1Yj5qvzeRnsO`, `AW5-S6wj1Yj5qvzeRnsL`,
+  `AW5-S6wb1Yj5qvzeRnsD`, `AW5-S6wb1Yj5qvzeRnsE`, `AW5-S6wb1Yj5qvzeRnsF`, `AW5-S6wb1Yj5qvzeRnsG`,
+  `AW5-S6wb1Yj5qvzeRnsH`, `AW5-S6wb1Yj5qvzeRnsI`, `AW5-S6wb1Yj5qvzeRnsJ`, `AW5-S6wb1Yj5qvzeRnsK`,
+  `AW5-S6w21Yj5qvzeRnsS`, `AW5-S6w21Yj5qvzeRnsT`
+- commons: `AV2juHohVSxcxmoV58Xh` … `AV2juHohVSxcxmoV58Xp` (the nine `KeyUsage` constants),
+  `AZBcC1AnMsaU12VbzF4u` (`EnumConverterTest`)
+The four remaining sites are genuine `private static final` constants in **test** classes and are
+still fixable: platform `AZBvgVsLcj_-G2g1uBuG`/`AZBvgVsLcj_-G2g1uBuH` (`DefaultCSRFTokenTest`).
+
+## java:S2177 — one site left open: the counterpart cannot follow
+
+`AW5-S6MQ1Yj5qvzeRnEw` — `MyPersistentLoginManager#decryptText`. It pairs with the `public
+encryptText` in the same class (also flagged, also unrenameable as published API), so renaming one
+half makes the class read worse. See [rules/java-S2177.md](rules/java-S2177.md). The other ten
+platform sites were fixed.
+
+## java:S6880 (if/else chain → switch expression) — the non-single-expression branches
+
+Fixed where every branch is one expression or a `throw`; these are the drops, all for the same
+reason — a branch is a `try`/`catch` or a value-producing nested `if`, so the switch arm needs a
+block body with `yield` and reads worse than the chain. Full rationale in
+[rules/java-S6880.md](rules/java-S6880.md).
+- commons: `AZ-8jaB_CO3a6Bsbk9SQ` (`DefaultVersionRange#equals`), `AZ-yEUfyM7Xp2wwSAOeK`
+  (`FilterEventParametersConverter#convertToType`), `AZ-s4xVWIw9_wrMuB92D`
+  (`BcPBES2Rc2CipherFactory#getInstance`), `AZ-ibvuBE1zZThhKaCuz` (`DefaultXMLParser#setParameter`),
+  `AZ-ibu2mE1zZThhKaCuv` (`XMLUtils#createSafeSource`)
+- rendering: `AZ-tNLRCJ1sPaRM7_Cqg` (`MetaDataConverter#convertToType` — also passes a *raw* `Map`)
+- commons `AZp8a063EzLQkZWCl-Gt` (`ExtensionUtils#wrap`) is a **different** drop: the switch does not
+  compile because `case IndexedExtension` is dominated by the earlier `RatingExtension`/
+  `RemoteExtension` cases — i.e. that `else if` branch in the current code is **dead**. Fixing it
+  (delete the branch, or move it first and change what `wrap()` returns) is a product decision.
+
+## java:S127 (rendering, 13) — deliberate parser index advances
+
+`XWikiReferenceParser` (6), `XWikiScannerUtil` (4), `WikiPageUtil` (2), `MacroTransformation` (1) all
+"assign to the loop counter from within the loop body" **on purpose** — that is how a character
+scanner consumes an escape or a multi-character token. Rejected as a whole rule for this repo.

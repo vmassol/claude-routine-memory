@@ -51,6 +51,9 @@ rows for the rules you commit to fixing this run.
 | `java:S9355` | [rules/java-S9355.md](rules/java-S9355.md) | `/*`→`/**` for a real Javadoc; DELETE the `(non-Javadoc)` boilerplate instead of promoting it |
 | `java:S6213` | [rules/java-S6213.md](rules/java-S6213.md) | OKF-denylisted for the *method* half only — `"Rename this variable"` vs `"Rename this method"` splits the pool for free |
 | `java:S5993` | [rules/java-S5993.md](rules/java-S5993.md) | OKF-denylisted as a Revapi visibility break — true only outside `internal` packages, which `revapi.json` excludes; and JLS §6.6.2.2 makes it a no-op for an *abstract* class |
+| `java:S1130` | [rules/java-S1130.md](rules/java-S1130.md) | the recorded "permanent `src/main` residue" is a VISIBILITY split — 19 `private` sites were sitting in it |
+| `java:S2177` | [rules/java-S2177.md](rules/java-S2177.md) | the pool is `private` methods, so the rename is free; drop when the method's counterpart is a `public` one that cannot follow |
+| `java:S6880` | [rules/java-S6880.md](rules/java-S6880.md) | `switch` enforces a dominance rule the `if`-chain does not, so a compile error IS a dead-branch finding; and `case null` is the only behaviour question |
 
 ## Picking a target rule (find phase)
 
@@ -189,6 +192,23 @@ rows for the rules you commit to fixing this run.
   See [rules/java-S1186.md](rules/java-S1186.md). The drop condition on such a rule is not safety but
   **truthfulness**: drop the site when you would have to invent the reason (6 of 192 here), because a
   comment asserting intent the code does not support is worse than the open issue.
+- **A "permanent RESIDUE" recorded by a past run is the same visibility split as a denylist entry —
+  re-bucket it.** Ninth rescue of this shape, and the first where the wrong record was written by
+  *this routine* rather than by the OKF: `pool-state.md` described platform's `java:S1130` remainder
+  as "the permanent `src/main` residue" (54 of 58 keys "fresh" but written off), and one bucketing
+  pass over the modifier gave **19 `private` `src/main` sites**, all of which shipped green.
+  `src/main` was never the drop line for that rule — non-`private` is, exactly as for `S1172`,
+  `S116`, `S117` and `S5993`. So treat every recorded phrase of the form "the X residue" as a claim
+  to re-derive, not a fact: the cost is one `issues/search` plus one line read per site, and the
+  wording that hides a pool is always a *proxy* for the real condition (`src/main` for visibility,
+  "needs prose" for per-class prose, "API change" for `private`).
+- **Bucketing by the FLAGGED line's modifier is wrong for multi-line signatures, and it fails
+  silently in the safe direction's favour... or against it.** Sonar attributes a `throws`/parameter
+  issue to the line holding the token, which under XWiki's wrapping style is often a continuation
+  line carrying no modifier at all (`        throws WikiManagerException, ComponentLookupException`,
+  `        Map<K, V> parameters) throws E`). A `'private' in flaggedLine` test buckets those as
+  package-private — it under-counted the `S1130` private pool and over-counted `S1172`'s.
+  Walk back to the nearest line matching `\b(public|protected|private)\b` before classifying.
 - **"Is this repo dry?" is ONE query per repo, not a per-rule sweep.** Pull EVERY open Java issue key
   (`issueStatuses=OPEN&languages=java&ps=500`, 3 pages covers ~1200) and grep the keys against
   `dropped-issues.md`; then read only the rule names of what survives and check them against the OKF
@@ -426,6 +446,17 @@ rows for the rules you commit to fixing this run.
 - **An "unnecessary" cast on an argument of an OVERLOADED method is not a mechanical fix** — removing
   it can silently re-dispatch to a different overload and still compile. Check the callee's overload
   set before trusting S1905.
+- **A COMPILE ERROR from a batch is sometimes the run's best finding — read it before assuming the
+  script is wrong.** A rule whose fix moves code into a construct with *stricter static checks* makes
+  the compiler audit code the old construct never audited. `java:S6880` (`if`/`else if` chain →
+  `switch`) is the clean example: `switch` rejects a `case` dominated by an earlier one, while the
+  identical order in an `if`-chain is merely dead code, so *"this case label is dominated by a
+  preceding case label"* means the original chain has an unreachable branch (here
+  `ExtensionUtils#wrap` could never return a `WrappingIndexedExtension`). The right move is **revert
+  that one site, leave the issue open, and report the dead branch in the PR body** — deleting or
+  reordering the branch is a product decision, and the report is worth more than the issue. Same
+  reflex for any conversion into a construct with exhaustiveness, definite-assignment or
+  effectively-final rules.
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
   are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
   in the same edit; a declaration for a generic type should carry its type arguments and let the factory
@@ -709,6 +740,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `ajc` (`The method getDisplayValue(int) … is not applicable for the arguments (XWikiContext, int)`).
   Two cheap guards for any batch that changes a member of an oldcore class: grep
   `--include=*.aj` for the member name, and put the matching `*-legacy-*` module in the `-pl` list.
+- **Datapoint for a three-repo chain from a COLD `~/.m2`, 38 sites**: commons 5 modules **4:02**
+  (651 tests, extension-api re-run separately) + rendering 1 module **0:36** (93) + platform **14**
+  modules incl. oldcore and legacy-oldcore **13:16** (1831 tests, oldcore 1160) ≈ **18 min** for 2575
+  tests. A cold 14-module platform reactor with oldcore in it is still under a quarter of an hour —
+  `-fae` kept the one commons compile failure from costing anything but that module, and re-running
+  it alone was **36 s**.
+- **XWiki is on Java 21** (`xwiki.java.version` in the root pom, `xwiki.java.version.support` 25), so
+  Java-21 language rules are FAIR GAME, not "too new". `pool-state.md` had rejected `S6885`
+  (`Math.clamp`) and `S6916` (pattern-match guards) with "Java 21" written next to them, which reads
+  like a blocker and is not one — check the pom before writing off a modernization rule on version
+  grounds. `S6880` (`if`-chain → `switch` pattern expression) was found this way.
 - **Datapoint for a three-repo comment-and-constant sweep** (warm `~/.m2`, 119 sites): commons 1
   module **223 tests** + rendering 2 modules **352** + platform **11** modules incl. oldcore and
   `legacy-oldcore` **1501** (oldcore 1149) = **2076 tests**, all green, in a single chained

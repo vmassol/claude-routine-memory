@@ -108,7 +108,10 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6353** `[0-9]` → `\d` | Swept: platform 8 (oldcore 4, chart-macro 2, url-scheme-standard 2). Two keys per line is common. | **0 drops (8/8).** Equivalent without `UNICODE_CHARACTER_CLASS`, which XWiki never sets. |
 | **S1659** one declaration per line | Swept: platform 8, ALL in oldcore (`XWiki.java` 5, DBListClass 2, StaticListClass 1). | **0 drops (8/8).** Pure line-splitting; the densest sites are `String a = "", b = "", …` preamble blocks in long legacy methods. |
 | **S2133** object built only for `getClass()` | Swept: platform 3, all one oldcore test (`CommentEventGeneratorListenerTest`). | **0 drops (3/3).** `any(x.getClass())` → `any(X.class)`; the local and its `Event` import go too. |
-| **S1130** unthrowable `throws` | 294 → 155 → 81 → then **24 more the very next scan** (5 files / 5 modules, all files the previous PR had already touched). **This rule regenerates inside the files you just fixed** — see the cascade note below. Regenerated again to 66 and **8 more shipped** (all `@Test` methods of one file, `MessageStreamTest` in `legacy-messagestream-api`); platform now keeps **54, all `src/main`** (permanent). The regeneration is one FILE at a time — re-query it every run, it is nearly free. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods AND on `private` helpers (284/284 across two repos)**; `src/main` is a permanent drop, and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
+| **S1130** unthrowable `throws` | 294 → 155 → 81 → then **24 more the very next scan** (5 files / 5 modules, all files the previous PR had already touched). **This rule regenerates inside the files you just fixed** — see the cascade note below. Regenerated again to 66 and **8 more shipped** (all `@Test` methods of one file, `MessageStreamTest` in `legacy-messagestream-api`); platform now keeps **54, all `src/main`** — **the "permanent" verdict was WRONG**: `src/main` is not the
+drop line, **non-`private` is, and 19 of those 54 were `private` and all shipped** (platform #6236).
+Re-bucket by the modifier on the *declaration* line, not the flagged line (a `throws` usually sits on a
+continuation line with no modifier). See [rules/java-S1130.md](rules/java-S1130.md). The regeneration is one FILE at a time — re-query it every run, it is nearly free. Commons 28 = 24 test (done) + 4 `src/main`; rendering 1 (`src/main`). | **0 drops on annotated test methods AND on `private` helpers (284/284 across two repos)**; `src/main` is a drop only where the method is **non-`private`** (corrected — see the cell to the left), and a non-annotated **non-private** method inside a test class is a drop too (a `test-jar` consumer in another module can override it). The compiler is the whole verification. |
 | **S1128** unused import | Platform 9 — swept (4 test files, 3 oldcore `src/main`, 2 others). Thin everywhere; a perfect rider on any reactor you already build. | **0 drops (9/9).** Check the simple name with a word boundary across the whole file first: the remaining hits are almost always prose in comments/strings, but a `{@link X}` in Javadoc counts as a use. |
 | **S1117** local hides a field | **Was rejected as a rule; it is NOT — see the scope proof below.** Commons 15 (5 test files / 5 modules) swept in one PR. Platform's **107 are now swept too**, in two PRs split on `src/test` (58, 26 files / 19 modules — oldcore held 34 of them, `XWikiDocumentMockitoTest` alone 19) vs `src/main` (49, 14 files / 5 modules — oldcore 44, `XWikiDocument` 21). Both halves fit one 22-module reactor. | **0 drops (122/122 across two repos).** The local shadows the field from its declaration to the enclosing block's closing brace, so *every* bare occurrence in that range is provably the local. Rename only inside that computed range. `src/main` is NOT a drop condition here — a local cannot escape its method, so nothing is API-bearing, and **all three PRs of this sweep merged within two hours with no review comment**, `src/main` half included. Keep splitting (it lets the test half land first) but do not drop production-code sites for fear of the review. |
 | **S116** field naming | Commons 2 (one abstract test class). **Platform 17 — swept: 16 fixed, 1 dropped** (oldcore held 10 of them: `XWiki` 5 lock/context fields, `XWikiContext` 3, `XWikiAttachment`, `XWikiPluginManager`; plus `UsersCacheTest` 4 and two singletons). | **0 drops on `private` fields (16/16), 1 drop on the single `protected` one.** `private` is the whole test — the field cannot escape the compilation unit, so `src/main` is NOT a drop condition (oldcore's `XWikiContext`/`XWikiAttachment` fields renamed cleanly). Print every occurrence before editing: they are nearly all `this.X`, and the setter parameter usually already carries the new name (`this.engine_context = engineContext` → `this.engineContext = engineContext`). Grep the name repo-wide once to rule out a reflective/Hibernate-mapping use. Not the same rule as the denylisted **S115** (`static final` constants). |
@@ -609,3 +612,37 @@ the fourth run to ship a real batch in all three repos):**
 - **`java:S1186`'s 14 ROI-deferred platform singletons are STILL deferred** — none of their 14 modules
   overlapped this run's reactor except `mail-send-default` and `rest-server`, and both of those sites
   are anonymous `Iterator#remove()` no-ops, i.e. the shape where an empty body may be a genuine gap.
+
+
+**Current standing state — after the S1130/S2177/S6880 sweep (platform 29, commons 8, rendering 1 —
+the fifth run to ship a real batch in all three repos, 38 issues, all accepted first pass):**
+
+- **The find phase that worked was re-bucketing THIS REPO'S OWN "permanent residue" lines**, not the
+  OKF denylist. The mechanical allowlist was empty and the "never-mentioned rule" diff returned only
+  `java:S2225` (2) and `java:S1710` (2). What paid was reading the recorded phrases as claims:
+  `S1130`'s "54, all `src/main`, permanent" held **19 `private` sites** (all shipped), and the whole
+  never-triaged `S2177` (12 platform, 10 shipped) had simply never been looked at because it sounds
+  like an API rename. Both are visibility splits, the ninth and tenth of that shape.
+- **Java 21 rules are open for business.** `xwiki.java.version` is **21** (support 25), so the
+  `S6885`/`S6916` rejections recorded here with "Java 21" beside them were never version-blocked.
+  `java:S6880` (`if`/`else if` `instanceof` chain → `switch` pattern expression) came out of that:
+  platform **25**, commons 14 (8 shipped, 6 dropped), rendering 2 (1 shipped). **Platform's 25 are
+  completely untouched and are the single best-known remaining Java pool in that repo.**
+- **Platform's remaining Java facet after this run**: `S1135`/`S1134` 679 (TODO/FIXME),
+  `S1133` 386, `S6355` 260 (permanent drops), `S112` 260, `S3776` 218, `S2143` 193, `S1123` 171,
+  `javabugs:S2259` 129, `S1168` 113, `S1172` 97 (non-`private` residue), `S5993` 83 (non-`internal`,
+  permanent), `S2160` 78, `S1141` 70, `S1130` 35 (now genuinely non-`private`), **`S6880` 25**,
+  `S2142` 30 (re-interrupt — untriaged, a behaviour change but a correct one), `S8786` 17
+  (super-linear regex, untriaged). Everything else is denylisted or recorded here.
+- **Commons after this run**: nothing mechanical left at all. Its non-denylisted, non-dropped facet is
+  `S1181` 17 (catch `Throwable`), `S6880` 6 (the drops above), `S1319`/`S2326`/`S2925`/`S3077`/
+  `S5413`/`S2112` at 5 each — all behaviour or design changes. `S9149` 43 stays a public-static
+  rename.
+- **Rendering is down to 1-2 per sweep and this run confirmed why**: its whole non-denylisted facet is
+  `javabugs:S2259` 87 (the chaining-renderer NPE cluster), `S127` 13 (deliberate parser index
+  advances — now recorded as a whole-rule drop), `S8786` 3, `S1181` 3. Budget it at ~1.
+- **Platform's JS pool is still PR-constrained**: #6210/#6211 were open and claim 14 WAR files. Of 631
+  open JS issues only ~200 are fresh in free files and they are all in untriaged/risky rules
+  (`S1848` 34 — the Prototype false positive, `S4138` 21, `S1121` 22 but almost all inside the
+  vendored `tablefilterNsort.js`, `S3504` 14, `S2004` 13). Nothing provably-safe survives outside the
+  vendored and claimed files, same verdict as the previous run.
