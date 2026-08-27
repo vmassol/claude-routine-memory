@@ -24,9 +24,14 @@ it compiles. The shape to watch for is a **verb pair split across visibilities**
 `MyPersistentLoginManager` has a `private decryptText` (flagged) next to a `public encryptText` (also
 flagged, but a public API that cannot be renamed). Renaming half the pair is worse than leaving both.
 
-## Why it is a judgement PR, not a mechanical one
+## Why it is a judgement PR — and the outcome says it barely is
 
-Nothing can break — but the rule buys clarity, not correctness, so ship it separately from the
-mechanical batch. The one site with a *concrete* confusion (the `setStore` overload above) is the
-argument to lead the PR body with; everywhere else the parent's method is `private` and therefore
-never inherited at all, so the collision is purely cosmetic.
+Nothing can break, but the rule buys clarity rather than correctness, so it was split out from the
+mechanical batch on the assumption that "churn" was the likely objection. **It merged uncommented,
+within minutes of the mechanical half** (`xwiki/xwiki-platform#6237`), so a private-method rename is
+ordinary accepted work here, not a gamble — keep splitting (it costs nothing and lets the mechanical
+half land first) but do not shrink the batch out of caution.
+
+What to lead the PR body with: the one site whose confusion is *concrete* (the `setStore` overload
+above), then the safety argument. Everywhere else the parent's method is `private` and therefore never
+inherited at all, so the collision is purely cosmetic — say that plainly rather than overselling it.
