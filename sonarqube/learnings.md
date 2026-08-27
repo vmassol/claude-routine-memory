@@ -198,7 +198,8 @@ rows for the rules you commit to fixing this run.
   as "the permanent `src/main` residue" (54 of 58 keys "fresh" but written off), and one bucketing
   pass over the modifier gave **19 `private` `src/main` sites**, all of which shipped green.
   `src/main` was never the drop line for that rule — non-`private` is, exactly as for `S1172`,
-  `S116`, `S117` and `S5993`. So treat every recorded phrase of the form "the X residue" as a claim
+  `S116`, `S117` and `S5993`. **Outcome: merged uncommented within hours** (platform #6236), which is
+  now what every one of these rescues has done, so the re-derivation is insurance, not a gamble. So treat every recorded phrase of the form "the X residue" as a claim
   to re-derive, not a fact: the cost is one `issues/search` plus one line read per site, and the
   wording that hides a pool is always a *proxy* for the real condition (`src/main` for visibility,
   "needs prose" for per-class prose, "API change" for `private`).

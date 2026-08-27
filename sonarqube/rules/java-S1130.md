@@ -41,6 +41,13 @@ the enclosing method already declares. So the whole `try` went and the body was 
 exception propagates exactly as before. A `catch (Exception …)` is never affected (it also catches
 `RuntimeException`), and a `catch` around a `try` that holds other throwers is fine.
 
+## Outcome
+
+**All 19 sites merged (`xwiki/xwiki-platform#6236`), within hours, with no review recorded and no
+comment** — the ninth "the recorded drop condition was a proxy" rescue to land that way. Lead the PR
+body with the two things a reviewer would otherwise ask: that every site is `private` so `javac` is
+the verification, and that the non-`private` half is deliberately left open.
+
 ## Regeneration
 
 Sonar reports only the frontier of the call graph, so narrowing these sites re-flags their private

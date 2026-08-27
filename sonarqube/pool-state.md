@@ -620,7 +620,7 @@ the fifth run to ship a real batch in all three repos, 38 issues, all accepted f
 - **The find phase that worked was re-bucketing THIS REPO'S OWN "permanent residue" lines**, not the
   OKF denylist. The mechanical allowlist was empty and the "never-mentioned rule" diff returned only
   `java:S2225` (2) and `java:S1710` (2). What paid was reading the recorded phrases as claims:
-  `S1130`'s "54, all `src/main`, permanent" held **19 `private` sites** (all shipped), and the whole
+  `S1130`'s "54, all `src/main`, permanent" held **19 `private` sites** (all shipped, merged uncommented), and the whole
   never-triaged `S2177` (12 platform, 10 shipped) had simply never been looked at because it sounds
   like an API rename. Both are visibility splits, the ninth and tenth of that shape.
 - **Java 21 rules are open for business.** `xwiki.java.version` is **21** (support 25), so the
