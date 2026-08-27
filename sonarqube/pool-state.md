@@ -626,8 +626,9 @@ the fifth run to ship a real batch in all three repos, 38 issues, all accepted f
 - **Java 21 rules are open for business.** `xwiki.java.version` is **21** (support 25), so the
   `S6885`/`S6916` rejections recorded here with "Java 21" beside them were never version-blocked.
   `java:S6880` (`if`/`else if` `instanceof` chain → `switch` pattern expression) came out of that:
-  platform **25**, commons 14 (8 shipped, 6 dropped), rendering 2 (1 shipped). **Platform's 25 are
-  completely untouched and are the single best-known remaining Java pool in that repo.**
+  platform **25**, commons 14 (8 shipped and **MERGED uncommented**, 6 dropped), rendering 2 (1
+  shipped). **Platform's 25 are completely untouched and are the single best-known remaining Java
+  pool in that repo** — and the commons merge proves the transform passes review as-is.
 - **Platform's remaining Java facet after this run**: `S1135`/`S1134` 679 (TODO/FIXME),
   `S1133` 386, `S6355` 260 (permanent drops), `S112` 260, `S3776` 218, `S2143` 193, `S1123` 171,
   `javabugs:S2259` 129, `S1168` 113, `S1172` 97 (non-`private` residue), `S5993` 83 (non-`internal`,

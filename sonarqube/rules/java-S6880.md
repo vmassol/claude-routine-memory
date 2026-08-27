@@ -62,6 +62,15 @@ Also drop a chain that passes a **raw** generic (`case Map map`): the `if`-chain
 `instanceof Map map` compiles with an unchecked warning, but a raw type pattern in a `switch` is
 worse, and narrowing it to `Map<?, ?>` breaks the constructor call it feeds.
 
+## Outcome
+
+**The commons batch (8 sites, `xwiki/xwiki-commons#1927`) merged within hours, with no review at all
+recorded and no comment** — so the `switch`-expression form is uncontroversial in XWiki and this rule
+is *not* the coin-toss a "judgement" label suggests. Ship it as its own PR anyway (that is what let
+it land while the platform batch was still waiting), but write it to be merged: the branch-order and
+`case null` bucketing table above is the whole review story, and stating it up front is what leaves a
+reviewer nothing to ask.
+
 ## Verification
 
 The compiler is most of it (dominance, exhaustiveness, arm types are all checked), and the module's
