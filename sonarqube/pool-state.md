@@ -615,7 +615,16 @@ the fourth run to ship a real batch in all three repos):**
 
 
 **Current standing state — after the S1130/S2177/S6880 sweep (platform 29, commons 8, rendering 1 —
-the fifth run to ship a real batch in all three repos, 38 issues, all accepted first pass):**
+the fifth run to ship a real batch in all three repos, 38 issues, all accepted first pass).
+OUTCOME: all four code PRs plus the OKF correction MERGED within ~8 h of opening, with not one
+review comment on any of them** — 6236 (S1130 19), 6237 (S2177 10, the *judgement* half, merged
+minutes after its mechanical sibling), commons 1927 (S6880 8), rendering 415 (S6880 1, approved by
+`tmortagne` first), `xwiki-dev-llm#79` (plugin 1.1.11). The sweep-wide lesson: **the safe/judgement
+split cost nothing and bought nothing here** — every half merged uncommented, so on rules of this
+kind (private-scope renames, provably-equivalent language modernizations) split for scheduling, not
+out of fear of the review.
+
+**Current standing state (as above):**
 
 - **The find phase that worked was re-bucketing THIS REPO'S OWN "permanent residue" lines**, not the
   OKF denylist. The mechanical allowlist was empty and the "never-mentioned rule" diff returned only
