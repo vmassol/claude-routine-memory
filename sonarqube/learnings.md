@@ -677,6 +677,31 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
+- **A PR now faces a SonarCloud QUALITY GATE, and it fails on a PRE-EXISTING dataflow finding whose
+  line merely MOVED. Expect it on every cleanup PR that changes a big file's line count.** As of
+  2026-08 `xwiki-platform` runs an `Analyze` GitHub Action (added by Vincent the day before this was
+  first hit) that does a PR-scoped `sonar-maven-plugin` analysis and **fails the build on
+  `QUALITY GATE STATUS: FAILED`** — its `Build` step passing tells you nothing. The gate condition
+  that trips is *"C Reliability Rating on New Code (required ≥ A)"*, and one issue is enough.
+  The failure mode: SonarCloud's PR issue tracking does **not** match a `javabugs:` (dataflow) finding
+  across a line shift, so a pre-existing NPE finding in the file you edited is re-reported as *new
+  code*. Proof shape, and it is free — **the arithmetic identifies it**: master held
+  `javabugs:S2259` at oldcore `XWiki.java:4755`; a PR that replaced 13 lines with 6 at line 1501 saw
+  it as new at **4748** (−7) and its sibling, which inserted exactly one line at 1114, saw it at
+  **4756** (+1). Same rule, same message, same untouched method (`checkDeletingDocument`), two
+  different deltas. Two PRs reproducing at the predicted lines beats a re-run, and the analysis is
+  deterministic, so do not spend the re-run.
+  What to do: **one comment per PR** naming the check, the master line, the delta and the sibling-PR
+  confirmation, plus the proposed patch for the underlying bug and an explicit offer to drop the one
+  site that causes the shift. Do **not** fix the finding inside the cleanup PR (`javabugs:S2259` is
+  OKF-denylisted precisely because each site needs its own dataflow argument, and here it is a public
+  method's null contract), and do not mutilate the batch pre-emptively: any site above the landmine
+  line triggers it, so dropping sites is whack-a-mole.
+  **Known landmine: oldcore `com/xpn/xwiki/XWiki.java:4755` on master** (`checkDeletingDocument`
+  dereferences its `document` parameter with no null check). Before shipping a batch that edits that
+  file, check whether the file still carries an unmatched `javabugs:` finding
+  (`issues/search?rules=javabugs:S2259&ps=500` filtered on the path) and say so in the PR body up
+  front rather than after the gate goes red.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
