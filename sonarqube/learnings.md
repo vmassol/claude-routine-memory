@@ -697,6 +697,22 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   OKF-denylisted precisely because each site needs its own dataflow argument, and here it is a public
   method's null contract), and do not mutilate the batch pre-emptively: any site above the landmine
   line triggers it, so dropping sites is whack-a-mole.
+  **The same gate has a SECOND condition that a mechanical batch trips: ≤3% *duplication* on new
+  code, and the denominator is the diff.** Read the gate summary for ALL failed conditions before
+  writing the standing-down comment — a 21-insertion batch had two (reliability *and* duplication) and
+  the first comment claimed "the same and only reason", which then needed a correction comment. The
+  duplication mechanism is the mirror image of the tracking one: `DocumentsDeletingListener` and
+  `XClassDeletingListener` already share a ~14-line verbatim `catch (InterruptedException)` block on
+  master, SonarCloud reports **0** duplications for that file on master (the run sits just under the
+  ~100-token detection threshold), and inserting **the same one line into both copies** pushed it over
+  — 2 duplicated lines against a 40-line diff is 5.0%. So on a small diff the condition really means
+  *at most one new line may fall inside any duplicated block*, which is unsatisfiable for a batch whose
+  whole point is inserting an identical line into structurally identical handlers. Check it up front
+  with `api/measures/component?...&pullRequest=N&metricKeys=new_lines,new_duplicated_lines` (the values
+  are under `periods[0].value`, NOT `value` — a plain `.value` read prints `None` and looks like a
+  missing metric) and `api/duplications/show?key=<projectKey>:<path>&pullRequest=N` for the blocks;
+  compare against the same call WITHOUT `pullRequest` to prove the copy-paste pre-dates you. Neither
+  condition is worth mutilating a batch for: fixing duplication alone leaves the gate red anyway.
   **Known landmine: oldcore `com/xpn/xwiki/XWiki.java:4755` on master** (`checkDeletingDocument`
   dereferences its `document` parameter with no null check). Before shipping a batch that edits that
   file, check whether the file still carries an unmatched `javabugs:` finding
