@@ -16,6 +16,15 @@ key-by-key** (platform 83, commons 60, rendering 20). Making an abstract class's
 `internal` subset is the opposite — it shipped with 0 drops, see
 [rules/java-S5993.md](rules/java-S5993.md). Bucket by `'/internal/' in path` before reading anything.
 
+**`java:S8786` (non-linear backtracking regex) — WHOLE-RULE permanent drop in all three repos, not
+listed key-by-key** (platform 17, commons 2, rendering 3). A flagged site already carries the
+possessive-quantifier fix the rule recommends (`TagPlugin:479`, `split("\\s*+,\\s*+")`) and is still
+flagged, so the remediation does not clear the issue; the rest of the pool is `Pattern` constants whose
+"simplification" changes what they match. See [rules/java-S8786.md](rules/java-S8786.md).
+
+**`java:S5961` (too many assertions in a test method) — WHOLE-RULE rejection** (platform 34, commons
+17, rendering 11): splitting a test method is a test-design decision, not a cleanup.
+
 Sections are per REPO — issue keys are unique per SonarCloud project, so a key from
 `org.xwiki.commons:xwiki-commons` never collides with a platform one. Repos with no drops yet are
 listed as such rather than omitted, so a future run knows the absence is real and not an oversight.
@@ -381,6 +390,43 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S6880 (if/else chain → switch) — arms that are not a single expression
+
+AZ98rhC27D0Q84qnpYlo (XWikiDocument#resolveClassReference) AZ9mXzPX9v-7QKVTF1Xi
+AZ9mXzPX9v-7QKVTF1Xj (ExpressionNodeToHQLConverter#parseValue / #parseOtherOperation)
+AZzGqNA6XFD7Ud6sqSQC (ListPropertyParser#fromValue) AZsJx3oT-aU0WcL33Hos (SchedulerPlugin#onEvent —
+a `try`/`catch` inside one branch). Every arm would need a block body with `yield`.
+
+### java:S6880 — rejected by Checkstyle CyclomaticComplexity
+
+AZ9q2c-aHKfHY7dxJX2P (R160300000XWIKI17243DataMigration#getValues): converted, built, and reverted —
+a `case` label counts where the `else if` did not, so the method went 10 → 11 and `checkstyle:check`
+failed the module. The only form that keeps the count is a plain `default`, which is a behaviour
+change here (`obj.safeget` returns `null` for a missing property).
+
+### java:S2142 (ignored InterruptedException) — the catch clause is a BROAD type
+
+AXnpAimEDDFOvAKXAQ4q AXnpAimEDDFOvAKXAQ4u (DefaultMessageStream) AXnpAgR9DDFOvAKXAQlU
+(DocumentEventListener) AXnpAf5xDDFOvAKXAQhH AXnpAf5xDDFOvAKXAQhI (DefaultDistributionManager)
+AXnpAgZPDDFOvAKXAQmW (DefaultSolrIndexer#dispatchQueueEntry, `catch (Throwable)`)
+AXnpAh_lDDFOvAKXAQ0M (DefaultWikiManagerREST) AXnpAfSYDDFOvAKXAQX2 (XWiki#getMainXWiki) — an
+unconditional re-interrupt would fire for any exception. Plus AW5-S8rO1Yj5qvzeRoOK
+(UpdateRightsOnDocumentRenameListener): a multi-catch with no existing `instanceof` branch.
+
+### java:S1130 (unthrowable throws) — the non-`private` residue, re-bucketed and confirmed
+
+31 `public` + 10 `protected`, 0 `private`, so all of it is a signature change on published API:
+AZ0l7WMWhkAMMveQw341 AZO91kIVxltl5snfPKE7 AZET2Iw1xHf6F6I6tUkp AYXRH1GNbcYDmG-JuOZB
+AZ88Zlldz3QokIKVVaYc AZMlOxXC1YOsw_u-zo4p AXnpAipVDDFOvAKXAQ5A AW5-S83E1Yj5qvzeRoRD
+AW5-S83E1Yj5qvzeRoRH AW5-S-MH1Yj5qvzeRoyb AaBD58JameENOFS8zBQu AaBD58JameENOFS8zBQv
+AW5-S50E1Yj5qvzeRm4e AW5-S50E1Yj5qvzeRm5g AW5-S6YN1Yj5qvzeRnQm AW5-S6YN1Yj5qvzeRnRk
+AW5-S6YO1Yj5qvzeRnSh AW5-S6YO1Yj5qvzeRnS- AW5-S6YO1Yj5qvzeRnTF AW5-S6YO1Yj5qvzeRnTV
+AW5-S6tI1Yj5qvzeRnoI AW5-S6qr1Yj5qvzeRnmF AW5-S6wR1Yj5qvzeRnr3 AW5-S-fq1Yj5qvzeRo3D
+AW5-S9C81Yj5qvzeRoTC AW5-S4eN1Yj5qvzeRmqs AW5-S4eN1Yj5qvzeRmqu AW5-S4e-1Yj5qvzeRmrl
+AW5-S-uF1Yj5qvzeRo6n AW5-S62n1Yj5qvzeRn2J AW5-S62m1Yj5qvzeRn0h AW5-S9_r1Yj5qvzeRor1
+AW5-S62m1Yj5qvzeRn0Z AW5-S62m1Yj5qvzeRn0d AXnpAfSYDDFOvAKXAQX3 AW5-S62m1Yj5qvzeRnxw
+AW5-S62m1Yj5qvzeRn0j
 
 ### java:S108 (empty block) — the emptiness may be hiding a test failure
 

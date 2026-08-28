@@ -53,7 +53,9 @@ rows for the rules you commit to fixing this run.
 | `java:S5993` | [rules/java-S5993.md](rules/java-S5993.md) | OKF-denylisted as a Revapi visibility break — true only outside `internal` packages, which `revapi.json` excludes; and JLS §6.6.2.2 makes it a no-op for an *abstract* class |
 | `java:S1130` | [rules/java-S1130.md](rules/java-S1130.md) | the recorded "permanent `src/main` residue" is a VISIBILITY split — 19 `private` sites were sitting in it |
 | `java:S2177` | [rules/java-S2177.md](rules/java-S2177.md) | the pool is `private` methods, so the rename is free; drop when the method's counterpart is a `public` one that cannot follow |
-| `java:S6880` | [rules/java-S6880.md](rules/java-S6880.md) | `switch` enforces a dominance rule the `if`-chain does not, so a compile error IS a dead-branch finding; and `case null` is the only behaviour question |
+| `java:S6880` | [rules/java-S6880.md](rules/java-S6880.md) | `switch` enforces a dominance rule the `if`-chain does not, so a compile error IS a dead-branch finding; `case null` is the only behaviour question; and a fifth of the pool is `==`-against-constants, not `instanceof` |
+| `java:S2142` | [rules/java-S2142.md](rules/java-S2142.md) | one inserted line, and the pool splits for free on the catch clause's TYPE — a broad `catch (Exception)` is the drop |
+| `java:S8786` | [rules/java-S8786.md](rules/java-S8786.md) | whole-rule drop: a flagged site ALREADY carries the possessive-quantifier fix the rule recommends, so the remediation does not clear the issue |
 
 ## Picking a target rule (find phase)
 
@@ -320,6 +322,14 @@ rows for the rules you commit to fixing this run.
   `api/rules/show?organization=xwiki&key=java:SXXXX` decides whether a "needs prose" rule is
   comment-remediable in one call. Do that before writing off `S1123`/`S1134`/`S1135`-shaped rules,
   and note the corollary: these rules survive every cleanup wave, exactly like the naming rules.
+- **Before committing to a never-triaged rule, check whether one of its own flagged sites ALREADY
+  contains the remediation the rule recommends.** One line read per site, and a hit kills the rule
+  outright rather than merely making it expensive: `java:S8786` (non-linear backtracking, 17/2/3 —
+  the only rule with fresh keys in commons *and* rendering that day) recommends possessive
+  quantifiers, and `TagPlugin:479` is `split("\\s*+,\\s*+")`, fully possessive **and still flagged**.
+  A fix that does not clear the issue is worthless here, so the whole rule went to
+  [rules/java-S8786.md](rules/java-S8786.md) as a drop. Sibling of the `S108` move (read the rule's
+  own *Exceptions* section) — both are one API/grep call that decides a rule before any real triage.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -818,6 +828,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   failing module was the only failure and all eight others' greens stood, so the batch shipped minus
   that site in the same turn — no second reactor. Use it by default on a multi-module Sonar batch, not
   only when a failure is *expected*.
+- **Datapoint for a two-batch single-repo sweep** (warm `~/.m2`, 40 sites, 33 files): **23 platform
+  modules** incl. `oldcore` (1163 tests) and `legacy-oldcore`, verified in two passes because of one
+  Checkstyle-metric failure — first pass 20 modules / **2268 tests** green, then the recovery pass
+  (the failed module plus the 3 the reactor skipped behind it) 4 modules / **135 tests** in **~2:40**.
+  Two PRs out of that one reactor. Recovery after a *metric* failure is as cheap as after a compile
+  error, so do not re-run the whole reactor.
 - **After a COMPILE error, rebuild only the failed module plus the ones the reactor skipped behind
   it.** The modules that already reported `Tests run:` in the failed run are green for sources you
   have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
@@ -896,8 +912,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   would muddle the review and can conflict with whoever is already repairing it.
 - **Checkstyle METRIC rules are a drop condition, and the 120-column rule is not the only one.** Any fix
   that ADDS a statement or LENGTHENS a boolean expression can be rejected by a metric the line-length
-  guard cannot see: **`BooleanExpressionComplexity` (max 3 operators)** and **`ExecutableStatementCount`
-  (max 30 per method)** both fired in one run. They run in `checkstyle:check` *after* the tests, so each
+  guard cannot see: **`BooleanExpressionComplexity` (max 3 operators)**, **`ExecutableStatementCount`
+  (max 30 per method)** and — third metric, and the one that cost this routine its most recent build
+  round — **`CyclomaticComplexity` (max 10 per method)**, where a `case` label counts and the
+  `else if` it replaced did not, so an `if`-chain → `switch` conversion (`S6880`) raises the count by
+  one per branch. The list is not exhaustive; treat *any* fix that changes a method's control-flow
+  shape as metric-exposed and pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
   one costs a whole build round. Pre-check them in the apply script, where it is nearly free: for a
   merge-two-branches fix count the `&&`/`||` in the merged condition and refuse >3; for a hoist-an-
   expression fix count the statements already in the target method. When one fires, **drop the site** —
@@ -1213,6 +1233,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     neither PR blocked the other. Cut the sibling branch straight from master (`git checkout -B
     <branch> <masterSha>`) and apply its edits there, rather than committing on top and splitting.
     The drop rule stands only for a file claimed by **someone else's** open PR.
+  - **The two batches do NOT have to be file-disjoint — a REPRODUCIBLE apply script replaces the
+    split-by-file step.** When both halves touch the same file in different methods (here oldcore's
+    `XWiki.java`: `S6880` in `getHibernateStore`/`onEvent`, `S2142` in `initializeWiki`), splitting a
+    combined commit by file is impossible and hunk-staging is fragile. Instead keep each rule in its
+    own assert-guarded script keyed to **master** content, apply both to one tree, build once, then
+    `git reset --hard <masterSha>` and re-run **one script per branch**. The guard that makes this
+    sound is cheap and worth doing every time: save `git diff` before the reset, re-apply *both*
+    scripts, and assert the new `git diff` is byte-identical — if it is, each branch's content is a
+    subset of the tree the reactor actually verified. It also makes a mid-run drop free (one site was
+    reverted after a Checkstyle metric failure: comment out its `edit(...)` call, re-run, done), and
+    the per-commit `--stat` sums back to the verified tree's (162+/209- plus 21+/0- = 183+/209-),
+    which is a second free check.
   - **Verify the pair in ONE reactor, then split by file.** Apply both batches to the same working
     tree, build once, and only then separate them: commit batch A (`git add <its files>`), commit
     batch B (`git add -A`), then `git checkout -B <sibling> <masterSha> && git cherry-pick <commitB>`
@@ -1292,6 +1324,23 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
   wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
   (the multi-line Javadoc rule survived the same review untouched).
+- **Owed to the OKF, batch 11** (NOT opened as a PR — this is the THIRD time this content comes up
+  and the recorded rule says an *addition* to an existing list gets closed for the version-bump
+  conflict, which is exactly what happened to it inside `#53` (batch 2). Fold it into a PR a later run
+  opens anyway; if a run ever does open it, open it ALONE and lead with the measured cost.) One
+  universal drop condition, for `okf/sonarqube/index.md`:
+  - The universal drop-condition list names only the **120-column** Checkstyle rule and calls it
+    "consistently the single biggest cause of dropped fixes", which reads as *line length is the
+    Checkstyle risk*. It is not: three **metric** rules have now each cost this routine a build round,
+    because they run in `checkstyle:check` *after* the tests —
+    **`BooleanExpressionComplexity`** (max 3 operators, `S1871`/`S2589` merges),
+    **`ExecutableStatementCount`** (max 30/method, `S3358` hoists) and now
+    **`CyclomaticComplexity`** (max 10/method, `S6880` `if`-chain → `switch`, where a `case` label
+    counts and the `else if` it replaced did not). The generic statement is what belongs there: *any
+    fix that changes a method's control-flow shape or lengthens a condition is metric-exposed; count
+    the construct in the apply script and drop the site when it would cross the cap* — splitting the
+    method is a refactor, not a Sonar cleanup, and the rejection is the codebase stating the merged
+    form is not more readable.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#79` MERGED** (plugin 1.1.11 live on master; the `S1130`
   "`src/main` is a permanent drop" line corrected to non-`private`, plus the unreachable-`catch`
   cascade). Seventh "actively-wrong entry" correction, and the first found in a **family file**
