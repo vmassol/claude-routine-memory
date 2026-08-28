@@ -677,47 +677,43 @@ The *rules* — never `-DskipTests`, `-Plegacy,quality` mandatory, why removing 
 lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one — are in the OKF
 (`okf/sonarqube/verification.md` and the `xwiki-build` skill). What follows is container-specific.
 
-- **A PR now faces a SonarCloud QUALITY GATE, and it fails on a PRE-EXISTING dataflow finding whose
-  line merely MOVED. Expect it on every cleanup PR that changes a big file's line count.** As of
-  2026-08 `xwiki-platform` runs an `Analyze` GitHub Action (added by Vincent the day before this was
-  first hit) that does a PR-scoped `sonar-maven-plugin` analysis and **fails the build on
-  `QUALITY GATE STATUS: FAILED`** — its `Build` step passing tells you nothing. The gate condition
-  that trips is *"C Reliability Rating on New Code (required ≥ A)"*, and one issue is enough.
-  The failure mode: SonarCloud's PR issue tracking does **not** match a `javabugs:` (dataflow) finding
-  across a line shift, so a pre-existing NPE finding in the file you edited is re-reported as *new
-  code*. Proof shape, and it is free — **the arithmetic identifies it**: master held
-  `javabugs:S2259` at oldcore `XWiki.java:4755`; a PR that replaced 13 lines with 6 at line 1501 saw
-  it as new at **4748** (−7) and its sibling, which inserted exactly one line at 1114, saw it at
-  **4756** (+1). Same rule, same message, same untouched method (`checkDeletingDocument`), two
-  different deltas. Two PRs reproducing at the predicted lines beats a re-run, and the analysis is
-  deterministic, so do not spend the re-run.
-  What to do: **one comment per PR** naming the check, the master line, the delta and the sibling-PR
-  confirmation, plus the proposed patch for the underlying bug and an explicit offer to drop the one
-  site that causes the shift. Do **not** fix the finding inside the cleanup PR (`javabugs:S2259` is
-  OKF-denylisted precisely because each site needs its own dataflow argument, and here it is a public
-  method's null contract), and do not mutilate the batch pre-emptively: any site above the landmine
-  line triggers it, so dropping sites is whack-a-mole.
-  **The same gate has a SECOND condition that a mechanical batch trips: ≤3% *duplication* on new
-  code, and the denominator is the diff.** Read the gate summary for ALL failed conditions before
-  writing the standing-down comment — a 21-insertion batch had two (reliability *and* duplication) and
-  the first comment claimed "the same and only reason", which then needed a correction comment. The
-  duplication mechanism is the mirror image of the tracking one: `DocumentsDeletingListener` and
-  `XClassDeletingListener` already share a ~14-line verbatim `catch (InterruptedException)` block on
-  master, SonarCloud reports **0** duplications for that file on master (the run sits just under the
-  ~100-token detection threshold), and inserting **the same one line into both copies** pushed it over
-  — 2 duplicated lines against a 40-line diff is 5.0%. So on a small diff the condition really means
-  *at most one new line may fall inside any duplicated block*, which is unsatisfiable for a batch whose
-  whole point is inserting an identical line into structurally identical handlers. Check it up front
-  with `api/measures/component?...&pullRequest=N&metricKeys=new_lines,new_duplicated_lines` (the values
-  are under `periods[0].value`, NOT `value` — a plain `.value` read prints `None` and looks like a
-  missing metric) and `api/duplications/show?key=<projectKey>:<path>&pullRequest=N` for the blocks;
-  compare against the same call WITHOUT `pullRequest` to prove the copy-paste pre-dates you. Neither
-  condition is worth mutilating a batch for: fixing duplication alone leaves the gate red anyway.
-  **Known landmine: oldcore `com/xpn/xwiki/XWiki.java:4755` on master** (`checkDeletingDocument`
-  dereferences its `document` parameter with no null check). Before shipping a batch that edits that
-  file, check whether the file still carries an unmatched `javabugs:` finding
-  (`issues/search?rules=javabugs:S2259&ps=500` filtered on the path) and say so in the PR body up
-  front rather than after the gate goes red.
+- **A PR is gated by the repo's own `Analyze` workflow, and its verdict is "the issues YOUR OWN LINES
+  carry" — but only since 2026-08-28, because this routine got it fixed.** Worth reading as a worked
+  example of what to do when a gate failure is provably an artifact.
+  The workflow (added the day before) originally waited on the SonarCloud project quality gate, which
+  on a PR counts **every issue SonarCloud reports in a changed file**, whatever line it sits on. So a
+  pre-existing dataflow finding in a file you edit is re-reported as *new code* and fails the gate
+  (`C Reliability Rating on New Code`), and the small-diff `≤3% duplication on new code` condition
+  trips the same way. **Identify it by arithmetic, which is free**: master held `javabugs:S2259` at
+  oldcore `XWiki.java:4755`; a PR that replaced 13 lines with 6 at line 1501 saw it as new at
+  **4748** (−7) and its sibling, which inserted one line at 1114, saw it at **4756** (+1). Same rule,
+  same message, same untouched method, two deltas — stronger than a re-run, and the analysis is
+  deterministic, so don't spend one. The duplication twin: two listeners already shared a ~14-line
+  verbatim block, master reported **0** duplications for the file (the run sat just under the
+  ~100-token threshold), and inserting the identical line into *both* copies pushed it over — 2 lines
+  against a 40-line diff is 5.0%. Measure it with
+  `api/measures/component?...&pullRequest=N&metricKeys=new_lines,new_duplicated_lines` (values live
+  under `periods[0].value`, **not** `value` — a plain `.value` read prints `None` and reads like a
+  missing metric) plus `api/duplications/show?key=<projectKey>:<path>&pullRequest=N`, and prove the
+  copy-paste pre-dates you by repeating the call **without** `pullRequest`.
+  **What to do, and the outcome that validates it: do NOT mutilate the batch.** Dropping the sites
+  that cause the line shift is whack-a-mole (any edit above the landmine line re-triggers it) and
+  fixing the underlying finding inside a `[Misc]` cleanup is out of scope (`javabugs:S2259` is
+  OKF-denylisted precisely because each site needs its own dataflow argument). Post **one comment per
+  PR** with the arithmetic, the sibling-PR confirmation and a proposed patch for the real defect —
+  and read **every** failed condition first: a first comment claiming "the same and only reason"
+  missed the duplication one and needed a correction. Vincent then **fixed the workflow** rather than
+  taking any of the three options offered (master `1a2cae6d`, *"[Misc] Fail a pull request on the
+  SonarQube issues its own lines carry"*: it drops `sonar.qualitygate.wait` and keeps only issues
+  whose line the PR actually wrote), rebased both branches onto it himself, and `Analyze` went green
+  with the batches untouched — ~4.5 h from the comment. So a precise, arithmetic-backed artifact
+  report is worth far more than a defensive edit.
+  **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
+  *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
+  `Analyze` is. Don't act on the app check alone.
+  **Known landmine, still open on master: oldcore `com/xpn/xwiki/XWiki.java:4755`**
+  (`checkDeletingDocument` dereferences its `document` parameter with no null check). It no longer
+  gates a PR, but it is the finding those two PRs inherited.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
