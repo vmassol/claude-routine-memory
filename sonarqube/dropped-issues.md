@@ -102,6 +102,18 @@ there does not compile: `doPrivileged(PrivilegedAction, AccessControlContext)` a
 - `AWgZSU4oUMkE2J58eTbH` L278, `AWgZSU4oUMkE2J58eTbI` L298, `AWgZSU4oUMkE2J58eTbJ` L357,
   `AWgZSU4oUMkE2J58eTbK` L405 (legacy-classloader `URIClassLoader`).
 
+### java:S9357 (anonymous class → lambda) — the SAME four `doPrivileged` sites, re-flagged
+`S9357` is the 2026 restatement of `S1604`, so the entry above applies verbatim; the rule was
+re-issued with new keys on the same lines. Check `S1604` first whenever `S9357` is shortlisted.
+- `AaBH936qfGkR8UU2ykn_` L276, `AaBH936qfGkR8UU2ykoA` L296, `AaBH936qfGkR8UU2ykoB` L355,
+  `AaBH936qfGkR8UU2ykoC` L403 (legacy-classloader `URIClassLoader`).
+
+### githubactions:S7637 (pin third-party actions to a commit hash) — a CI-policy decision
+All three repos, the same line: `.github/workflows/quality-pr-sonar.yml:81`. Pinning an action to a
+SHA is a supply-chain policy call for the whole org (and it changes how Renovate updates it), not a
+code cleanup — and this particular workflow is the one Vincent added for the Sonar PR gate.
+- commons `AaBJVoSScp18kkeMH5iG`, rendering `AaBJVq8K3f23caWm4-f4`, platform `AaBKgcfV2Sq2goC8pHGc`.
+
 ### java:S7476 / java:S3706 in `xwiki-commons-extension-api` — NO LONGER DROPPED
 The former blocker (the module was red on master on its own `revapi` check, JSpecify `@Nullable`
 migration) is **fixed**: `mvn package revapi:check -Pquality -DskipTests -pl <module>` now passes.
@@ -378,6 +390,16 @@ assertions; see `rules/test-code.md`.
   Apache Commons method through `org.xwiki.text.StringUtils`. See the platform section for the full
   reason; the rest of rendering's 34 were fixed.
 
+### java:S9365 (copy constructor leaves fields uninitialized) — the omitted fields are CACHES
+Whole-rule drop in rendering (its only pool). Each "eligible" field is either a lazily-computed cache
+of the copied state or per-parse transient state that a copy must not carry: `WikiParameter(WikiParameter)`
+and `WikiParameters(WikiParameters)` omit `fStr`/`fValid` (the cached `toString()` and validity), and
+`MetaDataParser(MetaDataParser)` omits `currentEntry`/`currentParser` (SAX state of the parse in
+progress — the constructor is a prototype copy). Adding `= null` writes would satisfy the rule without
+saying anything the code does not already say.
+- `AaBH8ul9h0X7CyxKQqDT` WikiParameter L44, `AaBH8uh4h0X7CyxKQqDS` WikiParameters L111,
+  `AaBH8vcgh0X7CyxKQqDV` MetaDataParser L67.
+
 ### Rendering is NOT closed — a denylisted rule re-opened 32 sites
 The "49-rule facet yields nothing" conclusion below held only for the *allowlist*. `S3252`, which the
 OKF denylist described as backward-compat-bearing, turned out to be a pure qualifier change and paid
@@ -390,6 +412,15 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S9357 (anonymous class → lambda) — no functional target type / the class identity is observed
+Two shapes, both decidable without a build — see [rules/java-S9357.md](rules/java-S9357.md).
+- `AaBHrPhxyb234MaJsjA5` `IDVersionHibernateAdapterFactoryTest` L81 — the value is passed to
+  `TestComponentManager.registerComponent(Type, String, **Object**)`, so a lambda has no target
+  functional interface and does not compile. A false positive: the rule does not look at the callee.
+- `AaBHrRflyb234MaJsjA_` `NotificationPreferenceScriptServiceTest` L192 — the production code builds
+  its error message from `userReference.getClass().getSimpleName()`, which is `""` for an anonymous
+  class and non-empty for a lambda; the test asserts `"the given reference was a []"`.
 
 ### java:S6880 (if/else chain → switch) — arms that are not a single expression
 

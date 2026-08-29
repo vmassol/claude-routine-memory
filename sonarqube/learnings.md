@@ -56,6 +56,8 @@ rows for the rules you commit to fixing this run.
 | `java:S6880` | [rules/java-S6880.md](rules/java-S6880.md) | `switch` enforces a dominance rule the `if`-chain does not, so a compile error IS a dead-branch finding; `case null` is the only behaviour question; and a fifth of the pool is `==`-against-constants, not `instanceof` |
 | `java:S2142` | [rules/java-S2142.md](rules/java-S2142.md) | one inserted line, and the pool splits for free on the catch clause's TYPE — a broad `catch (Exception)` is the drop |
 | `java:S8786` | [rules/java-S8786.md](rules/java-S8786.md) | whole-rule drop: a flagged site ALREADY carries the possessive-quantifier fix the rule recommends, so the remediation does not clear the issue |
+| `java:S9354` | [rules/java-S9354.md](rules/java-S9354.md) | free everywhere except where a TEST asserts the *magnitude* of `compareTo` — grep for it, the build round is the alternative |
+| `java:S9357` | [rules/java-S9357.md](rules/java-S9357.md) | the 2026 restatement of `S1604`, so its drop index already applies; two more drops are a target parameter typed `Object` and an observed `getClass().getSimpleName()` |
 
 ## Picking a target rule (find phase)
 
@@ -291,6 +293,35 @@ rows for the rules you commit to fixing this run.
   in two repos — and `css:S4666`. Run it BEFORE re-deriving denylist entries: an unseen rule needs no
   argument against a recorded rejection. (Match on the bare key with a word boundary, or `S108`
   matches inside `S1084`.)
+  **And it REGENERATES, so re-run it every time — a note here saying it is "essentially spent" is
+  about the day it was written, not about the rule catalogue.** SonarSource ships new rules
+  continuously: two runs after that note, the same three-call diff surfaced a whole new **`S93xx`
+  generation** none of which existed when the corpus was written — `S9354` (16), `S9357` (18),
+  `S9358` (6), `S9365` (3) and `githubactions:S7637` (3), **43 issues, 34 of them shipped in one
+  sweep across all three repos**. Two properties make a fresh rule generation the best pool there
+  is: nothing in `dropped-issues.md` or the OKF denylist argues against it, and it is dense in
+  **commons and rendering at the same time** — which is what a multi-repo run needs and what the
+  Java allowlist has not delivered in a dozen "commons and rendering are closed" confirmations.
+  So open every run with this diff, not with the allowlist.
+- **A "new" rule is often a RESTATEMENT of an old one — carry the old rule's drop index across.**
+  `java:S9357` ("Make this anonymous inner class a lambda") is `java:S1604` with a new key and a new
+  description, and its four commons sites were the same `AccessController.doPrivileged` lines
+  `dropped-issues.md` had already ruled permanently un-convertible under `S1604`. Recognising that
+  cost one grep of the drop index **by the code shape** (`doPrivileged`, `URIClassLoader`) rather
+  than by key, and it saved a build round on a lambda that provably does not compile. So when the
+  never-mentioned diff surfaces a rule, read its *name and compliant example* against the recorded
+  rule names before treating it as unexplored — and record the new keys next to the old ones.
+- **A fix that narrows a return value's RANGE without changing its meaning can be contradicted by a
+  test asserting the old value.** Sibling of the recorded "a logging fix can be contradicted by a
+  test asserting the RAW log message", and the same lesson: the contract the codebase *tests* can be
+  narrower than the contract it *documents*. `Integer.compare` returns −1/0/1 where `a - b` returned
+  the difference, and `ResourceReferenceHandlerTest` asserted `assertEquals(300, h1.compareTo(h2))`
+  — over-specified (only the sign is in the `Comparable` contract), so adapting the test is the right
+  answer, but it is a judgement call on someone else's test and belongs in the **judgement PR**, not
+  in the mechanical batch. The cheap pre-check is a grep of the flagged class's module tests for
+  `assertEquals(<number>,` near a `compareTo`/`compare`; the expensive one is what happened here —
+  the failing module sat early in the reactor and `-fae` does not save the modules downstream of it,
+  so one site cost a 12-module recovery run.
 - **For a comment-only rule, the comment's CONTENT is a policy question — settle it before writing 80
   sentences.** The `S108` sweep wrote a true, careful rationale into each empty `catch` and the review
   came back: in XWiki a `catch` that neither rethrows nor logs is *a bug to fix later*, so the wanted
