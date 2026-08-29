@@ -205,6 +205,26 @@ PRs merged the same day):**
 - **`css:` (19) and `xml:` (58) exist but are non-starters** — `xml:S1135`/`S1134` are TODO/FIXME
   comments, and the css pool is 19 issues over 7 rules.
 
+**Current standing state — after the `S93xx` sweep (platform 19 + 1, commons 9, rendering 5 = 34;
+the seventh run to ship in all three repos, and the first ever to do it off a brand-new rule
+generation):**
+
+- **The find phase was FOUR calls and zero source reads to pick the rules**: three `issues/search`
+  facet calls (one per repo) plus the memory-vs-facet "never-mentioned rule" diff, which is the step
+  a previous run had written off as spent. It returned `java:S9357` 18, `java:S9354` 16,
+  `java:S9358` 6, `java:S9365` 3 and `githubactions:S7637` 3 — a whole rule generation that did not
+  exist when the corpus was written. **Re-run that diff every run.**
+- **A fresh rule generation is the ONLY pool shape that is dense in commons and rendering at the same
+  time.** Nine-plus recorded "commons and rendering are CLOSED" confirmations all derive from the
+  mechanical allowlist and the denylist, neither of which can see a rule that did not exist yet.
+- **Open agent PRs at the start of the run: platform 4 (#6210/#6211 JS, #6247/#6248 from the previous
+  sweep), commons 0, rendering 0.** None claimed any file this sweep touched.
+- **Remaining un-triaged after this run**: platform's `javascript:` pool (~600, still the deep one,
+  and #6210/#6211 still claim 14 WAR files), `css:S4666`, `javabugs:S6416`/`S2190`. Everything else
+  in all three facets is denylisted, rejected or a recorded drop.
+- Build cost: commons 6 modules **4:53** (393 tests) + rendering 3 modules **1:18** (517) + platform
+  16 modules in two reactors **~14 min** (1907, oldcore 1179) ≈ **20 min** for 2817 tests.
+
 ## Candidates not yet swept
 
 - **Commons rules triaged and REJECTED in one pass** (read the message, not the code): `S1319`
