@@ -224,6 +224,13 @@ generation):**
   in all three facets is denylisted, rejected or a recorded drop.
 - Build cost: commons 6 modules **4:53** (393 tests) + rendering 3 modules **1:18** (517) + platform
   16 modules in two reactors **~14 min** (1907, oldcore 1179) ≈ **20 min** for 2817 tests.
+- **All four PRs green on the first push** — `Quality / Analyze` (the repo's own gate),
+  `SonarCloud`, `SonarCloud Code Analysis` and Socket Security all pass, and all four are
+  `mergeable_state: clean`. 34/34 issues ACCEPTED, first or second pass of the throttled loop.
+  PRs: platform [#6257](https://github.com/xwiki/xwiki-platform/pull/6257) (19, mechanical) and
+  [#6258](https://github.com/xwiki/xwiki-platform/pull/6258) (1, judgement),
+  commons [#1938](https://github.com/xwiki/xwiki-commons/pull/1938) (9),
+  rendering [#423](https://github.com/xwiki/xwiki-rendering/pull/423) (5).
 
 ## Candidates not yet swept
 
