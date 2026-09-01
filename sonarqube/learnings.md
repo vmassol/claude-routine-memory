@@ -1769,17 +1769,27 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   entry gets fixed up and landed instead. Two consequences: keep such a PR small enough that a rebase is trivial, and
   after any wake-up on an OKF PR **check the head SHA before touching the branch** — reset the local
   branch to the remote rather than pushing your stale commit over someone's rebase.
-- **An OKF PR must re-derive the plugin version from the LIVE master right before pushing.**
-  Concurrent sessions bump `1.0.N` too, so a bump computed from the commit you branched off is stale
-  by the time you push, and the PR gets closed for it ("the versions are wrong") — the content is
-  never even reviewed. Re-read `marketplace.json` on master (`gh api repos/xwiki/xwiki-dev-llm/
-  contents/.claude-plugin/marketplace.json --jq .content | base64 -d`) at push time, bump from THAT,
-  and also re-check the rule map on master: a parallel run may have just documented the same rules.
+- **AN OKF PR MUST NOT TOUCH THE PLUGIN VERSION AT ALL — the rule inverted on 2026-09-01 and every
+  older note here about "re-deriving the bump" is obsolete.** `scripts/validate.mjs` on master now
+  *fails* a PR that changes any version field, compared against the branch's **merge base**: "a pull
+  request must not — it makes every concurrent PR conflict … the release is cut on master by
+  `scripts/release.mjs`". To force a non-patch release, put a `Release-Bump: minor` (or `major`)
+  trailer in a commit message instead of editing a manifest. This removes the structural conflict that
+  had been the single most common reason these PRs were closed unreviewed — so an OKF PR is now
+  cheaper to open than every note below assumes.
+  **Two consequences for a wake-up on an older OKF PR.** (a) The reviewer may push a "drop the plugin
+  version bump" commit onto your branch; reset to the remote and keep it. (b) CI then goes red for a
+  confusing reason — the check runs the copy of `validate.mjs` **on the branch**, which still enforces
+  the old "bump above master's tip" rule, so it reports `1.1.8 is not greater than 1.5.1`. The fix is
+  a `master` MERGE, not a version edit: it brings the new validator, the manifests take master's
+  version unchanged, and the merge base advances to master's tip so the version check sees no change.
+  Run `node scripts/validate.mjs` *after* committing the merge — before the commit the merge base is
+  still the old one and it reports a phantom bump.
 - **What the OKF already covers moves fast.** Between one run's PR and the next, parallel sessions
-  documented eight more rules and bumped the plugin three times (1.0.10 → 1.0.14). Re-read the rule map
-  and the family file on master before writing anything and drop whatever landed meanwhile: a PR that
-  re-documents an existing rule is noise, and a version bump computed from your branch point gets the
-  PR closed unreviewed.
+  documented eight more rules and the plugin went 1.1.x → 1.5.x in a week. Re-read the rule map and the
+  family file on master before writing anything and drop whatever landed meanwhile: a PR that
+  re-documents an existing rule is noise. (The version half of this warning no longer applies — see
+  the bullet above.)
 - **Recording learnings (memory repo → `main`).** The xwiki-platform fix lives on a feature branch but
   learnings go to this repo's `main`. Do NOT edit on the feature branch then stash/checkout/pop (main
   has diverged; the pop bakes `<<<<<<<` markers into the commit). Instead `git checkout main && git pull
