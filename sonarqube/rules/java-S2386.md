@@ -60,6 +60,19 @@ that neither is reachable when every element is a literal or a `static final Str
 The free classifier is the **initializer expression on the flagged line**: an inline
 `Arrays.asList`/`SetUtils.hashSet`/`List.of`-able literal list converts; anything else drops.
 
+## Outcome
+
+**The judgement half MERGED, uncommented** — rendering [#424](https://github.com/xwiki/xwiki-rendering/pull/424)
+landed ~8 h after opening with no review comment at all, alongside the sweep's mechanical commons PR.
+So the immutable-value remediation is not merely *accepted by the analyzer*, it is accepted by
+reviewers: an `Arrays.asList`/`SetUtils.hashSet` → `List.of`/`Set.of` swap on a read-only public
+constant does not read as a backward-compatibility risk to a maintainer. Twelfth denylist rescue to
+merge, and it keeps the record at "a rule rescued from a mis-scoped denylist reason merges
+uncommented".
+
+Ship it as its own PR anyway: the `set()`-throws difference is a real behaviour change on published
+API and belongs in front of a maintainer as one, not buried in a mechanical batch.
+
 ## Pool shape (2026-08)
 
 Platform 21, commons 8, rendering 3. Converted 7 + 0 + 3. It is one of the very few rules that is
