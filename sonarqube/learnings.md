@@ -781,6 +781,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
   *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
   `Analyze` is. Don't act on the app check alone.
+  **But the arithmetic proof is not always available, because a `javabugs:` finding can exist ONLY in
+  the PR analysis.** The recorded proof (same rule, same message, two line deltas matching the diff)
+  assumes the finding is on master at a shifted line. It sometimes is not: platform #6273 failed
+  `new_reliability_rating` on two `javabugs:S2259` in `DownloadAction.java:428/432` while master —
+  analyzed four hours earlier, and holding 127 `S2259` project-wide — had **zero** open issues of
+  that rule in that file. So don't spend calls hunting for the master twin; when it is absent, the
+  argument that stands is **distance plus mechanism**: name your actual hunks (here line 25, an import
+  removal, and line 82, `Arrays.asList` → `List.of` in a static field initializer), show they are
+  ~350 lines from the finding, and state that there is no data path from them to the property the rule
+  is about (a method parameter's nullness). Add that `Quality / Analyze` passes on the same commit and
+  that a re-run is pointless because the analysis is deterministic. Post it as one comment and leave
+  the batch alone.
   **Known landmine, still open on master: oldcore `com/xpn/xwiki/XWiki.java:4755`**
   (`checkDeletingDocument` dereferences its `document` parameter with no null check). It no longer
   gates a PR, but it is the finding those two PRs inherited.
