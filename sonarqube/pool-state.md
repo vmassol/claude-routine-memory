@@ -227,6 +227,10 @@ later reopened — see the gate bullet below):**
   FIXME-annotated parameters.
 - **Open agent PRs at the start: platform 4 (#6210/#6211 JS, #6247/#6248), commons 0, rendering 0.**
   None claimed a file this sweep touched.
+- **A mid-PR drop commit does not cost the merge.** Commons #1940 shipped, went red on the gate, had
+  one site reverted in a second commit, and **merged uncommented** — so when the gate rejects a site,
+  drop it and push the revert rather than closing and re-opening a "clean" PR; reviewers do not hold
+  the extra commit against it (and the squash-merge collapses it anyway).
 - **Two of 40 sites were rejected by `Quality / Analyze` because the declaration line they rewrote
   already carried a pre-existing `java:S3776`** (commons `MockitoComponentMocker`, platform
   `RightsManager`). Both dropped, reverted, reopened in SonarCloud. This is a *general* hazard for
@@ -248,7 +252,8 @@ later reopened — see the gate bullet below):**
   2377 tests**, all green in one chained background run, first try.
 - PRs: platform [#6272](https://github.com/xwiki/xwiki-platform/pull/6272) (25, mechanical) and
   [#6273](https://github.com/xwiki/xwiki-platform/pull/6273) (7, `S2386` judgement),
-  commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (3),
+  commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (3, **MERGED uncommented ~7.5 h
+  after opening**, second commit and all),
   rendering [#424](https://github.com/xwiki/xwiki-rendering/pull/424) (3, `S2386` judgement).
 
 **Current standing state — after the `S93xx` sweep (platform 19 + 1, commons 9, rendering 5 = 34;
