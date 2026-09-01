@@ -793,6 +793,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   is about (a method parameter's nullness). Add that `Quality / Analyze` passes on the same commit and
   that a re-run is pointless because the analysis is deterministic. Post it as one comment and leave
   the batch alone.
+  **And the duplication twin has a specific trigger this routine will keep hitting: fixing the SAME
+  rule in both halves of an already-duplicated block.** Platform #6272 failed
+  `6.7% Duplication on New Code (≤3%)` = **2 duplicated lines / 30 new lines**, because its
+  `java:S1940` fix rewrote one line inside *each* of two verbatim 19-line copies in `XWiki.java` (the
+  `Accept-Language` parsing in `getLanguagePreference` and `getInterfaceLanguagePreference`).
+  `api/duplications/show` proves the copy-paste pre-dates the PR — master `[3458, 3565]`, PR
+  `[3456, 3563]`, both size 19 — and note **both offsets are −2, the same shift as the reliability
+  finding** (master `S2259` at 4788, PR at 4786), because the PR deletes two `import` lines above
+  everything. One arithmetic story covers both failed conditions when the shift has a single cause;
+  say so rather than writing two unrelated explanations.
+  The tempting "fix" — convert only one copy — is the wrong call: it clears the condition and leaves
+  the same expression written two ways in one file, which is the intra-file inconsistency reviewers
+  object to. State that trade-off explicitly in the comment and offer a JIRA for the real
+  de-duplication.
   **Known landmine, still open on master: oldcore `com/xpn/xwiki/XWiki.java:4755`**
   (`checkDeletingDocument` dereferences its `document` parameter with no null check). It no longer
   gates a PR, but it is the finding those two PRs inherited.
