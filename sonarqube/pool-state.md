@@ -163,6 +163,9 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S9358** duplicated operation in both ternary branches | Platform 2, commons 1, rendering 3 — all shipped. The rendering three are the same `MAP.containsKey(k) ? MAP.get(k) : MAP.get(DEFAULT)` shape in the `xdomxml10` converters. | **0 drops (6/6).** Pure `cond ? f(a) : f(b)` → `f(cond ? a : b)`; safe whenever the repeated call has no side effect. No rule file needed. |
 | **S9365** copy constructor leaves fields uninitialized | Rendering 3 (its only pool), platform/commons 0. **Whole-rule drop** — keys recorded. | **100% drops.** Every omitted field is a lazily-computed cache of the copied state or per-parse transient state a copy must not carry; the "fix" would be `= null` writes that say nothing. |
 | **S6213** restricted identifier | Commons 18, platform 6, rendering 0 — all of them the identifier `record` in the extension-job-history feature. **Commons' 16 variable sites shipped as a judgement PR and MERGED uncommented** (#1924) — the seventh denylist rescue to land. **Platform's 4 variable sites then shipped too and MERGED uncommented** (#6227), so both halves of the rule are now done; what remains is the 4 `"Rename this method"` drops. | **11% drops (16/18)**, and the split is free: `"Rename this variable"` converts, `"Rename this method"` is an API change. See [rules/java-S6213.md](rules/java-S6213.md). |
+| **S2386** mutable `public static` field | **Was OKF-denylisted for the message's fix only.** Platform 21, commons 8, rendering 3 — **10 shipped** (platform 7, rendering 3; commons 0). The convertible shape is an inline `Arrays.asList(<literals>)`/`SetUtils.hashSet(…)` initializer; commons' whole pool is `static`-block-populated collections plus an `int[]`, hence 0 there. Shipped as judgement PRs (platform #6273, rendering #424). | **~70% drops overall, 0 on the inline-initializer subset (10/10).** Free classifier: the initializer on the flagged line. Drops are static-block population (the big one), arrays, `EnumSet`, and interface fields (message changes to "Move X to a class"). See [rules/java-S2386.md](rules/java-S2386.md). |
+| **S6035** alternation → character class | Platform 7 (all on `private`/local patterns: `HTMLMimeBodyPartFactory`+`MailSenderPlugin` 2 each on the same `src=('\|")cid:` line, `FormUrlEncodedTagsReader`, `ObjectAddAction`, `XWikiTrunkNode`), rendering 2 (`public static final String` — the recorded permanent drop), commons 0. All 7 platform shipped. | **0 drops on the private/local subset (7/7).** The OKF's own escape ("only fix it on a private or local pattern") is exact. Two guards: **preserve the capturing-group count** when the alternation is a group that `group(n)`/`$n` refers to, and do not touch an alternation containing an anchor (`(&\|#\|$)` is not single-character). Pairs with `S5855` when one alternative subsumes another (`\d` inside `\w`) — one edit, two issues. |
+| **S1940 / S4034 / S1611 / S3985 / S1481 / S1144 / S1128 / S2209** platform long tail | 2+1+1+1+1+1+5+3 = 15 in one PR (#6272). `S1940` is `!(a.length == 0)` twice in `XWiki.java`; `S2209` is three `this.ENCODERS_MAP` reads of a `private static final` map in `PasswordClass`. | **0 drops (15/15).** Ideal riders on any reactor you are already building. `S1144`'s drop shape is a comment saying the "unused" private method is reached reflectively (commons `ReflectionUtilsTest` ×2). |
 
 
 **After the JavaScript sweep (platform 43 JS + 6 Java, commons 0, rendering 0):**
@@ -204,6 +207,43 @@ PRs merged the same day):**
   `String`-or-`false` return value, not a boolean. Read the operand's producer before touching it.
 - **`css:` (19) and `xml:` (58) exist but are non-starters** — `xml:S1135`/`S1134` are TODO/FIXME
   comments, and the css pool is 19 issues over 7 rules.
+
+**Current standing state — after the S2386/S1172/long-tail sweep (platform 33 = 26 + 7, commons 4,
+rendering 3 = 40; the eighth run to ship a real batch in all three repos, 40/40 accepted first pass):**
+
+- **The "never-mentioned rule" diff returned ZERO — and that was the 100-value facet cap lying.**
+  One `facets=rules` call per repo said every open rule is documented. Splitting platform's Java
+  facet by severity (5 calls) revealed **161 rules, not 100**, and 30 of the tail were never
+  mentioned anywhere in the corpus. Always union a per-severity (and per-language) split; see
+  `learnings.md`. The tail is where `S1940`, `S4034`, `S3985`, `S2272` and `S1223` were hiding.
+- **What paid was the eleventh denylist rescue, on a NEW axis**: `java:S2386`'s denylist reason
+  objects to the *message's* remediation (`protected` → Revapi), not to the rule, and the
+  immutable-value remediation changes no declaration. It is one of the very few rules with a pool in
+  all three repos when the mechanical allowlist is dry. See [rules/java-S2386.md](rules/java-S2386.md).
+- **`java:S1172` regenerates and is worth ~2 calls every run** — 13 fresh `private` platform sites +
+  2 commons appeared since the pool was written off as "the non-`private` residue". Conversion rate
+  has dropped to ~⅓ though: what regenerates is disproportionately dispatch families and
+  FIXME-annotated parameters.
+- **Open agent PRs at the start: platform 4 (#6210/#6211 JS, #6247/#6248), commons 0, rendering 0.**
+  None claimed a file this sweep touched.
+- **Confirmed dry, re-derived from scratch this run** (one full-facet + drop-index cross-check per
+  repo, zero source reads): commons 993 open / 847 not-in-drop-index and rendering 345 / 298, but
+  every one of those sits in a denylisted or recorded-rejected rule. Newly rejected as *whole rules*
+  by a visibility bucketing pass that found no `private` subset at all: `S1452`, `S9149`, `S2176`,
+  `S1700` — recorded in `dropped-issues.md`. The **CSS facet was opened for the first time**:
+  platform 19 issues over 7 rules (`S4666` 9, `S4656` 3, `S4670`/`S4651` 2, singletons), commons and
+  rendering 0 — still untriaged, and the only never-opened language facet left.
+- **`javabugs:S2259` rendering (87) was looked at and stays a drop**: it is one false-positive
+  cluster in the chaining renderers/tag handlers (`XWikiSyntaxChainingRenderer` 12,
+  `PlainTextChainingRenderer` 9, `XHTMLChainingRenderer` 8), i.e. exactly the "highest FP rate on the
+  files carrying the most of them" shape the OKF describes.
+- Build cost: commons 4 modules **3:02** (64 tests) + rendering 3 modules **1:37** (731) + platform
+  10 modules incl. `oldcore` and `legacy-oldcore` **11:13** (1582, oldcore 1186) = **~16 min for
+  2377 tests**, all green in one chained background run, first try.
+- PRs: platform [#6272](https://github.com/xwiki/xwiki-platform/pull/6272) (26, mechanical) and
+  [#6273](https://github.com/xwiki/xwiki-platform/pull/6273) (7, `S2386` judgement),
+  commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (4),
+  rendering [#424](https://github.com/xwiki/xwiki-rendering/pull/424) (3, `S2386` judgement).
 
 **Current standing state — after the `S93xx` sweep (platform 19 + 1, commons 9, rendering 5 = 34;
 the seventh run to ship in all three repos, and the first ever to do it off a brand-new rule

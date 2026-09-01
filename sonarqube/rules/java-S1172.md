@@ -37,8 +37,30 @@ Decidable from the flagged declaration plus the call sites in the same file:
    `setupForLimitQueries(expectedLimit, expectedOffset)` is always called next to
    `verifyLimitQueries(expectedLimit, expectedOffset)`; removing one of the two breaks the pairing a
    reader relies on. (Sonar flags only one of the two parameters, which makes the asymmetry worse.)
+   **Its strongest form is a `switch`-driven dispatch family**: platform's
+   `DefaultXWikiDocumentMerger#OVERWRITE/SKIP/SKIP_ALLWAYS` are three CONSTANT_CASE private methods
+   called from three arms of one `switch` with deliberately uniform argument lists (3 issues in one
+   file). Recognise it from the flagged declarations alone — same file, same shape, same arity — and
+   drop the whole family; the same reasoning took
+   `ExpressionNodeToEventQueryConverter#parseUnaryOperator`, which mirrors `parseBinaryOperator` and
+   `parseBlock` on the `ingroup` flag.
+4. **The parameter is threaded down a private chain from a PUBLIC entry point.** Removing it at the
+   frontier only pushes the same issue one level up, and the chain terminates at API you cannot
+   change — so the rule regenerates in the file you just fixed and you gain nothing.
+   `DocumentLocaleReader#readXMLElement(xmlReader, filter, proxyFilter)` is fed by the private
+   `read(xmlReader, filter, proxyFilter)`, which is fed by the **public**
+   `read(Object filter, XARInputFilter)`. Cheap test: grep the callers; if the argument at the call
+   site is itself a parameter of the calling method, walk one more level before committing.
 
 Everything else converted: **41 of 45 private sites, 0 build failures beyond the two below.**
+
+**The rule REGENERATES from ordinary refactoring — re-bucket it every run, it is ~2 calls.** Eleven
+runs after the pool was declared "the non-`private` residue", the same query found **13 fresh
+`private` platform sites and 2 commons** (platform's totals had moved 132 → 97 open, i.e. the public
+residue shrank while new private sites appeared). Of those 15, 5 shipped and 10 were drops — a much
+higher drop rate than the original sweep's 9%, because the easy shapes were taken first and what
+regenerates is disproportionately dispatch families and FIXME-annotated parameters. Budget it at
+~⅓ conversion now, not 90%.
 
 **Outcome: all three PRs merged, none with a single review comment** — platform #6214 (35 sites,
 mostly oldcore `src/main`), commons #1918, rendering #408. So the private subset is not merely safe,

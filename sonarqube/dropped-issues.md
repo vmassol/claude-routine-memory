@@ -1142,3 +1142,81 @@ block body with `yield` and reads worse than the chain. Full rationale in
 `XWikiReferenceParser` (6), `XWikiScannerUtil` (4), `WikiPageUtil` (2), `MacroTransformation` (1) all
 "assign to the loop counter from within the loop body" **on purpose** — that is how a character
 scanner consumes an escape or a multi-character token. Rejected as a whole rule for this repo.
+
+## java:S2386 (platform, 14) — not a one-line immutability change
+
+The inline-initializer subset shipped (see [rules/java-S2386.md](rules/java-S2386.md)); these are the
+rest. Commons' whole 8-issue pool is the same two shapes and is a whole-repo drop for this rule.
+
+* **Empty collection populated by a `static` block** — making it immutable needs a private backing
+  field plus a public unmodifiable view, i.e. a refactor: `SyndEntryDocumentSource`
+  `AW5-S-AD1Yj5qvzeRos7` `AW5-S-AD1Yj5qvzeRos8` `AW5-S-AD1Yj5qvzeRos9` `AW5-S-AD1Yj5qvzeRos-`,
+  `XARDocumentParameters` `AZzDryMTAHaDflByRxXe`, `AbstractEntityReferenceResolver`
+  `AYMiXcaIXBPpoazW6IB-`, `XWikiRepositoryModel` `AW5-S-g71Yj5qvzeRo3r`.
+* **An array** — cannot be made immutable: `DefaultSolrConfiguration.HOME_DIRECTORY_FILE_NAMES`
+  `AW5-S78N1Yj5qvzeRoCT`.
+* **`EnumSet` constants** (one of them `= null`) — `Set.of` would change the concrete type and
+  iteration order: `Right` `AW5-S4591Yj5qvzeRmvB` `AW5-S4591Yj5qvzeRmvC` `AW5-S4591Yj5qvzeRmvD`
+  `AW5-S4591Yj5qvzeRmvE`.
+* **Interface fields** — the message becomes "Move X to a class and lower its visibility", the design
+  change the OKF denylist is right about: `NotificationFilter.SUPPORT_BOTH_FILTERING_PHASE`
+  `AXnpAd4DDDFOvAKXAQIg`, `EntityReferenceConstants.PARENT_TYPES` `AW5-S93T1Yj5qvzeRoo0`.
+
+## java:S1172 (platform 10) — the 2026-09 regeneration's drops
+
+Re-bucketing found 13 fresh `private` platform sites; 3 shipped, these are the 10 drops. Reasons are
+the four shapes in [rules/java-S1172.md](rules/java-S1172.md).
+
+* **`switch`-driven dispatch family with uniform signatures**: `DefaultXWikiDocumentMerger`
+  `OVERWRITE`/`SKIP`/`SKIP_ALLWAYS` `AaAv1PahObA3UIzK3uTS` `AW5-S7Kr1Yj5qvzeRn5H`
+  `AW5-S7Kr1Yj5qvzeRn5J`; `ExpressionNodeToEventQueryConverter#parseUnaryOperator`
+  `AXnpAeLeDDFOvAKXAQLQ` (mirrors `parseBinaryOperator`/`parseBlock` on the `ingroup` flag).
+* **A `// FIXME` above the declaration says the parameter should be used**:
+  `ResourceReferenceRenamer#updateAbsoluteResourceReference` `AZMlOxbz1YOsw_u-zo4r`,
+  `IncludeMacroRefactoring#getMacroBlock` `AZMlOt6o1YOsw_u-zo4h`.
+* **The shortened signature collides with an existing overload**:
+  `XWikiHibernateRecycleBinStore#getDeletedDocument` `AW5-S6py1Yj5qvzeRni4` (minus `bTransaction` it
+  *is* the public 3-arg `getDeletedDocument`).
+* **The parameter is threaded down a private chain from a public entry point**, so removing it just
+  moves the issue up one level: `DocumentLocaleReader#readXMLElement` `AaAv1RlpObA3UIzK3uTW`.
+* **Package-private, not `private`** (constructors in an `internal` package):
+  `AttachInputSocket` `AW5-S8xr1Yj5qvzeRoO-`, `AttachOutputSocket` `AW5-S8xU1Yj5qvzeRoO7`.
+
+## java:S1130 / java:S1144 / java:S5778 (commons, 6) — the 2026-09 remainder
+
+* **`S1130` non-`private`** — a real signature change for a subclass in another module:
+  `AbstractBeanOutputFilterStream#createFilter` `AV2juG7VVSxcxmoV58Lz`,
+  `DefaultJobManager#initialize` `AV4uHS0Q5jV1AdqTqB1L`, `AbstractExtensionMojo#after`
+  `AV2juGiwVSxcxmoV58Cq`. (The one `private` site, `MockitoComponentMocker`, shipped.)
+* **`S1144` false positive the code already documents** — both `ReflectionUtilsTest` private methods
+  carry *"This method is actually used by the getAllMethods reflection test"*:
+  `AY-F47j8UnN6kAHHxlSf` `AY-F47j8UnN6kAHHxlSg`.
+* **`S5778` where the expression to hoist is itself a candidate thrower**: `BlobPathTest`
+  `AZpzqATq_W9UTNvTGQYE` (`BlobPath.relative("..", "bad/name")` is what raises).
+
+## java:S6035 (rendering, 2) — `public static final String` regex constants
+
+`ReferenceHandler.PREFIX_DOWNLOAD` `AXZl7LuPr56YxuFA79Xv` and `PREFIX_IMAGE` `AXZl7LuPr56YxuFA79Xu`
+are compile-time constants, so changing the value is a Revapi `java.field.constantValueChanged`
+break — exactly the case the OKF entry carves out. Platform's 7 sites, all `private`/local patterns,
+shipped.
+
+## java:S1452 / java:S1700 / java:S9149 / java:S2176 (all three repos) — whole-rule drops
+
+Re-derived by the visibility split in 2026-09 and **none of them splits**, so these are rejected as
+whole rules rather than key-by-key:
+
+* **`S1452`** remove a generic wildcard return type (platform 32, commons 4, rendering 3) — zero
+  `private` sites; every one is `public`, `protected` or an interface method, i.e. a published
+  signature change.
+* **`S1700`** field named like its class (platform 10, commons 3, rendering 1) — already recorded
+  key-by-key; the `private` ones are the deliberate wrapper-field idiom (`Attachment.attachment`,
+  `Document.doc`), and renaming them says nothing.
+* **`S9149`** "rename this method; it hides X" (commons 45, platform 8, rendering 1) — all `public
+  static`, and commons' 45 are `StringTool` re-declaring `commons-lang3` statics, the same shape as
+  the permanently-dropped `S3252` `StringUtils` sites. The two `DefaultVelocityManagerTest` sites are
+  deliberate method-hiding *fixtures*.
+* **`S2176`** class named like its superclass (commons 18, platform 11, rendering 3) — every one is a
+  `public` class deliberately named after the type it wraps or extends (`StringUtils extends
+  org.apache.commons.lang3.StringUtils`, `Logger extends org.slf4j.Logger`, `CollectionConverter
+  extends com.thoughtworks.xstream…`). A class rename is an API break and loses the intent.

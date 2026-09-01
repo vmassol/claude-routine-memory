@@ -58,6 +58,7 @@ rows for the rules you commit to fixing this run.
 | `java:S8786` | [rules/java-S8786.md](rules/java-S8786.md) | whole-rule drop: a flagged site ALREADY carries the possessive-quantifier fix the rule recommends, so the remediation does not clear the issue |
 | `java:S9354` | [rules/java-S9354.md](rules/java-S9354.md) | free everywhere except where a TEST asserts the *magnitude* of `compareTo` — grep for it, the build round is the alternative |
 | `java:S9357` | [rules/java-S9357.md](rules/java-S9357.md) | the 2026 restatement of `S1604`, so its drop index already applies; two more drops are a target parameter typed `Object` and an observed `getClass().getSimpleName()` |
+| `java:S2386` | [rules/java-S2386.md](rules/java-S2386.md) | denylisted for the MESSAGE's fix (`protected` → Revapi); making the value immutable clears it with no declaration change |
 
 ## Picking a target rule (find phase)
 
@@ -168,6 +169,24 @@ rows for the rules you commit to fixing this run.
   information (a version, a type, a name) into an annotation or a typed API, grep the neighbouring
   comment for the old copy in the same edit. Cost of getting it wrong: a second full reactor over the
   same 77 modules (~21 min warm) and a second commit on six open PRs.
+- **A denylist reason can be about the MESSAGE'S suggested remediation rather than about the rule —
+  and most rules have more than one compliant outcome.** Eleventh denylist rescue and a *new escape
+  axis*, distinct from the visibility split and from "is the missing fact already written down".
+  `java:S2386` was listed as *"make this member `protected`" → Revapi `java.field.visibilityReduced`*,
+  which is exactly what its `message` says and is a real break. But the rule fires on a `public
+  static` member whose **value** is mutable, so making the value immutable (`Arrays.asList(…)` →
+  `List.of(…)`) clears it with **no declaration change at all** — 10 sites across platform and
+  rendering, and it is one of the very few rules with a pool in all three repos on a day the
+  mechanical allowlist is dry. Ask it of every denylist entry whose reason paraphrases the issue
+  message: *is this an objection to the rule, or to one way of satisfying it?*
+  **The confirmation step is a grep of the scanned source, not `api/rules/show`.** S2386's
+  description shows only non-compliant examples, so the API could not settle whether the analyzer
+  accepts the alternative form. What settled it in one call: **find a constant already written in the
+  candidate form and confirm it carries no open issue** — `PasswordClass.SUPPORTED_ALGORITHMS
+  = List.of(…)` (platform) and `ImageBlockParser.IMAGE_ALIGNMENT = Map.of(…)` (rendering), both
+  `public static final` collections, both unflagged. That in-repo precedent is also the strongest
+  sentence in the PR body, and it is the general answer to the `S8786` hazard ("does the remediation
+  actually clear the issue?") whenever the rule doc is silent.
 - **A denylist reason of the form "the fix needs information X" is a question about whether the code
   already WRITES X DOWN — and in XWiki it often does, two lines above the flagged line.** Fifth
   denylist rescue (after `S1117`, `S3252`, `S3415`, `S1172`) and the biggest pool any run has found:
@@ -293,6 +312,15 @@ rows for the rules you commit to fixing this run.
   in two repos — and `css:S4666`. Run it BEFORE re-deriving denylist entries: an unseen rule needs no
   argument against a recorded rejection. (Match on the bare key with a word boundary, or `S108`
   matches inside `S1084`.)
+  **Run it on the FULL rule set, not on one facet call — the 100-value cap silently truncates it and
+  the truncation looks like a clean result.** Platform's Java facet holds **161** rules; a single
+  `facets=rules` call returns the top 100, all of which are documented, so the diff printed *zero
+  never-mentioned rules across all three repos* and read like "the catalogue is exhausted". Splitting
+  the same query by severity (`severities=BLOCKER`, then `CRITICAL`, `MAJOR`, `MINOR`, `INFO`) and
+  unioning the five facets returned **30 never-mentioned rules** — the whole low-count tail, where a
+  never-triaged rule lives by construction. Split by `languages=` too (`java`/`js`/`css`/`xml` each
+  get their own 100). Cost: five calls per repo instead of one. Do not trust `len(values) < 100` as
+  proof of completeness either — check it against the response `total` split you actually queried.
   **And it REGENERATES, so re-run it every time — a note here saying it is "essentially spent" is
   about the day it was written, not about the rule catalogue.** SonarSource ships new rules
   continuously: two runs after that note, the same three-call diff surfaced a whole new **`S93xx`
@@ -499,6 +527,17 @@ rows for the rules you commit to fixing this run.
   reordering the branch is a product decision, and the report is worth more than the issue. Same
   reflex for any conversion into a construct with exhaustiveness, definite-assignment or
   effectively-final rules.
+- **Deleting an unused private TEST helper orphans imports (Checkstyle) but must NOT orphan the
+  fields it used — those are often component registrations.** Removing
+  `EditModeResolverTest#wysiwygEditor` (a `java:S1144` site) left `Editor`, `EditorDescriptor` and
+  `SyntaxContent` imported and unused, which `checkstyle:check` fails on *after* the tests, i.e. a
+  whole build round; delete them in the same edit (word-boundary count == 1 ⇒ only the import
+  remains). But the same deletion also left `@MockComponent private EditorManager editorManager`
+  with no reader, and that field must **stay**: in the XWiki test framework a `@MockComponent` field
+  registers a mock in the component manager for the class under test, so it is load-bearing even
+  when nothing in the test file references it. Same reflex for `@InjectMockComponents`,
+  `@RegisterExtension` and Mockito's `@Mock`/`@Captor` — an annotated field is never dead code, and
+  Sonar's `S1068` exempts them too.
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
   are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
   in the same edit; a declaration for a generic type should carry its type arguments and let the factory
@@ -1153,7 +1192,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `DELETE …/issues/{n}/lock` → post the comment → `PUT …/issues/{n}/lock -f lock_reason=resolved` again.
   Do the unlock/re-lock in ONE command so the window stays short. Reviewers can still leave reviews on a
   locked PR, so expect to need this.
-- **All three repos ship `.github/pull_request_template.md`** — mirror its headings (`# Jira URL`,
+- **None of the three repos ships a `pull_request_template.md` any more** (checked 2026-09-01:
+  `find <repo> -maxdepth 3 -iname '*pull_request_template*'` is empty in all three; platform's
+  `.github/` holds only `renovate.json5` and `workflows/`). Keep writing the body to the headings
+  below anyway — every merged PR of this routine uses them and reviewers read them — but do not spend
+  a call looking for the file. Original note, now stale: ~~all three repos ship
+  `.github/pull_request_template.md`~~ — mirror its headings (`# Jira URL`,
   `# Changes` / `## Description` / `## Clarifications`, `# Screenshots & Video`, `# Executed Tests`,
   `# Expected merging strategy`). For a Sonar sweep: "None — this is a `[Misc]` SonarQube cleanup
   commit" under Jira URL, the per-rule table under Description, the *dropped* sites and why under
