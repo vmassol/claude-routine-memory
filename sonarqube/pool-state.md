@@ -208,8 +208,9 @@ PRs merged the same day):**
 - **`css:` (19) and `xml:` (58) exist but are non-starters** — `xml:S1135`/`S1134` are TODO/FIXME
   comments, and the css pool is 19 issues over 7 rules.
 
-**Current standing state — after the S2386/S1172/long-tail sweep (platform 33 = 26 + 7, commons 4,
-rendering 3 = 40; the eighth run to ship a real batch in all three repos, 40/40 accepted first pass):**
+**Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
+rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
+later reopened — see the gate bullet below):**
 
 - **The "never-mentioned rule" diff returned ZERO — and that was the 100-value facet cap lying.**
   One `facets=rules` call per repo said every open rule is documented. Splitting platform's Java
@@ -226,6 +227,11 @@ rendering 3 = 40; the eighth run to ship a real batch in all three repos, 40/40 
   FIXME-annotated parameters.
 - **Open agent PRs at the start: platform 4 (#6210/#6211 JS, #6247/#6248), commons 0, rendering 0.**
   None claimed a file this sweep touched.
+- **Two of 40 sites were rejected by `Quality / Analyze` because the declaration line they rewrote
+  already carried a pre-existing `java:S3776`** (commons `MockitoComponentMocker`, platform
+  `RightsManager`). Both dropped, reverted, reopened in SonarCloud. This is a *general* hazard for
+  every declaration-rewriting rule and there is now a free pre-check for it in `learnings.md` — run it
+  before the first push, not after CI.
 - **Confirmed dry, re-derived from scratch this run** (one full-facet + drop-index cross-check per
   repo, zero source reads): commons 993 open / 847 not-in-drop-index and rendering 345 / 298, but
   every one of those sits in a denylisted or recorded-rejected rule. Newly rejected as *whole rules*
@@ -240,9 +246,9 @@ rendering 3 = 40; the eighth run to ship a real batch in all three repos, 40/40 
 - Build cost: commons 4 modules **3:02** (64 tests) + rendering 3 modules **1:37** (731) + platform
   10 modules incl. `oldcore` and `legacy-oldcore` **11:13** (1582, oldcore 1186) = **~16 min for
   2377 tests**, all green in one chained background run, first try.
-- PRs: platform [#6272](https://github.com/xwiki/xwiki-platform/pull/6272) (26, mechanical) and
+- PRs: platform [#6272](https://github.com/xwiki/xwiki-platform/pull/6272) (25, mechanical) and
   [#6273](https://github.com/xwiki/xwiki-platform/pull/6273) (7, `S2386` judgement),
-  commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (4),
+  commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (3),
   rendering [#424](https://github.com/xwiki/xwiki-rendering/pull/424) (3, `S2386` judgement).
 
 **Current standing state — after the `S93xx` sweep (platform 19 + 1, commons 9, rendering 5 = 34;

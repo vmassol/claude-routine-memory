@@ -1220,3 +1220,15 @@ whole rules rather than key-by-key:
   `public` class deliberately named after the type it wraps or extends (`StringUtils extends
   org.apache.commons.lang3.StringUtils`, `Logger extends org.slf4j.Logger`, `CollectionConverter
   extends com.thoughtworks.xstream…`). A class rename is an API break and loses the intent.
+
+## java:S3776 collisions — a declaration line that already carries a cognitive-complexity issue
+
+Both fixes were correct and both were reverted: rewriting the declaration line made
+`Quality / Analyze` attribute the method's pre-existing `java:S3776` to the PR, and reducing that
+complexity is a refactor rather than a cleanup. Skip these two, and pre-check the shape (see
+`learnings.md`) on every declaration-rewriting rule.
+
+* `java:S1172` platform `RightsManager#fillLevelTreeMap` `AW5-S6qr1Yj5qvzeRnlq` — the declaration
+  line carries `S3776` at complexity 27.
+* `java:S1130` commons `MockitoComponentMocker#registerMockDependencies` `AWgZSVQPUMkE2J58eTdz` — the
+  declaration line carries `S3776` at complexity 22.

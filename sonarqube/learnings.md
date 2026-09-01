@@ -784,6 +784,33 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   **Known landmine, still open on master: oldcore `com/xpn/xwiki/XWiki.java:4755`**
   (`checkDeletingDocument` dereferences its `document` parameter with no null check). It no longer
   gates a PR, but it is the finding those two PRs inherited.
+- **The other way `Analyze` fails you is NOT an artifact — the gate is right, and it is preventable
+  by one query per changed file BEFORE you push.** Distinct from the line-shift case above: there the
+  finding moved and the gate was wrong; here the pre-existing finding sits **on a line your fix
+  rewrites**, so by the gate's own rule ("the issues your own lines carry") it is yours. This bit two
+  of 40 sites in one sweep — commons `MockitoComponentMocker#registerMockDependencies` (`S1130`,
+  declaration line carried `S3776` complexity 22) and platform `RightsManager#fillLevelTreeMap`
+  (`S1172`, same line carried `S3776` complexity 27). Neither fix changed the complexity by one point;
+  rewriting the line was enough.
+  **The pre-check is ~10 lines and needs no source reads**: parse `git diff -U0 <base> <branch>` hunk
+  headers into the set of *written* line numbers per file, then one
+  `issues/search?componentKeys=<projectKey>:<path>&issueStatuses=OPEN` per changed file, and print any
+  open issue whose `line` falls in that set and is not one you are fixing. Run it before the first
+  push; it caught the platform one *while its `Analyze` was still `in_progress`*, so that PR never
+  went red at all, and re-running it afterwards is the proof to put in the reply.
+  **The shape to expect it on**: any rule whose fix rewrites a **method declaration line** — `S1172`
+  (drop a parameter), `S1130` (drop a `throws`), `S1611`, and the `S116`/`S117`/`S9149` renames —
+  because a declaration line is exactly where the *method-level metric* rules are reported: `S3776`
+  cognitive complexity (platform 218 / commons 67 / rendering 26, i.e. everywhere), `S107` too many
+  parameters, `S1541`. A long legacy method with an unused parameter is almost by definition also
+  complex, so the two pools overlap heavily. Cheapest form: at triage time, when bucketing such a rule
+  by visibility, also drop any site whose declaration line appears in the project's open
+  `S3776`/`S107`/`S1541` line set — one extra query for the whole batch.
+  **When it fires, DROP the site** (reducing the complexity is a refactor, not a Sonar cleanup) and do
+  the three-part cleanup: revert the file to `master` content (`git diff <master> -- <file>` empty is
+  the whole re-verification, no rebuild needed), **reopen** the issue in SonarCloud with a correction
+  comment naming the PR, and say in the PR's *Clarifications* what was dropped and why — the gate
+  agreeing with you is a better line in a PR body than a green run you had to argue for.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
