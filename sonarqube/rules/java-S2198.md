@@ -38,6 +38,22 @@ Before "documenting the intent" of a provably-dead comparison, ask **why** it is
 The cheap test is one sentence: *"if someone fixed this properly, would my deleted line come back?"*
 If yes, report the defect and leave the issue open.
 
+## Outcome
+
+#425 was **closed unmerged** and superseded by **xwiki-rendering#426 (XRENDERING-814,
+"Support supplementary characters when validating XML names")**, which does the whole thing properly:
+`int` code-point overloads, `isValidXmlName` walking the name by code point, and the `char` signatures
+moved to a new `xwiki-rendering-legacy-wikimodel` module. So the routine's cleanup was not merely
+churn — it *surfaced* a 20-year-old defect (`isValidXmlName("\uD840\uDC00foo")` returned `false` for a
+valid XML name) and the maintainer turned it into a real fix within hours. **That is the best possible
+outcome for a site of this shape, and it is worth more than the two issues would have been**: report
+the defect, do not paper over it.
+
+Note the sequence that produced it: the PR body stated the open question ("the real fix is an `int`
+code point, which is an API change"), the maintainer took *that* to the forum, the community chose
+deprecation + legacy over a compat break, and the fix followed. Stating the open question in the body
+is what did the work.
+
 ## Keys
 
 `AZ_01MtBbzuOmnNi3w77`, `AZ_01MtBbzuOmnNi3w78` — both on `WikiPageUtil` L310, same line. Expect them

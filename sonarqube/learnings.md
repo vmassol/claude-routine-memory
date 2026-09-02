@@ -755,7 +755,15 @@ rows for the rules you commit to fixing this run.
   neighbouring method that already takes the wider type (`isValidXmlChar(int ch)` did) and a deleted
   line that loses a row of a spec the code transcribes. See
   [rules/java-S2198.md](rules/java-S2198.md).
-  Net for the run: the technique is still right, and its first application was the wrong site.
+  Net for the run: the technique is still right, and its first application was the wrong site — but
+  the *outcome* was the run's best: #425 was closed and replaced by XRENDERING-814 (#426), which adds
+  the `int` overloads, walks by code point and moves the `char` signatures to a new
+  `xwiki-rendering-legacy-wikimodel` module, fixing a 20-year-old bug the Sonar issue was pointing at.
+  **So a closed PR is not always the review verdict `learnings.md` records it as** (the recorded rule
+  — "a silent close IS the review verdict, record the rule as a permanent drop" — holds for a *silent*
+  close; a close that names a superseding PR is the finding being upgraded). And the mechanism that
+  produced it is worth copying: the PR body **stated the open question** rather than hiding it, the
+  maintainer took that question to the forum, and the community answered it. State the open question.
 - **Consult `dropped-issues.md` for EVERY rule you shortlist, before reading ANY source — one grep of
   all the shortlisted keys, not one per rule you commit to.** This has now cost source reads twice:
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with

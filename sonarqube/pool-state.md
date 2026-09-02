@@ -260,7 +260,11 @@ rendering 2 = 44; the ninth run to ship in all three repos):**
   ~9 h after opening. So **3 of 4 PRs merged the same morning with not one review comment between
   them** — 42 of the run's 44 issues — which is the strongest confirmation yet that the long tail of
   one-off mechanical rules plus a thin-spread comment rule is reviewable work, not a risk. Rendering
-  #425 (the `S2198` dead-comparison deletion, the one re-opened drop) was still open and clean.
+  #425 (the `S2198` dead-comparison deletion, the one re-opened drop) was **closed unmerged and
+  superseded by #426 / XRENDERING-814**, which supports supplementary code points properly — so the
+  run's final tally is **42 of 44 issues merged**, and the 2 that did not are the ones whose cleanup
+  turned out to be hiding a real defect. See [rules/java-S2198.md](rules/java-S2198.md): a closed PR
+  is not always a rejection of the finding.
 
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
