@@ -1100,6 +1100,24 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   have not touched since, so re-verifying them is pure wall clock (a 3-module re-run replaced an
   11-module one). Confirm the claim first with `git diff` between the two applications of the batch —
   if the second application changed only the failing file, the earlier greens still hold.
+- **A STALE `target/` in a working copy that has served several reactors produces the exact same red
+  as the order-dependence below — and the recorded "build a master worktree" control MISDIAGNOSES it,
+  because a fresh worktree is clean by construction.** Cost four builds and a wrong conclusion:
+  `legacy-oldcore` failed **30/48** with `Failed to get [role = DocumentReference hint = [current]]`
+  three times in `/home/user/xwiki-platform` (twice on the change, once on a bisected commit that
+  only added a null guard in an unrelated action + its test), while a `git worktree add /tmp/masterwt`
+  control passed **48/48** on the identical two-module reactor. That pattern reads as "master green,
+  mine red ⇒ my regression" and it was wrong: `mvn clean install` on the *same commits in the same
+  directory* went green (oldcore 1187, legacy-oldcore 48/48). The confound was the worktree's
+  freshness, not master's code — a stale woven-aspect / `META-INF/components.txt` state in
+  `legacy-oldcore/target` left over from earlier, differently-scoped reactors.
+  Three consequences: (a) when a failure is a **component-descriptor lookup** rather than an
+  assertion, suspect stale `target/` before suspecting your diff; (b) the honest control is `clean` on
+  **your own tree in place**, not a fresh worktree elsewhere — a worktree changes two variables at
+  once; (c) once a session has run reactors of different shapes over the same checkout, put `clean`
+  in the verification build. It cost ~30 s here (2:03 vs 1:41 for oldcore) and would have saved three
+  builds. The bisect is what exposed it: a commit that *cannot* cause the failure still causing it is
+  the signal that the variable under test is not the code.
 - **`xwiki-platform-legacy-oldcore`'s JUnit4-era tests are ORDER-DEPENDENT — one red run there is not
   a regression.** A standalone `-pl legacy-oldcore` run failed 30 of 48 tests with
   `Can't find descriptor for the component … DocumentReference hint [current]` at `setUp`, then the
