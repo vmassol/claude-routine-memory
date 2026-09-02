@@ -59,6 +59,7 @@ rows for the rules you commit to fixing this run.
 | `java:S9354` | [rules/java-S9354.md](rules/java-S9354.md) | free everywhere except where a TEST asserts the *magnitude* of `compareTo` — grep for it, the build round is the alternative |
 | `java:S9357` | [rules/java-S9357.md](rules/java-S9357.md) | the 2026 restatement of `S1604`, so its drop index already applies; two more drops are a target parameter typed `Object` and an observed `getClass().getSimpleName()` |
 | `java:S2386` | [rules/java-S2386.md](rules/java-S2386.md) | denylisted for the MESSAGE's fix (`protected` → Revapi); making the value immutable clears it with no declaration change |
+| `java:S2198` | [rules/java-S2198.md](rules/java-S2198.md) | ask WHY the comparison is dead — a proper fix that RE-ADDS your deleted line means the line was evidence of a defect |
 
 ## Picking a target rule (find phase)
 
@@ -743,6 +744,18 @@ rows for the rules you commit to fixing this run.
   cannot reach it, supporting it needs an `int` code point) answers the objection instead of deferring
   to it, and it converts a permanent drop into a fix. Ask this of every "the dead code is a record of
   something" rejection.
+  **But first ask WHY the code is dead — if a proper fix would bring your deleted line BACK, the line
+  is evidence of a defect and deleting it is worse than the open issue.** This is the same `S2198`
+  site, and the follow-up settled it against the cleanup: Vincent took the PR's stated open question
+  to the forum, the accepted answer was to change the signature to an `int` code point, and with an
+  `int` that unreachable `(ch >= 0x10000 && ch <= 0xEFFFF)` becomes the row that actually implements
+  the supplementary half of the XML `NameStartChar` production — so the fix re-adds the line, drops
+  the comment, and `S2198` stops being raised on its own. One sentence would have caught it:
+  *"if someone fixed this properly, would my deleted line come back?"* Symptoms to check are a
+  neighbouring method that already takes the wider type (`isValidXmlChar(int ch)` did) and a deleted
+  line that loses a row of a spec the code transcribes. See
+  [rules/java-S2198.md](rules/java-S2198.md).
+  Net for the run: the technique is still right, and its first application was the wrong site.
 - **Consult `dropped-issues.md` for EVERY rule you shortlist, before reading ANY source — one grep of
   all the shortlisted keys, not one per rule you commit to.** This has now cost source reads twice:
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with
