@@ -256,7 +256,11 @@ rendering 2 = 44; the ninth run to ship in all three repos):**
   thin-spread comment-only batch is as cheap to land as a mechanical one — keep shipping it
   separately (it costs nothing) but do not budget review rounds for it. #6279 stayed
   `mergeable: clean` through that merge: the two touched disjoint files, so the "merge master into
-  the loser" step was not needed.
+  the loser" step was not needed, and **#6279 (the 23 mechanical fixes) then MERGED uncommented too**,
+  ~9 h after opening. So **3 of 4 PRs merged the same morning with not one review comment between
+  them** — 42 of the run's 44 issues — which is the strongest confirmation yet that the long tail of
+  one-off mechanical rules plus a thin-spread comment rule is reviewable work, not a risk. Rendering
+  #425 (the `S2198` dead-comparison deletion, the one re-opened drop) was still open and clean.
 
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
