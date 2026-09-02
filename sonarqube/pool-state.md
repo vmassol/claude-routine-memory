@@ -249,6 +249,14 @@ rendering 2 = 44; the ninth run to ship in all three repos):**
   withdrawn `S2093`/`S3012`) and with all three of its drop-index **corrections** (`S1186` ×2,
   `S1171`) in it, so re-opening a recorded drop on evidence is not held against a PR, and neither is
   a revert commit.
+  **platform #6280 (the 15 `S1186` comments) MERGED uncommented too**, ~5.5 h after opening — which
+  revises the recorded expectation that a *prose* batch is the one that gets read line by line
+  (`S108` needed four rounds). The difference is plausibly scale and clustering: 82 generated
+  sentences in four oldcore legacy files invited scrutiny, 15 sentences one-per-file did not. So a
+  thin-spread comment-only batch is as cheap to land as a mechanical one — keep shipping it
+  separately (it costs nothing) but do not budget review rounds for it. #6279 stayed
+  `mergeable: clean` through that merge: the two touched disjoint files, so the "merge master into
+  the loser" step was not needed.
 
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
