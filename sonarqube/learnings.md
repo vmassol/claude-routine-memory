@@ -894,6 +894,26 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   is about (a method parameter's nullness). Add that `Quality / Analyze` passes on the same commit and
   that a re-run is pointless because the analysis is deterministic. Post it as one comment and leave
   the batch alone.
+  **`@SuppressWarnings("javabugs:SXXXX")` IS honoured by the dataflow engine — verified, so a genuine
+  `javabugs:` false positive is resolvable in code.** This was an open question (the `S8786` hazard:
+  does the remediation actually clear the issue?) and the rule catalogue does not answer it. Two
+  things settled it, in order: XWiki already carries `@SuppressWarnings("javabugs:S2190")` in
+  `SolrCoreInitializer` and `AuthenticationFailureStrategy` (the in-repo-precedent grep again), and
+  then the live confirmation — a `javabugs:S2259` annotated this way on `XWiki#checkDeletingDocument`
+  **disappeared from the next PR analysis** while four other `S2259` in the same file were still
+  reported. So for a `javabugs:` finding you can prove unreachable, the OKF's normal false-positive
+  route (suppress + `//` reason) works; you are not forced into a null guard.
+  **A null guard is often the WRONG remediation anyway — check what the method IS.** On
+  `checkDeletingDocument` (a permission check) an `if (x == null) return;` would report "delete
+  allowed" without having checked anything: strictly worse than the NPE. Reserve a guard for a method
+  whose null return already means "nothing found" (`DownloadAction#getAttachment`, where returning
+  `null` feeds an existing not-found path — and verify the value is dead afterwards, or the guard just
+  relocates the NPE). State the choice in the PR and offer the alternative.
+  **And the set of `javabugs:` findings a PR analysis surfaces for one file is NOT STABLE between
+  runs** — #6272 reported exactly one `S2259` in `XWiki.java`, its prerequisite PR reported four
+  *different* ones, and master's snapshot listed neither set. So never promise that fixing the finding
+  a project-gate check named will turn that check green: say `Analyze` is the verdict and flag the
+  instability rather than letting the reviewer discover it.
   **And the duplication twin has a specific trigger this routine will keep hitting: fixing the SAME
   rule in both halves of an already-duplicated block.** Platform #6272 failed
   `6.7% Duplication on New Code (≤3%)` = **2 duplicated lines / 30 new lines**, because its
