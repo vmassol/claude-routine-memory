@@ -208,6 +208,41 @@ PRs merged the same day):**
 - **`css:` (19) and `xml:` (58) exist but are non-starters** — `xml:S1135`/`S1134` are TODO/FIXME
   comments, and the css pool is 19 issues over 7 rules.
 
+**Current standing state — after the long-tail + S1186-singletons sweep (platform 23 + 15, commons 4,
+rendering 2 = 44; the ninth run to ship in all three repos):**
+
+- **The find phase was dominated by a BROKEN drop-index cross-check** — a key-shape regex that only
+  matched `AY…` keys, so 4367 of platform's 4488 open issues read as "fresh" and ~60 already-explained
+  keys were re-triaged from scratch. See `learnings.md`; the fix is a substring test per key. Everything
+  this run *shipped* that was already in the index was recorded there as **"still fixable"**,
+  **"deferred, NOT dropped"** or with a **wrong reason** — so the index was right about the drops and
+  the waste was all re-derivation, not bad fixes. Two exceptions were caught late and reverted
+  (commons `S2093`, `S3012`).
+- **The "never-mentioned rule" diff came back nearly empty**: 31 rules in platform, all 1-2 issues
+  each and all singleton tails (`javascript:S6325`/`S1515`, `javasecurity:S6096`/`S5145`, `java:S8745`,
+  `java:S6539`, `java:S6206`, `java:S2226`, `css:S8759`…), and **zero** in commons and rendering. Do
+  keep running it — but on this evidence the `S93xx` generation was the last dense one, and the yield
+  now comes from re-reading the drop index rather than from the catalogue.
+- **What paid**: the platform *long tail* (10 rules × 1-4 sites = 23) plus the `S1186` singletons the
+  index had deferred on build ROI (15, free because the long-tail batch already needed a 23-module
+  reactor). Commons and rendering are genuinely closed — commons yielded 4 and rendering 2, both from
+  drop-index corrections, and neither had a single never-mentioned rule.
+- **Newly rejected as whole platform pools, keys recorded**: `S2093` (11, every `finally` is a state
+  restore), `S1185` (14, all plugin classes whose Javadoc says the override is required), `S1118` +
+  `S2440` (7 + 4, one problem: a public API that returns instances of all-static classes), `S3824` (6),
+  `S1871` (4), `S3626` (5), `S1640` (2), `S1643` (2), `S1165` (3 of 4 — `XWikiException` has public
+  setters), `S2676` (2 of 4), `S3358` (2), `S6916` (2), `S1192` (1).
+- **Open agent PRs at the start: platform 6 (#6210/#6211 JS, #6247/#6248, #6272/#6273), commons 0,
+  rendering 0.** 68 platform files claimed; the claim cost 4 sites (3 `S1172`, 1 `S3457`) and nothing
+  this run shipped touched a claimed file.
+- Build cost: commons 6 modules **4:32** (351 tests) + rendering 1 module **1:05** (138) + platform 23
+  modules **4:03 then a recovery run** — the first platform pass died at minute 2 on a raw-type compile
+  error in `BaseCollection` (see `learnings.md`), which skipped 14 of 23 modules; the recovery pass was
+  the failed module plus those 14.
+- PRs: platform #6279 (23, mechanical) and #6280 (15, `S1186` comments),
+  commons #1942 (4), rendering #425 (2). **No SonarCloud accept loop was run** — the
+  skill now forbids transitioning an issue the PR fixes.
+
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
 later reopened — see the gate bullet below):**

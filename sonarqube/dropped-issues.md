@@ -31,13 +31,32 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
-### java:S1186 (empty method) — the emptiness may be a genuine gap, not a decision
+### java:S1186 (empty method) — **Correction: both SHIPPED**, the rationale was already in the file
 
-Comment-only rule, so these are not safety drops: a comment asserting intent the code does not
-support is worse than the open issue. These two need a maintainer's answer.
+Both were recorded as "needs a maintainer's answer" and neither did: `ResourceLoader.JarResourceHandle`
+holds a `JarFile` the *loader* owns and caches (so there is nothing for the handle to close), and
+`ExtensionMojoHelper()`'s own Javadoc already says *"Public for technical reasons;
+`create(MavenProject, File)` should be used instead"*. Shipped in commons #1942.
+- ~~`AV4uHS7W5jV1AdqTqB2m` `ResourceLoader.JarResourceHandle#close()` (legacy-classloader-api)~~
+- ~~`AV2juGi6VSxcxmoV58C3` `ExtensionMojoHelper()` constructor (tool-extension-plugin)~~
 
-- `AV4uHS7W5jV1AdqTqB2m` — `ResourceLoader.JarFileHandle#close()` (legacy-classloader-api)
-- `AV2juGi6VSxcxmoV58C3` — `ExtensionMojoHelper()` constructor (tool-extension-plugin)
+### java:S2093 / java:S3012 — re-derived, applied, verified green and then WITHDRAWN
+Both were already listed below as drops, both were re-triaged and fixed this run because the
+drop-index cross-check missed them (see `learnings.md`), and both were reverted once the recorded
+reason was re-read. The recorded reasons hold:
+- `AWl4RiCkzMcy0S6oSn2B` InfinispanCacheFactory L105 — `IOUtils.closeQuietly()` deliberately swallows a
+  close failure that try-with-resources surfaces through the enclosing `catch (IOException)`, so the
+  conversion is not behaviour-preserving. `try (configurationStream)` (the effectively-final
+  Java-9 resource form) is the minimal shape if a maintainer ever wants it.
+- `AZkVtQQYz-Gjyq6TVk6Y` LogUtils L196 — the loop appends a *suffix*, so a bulk replacement needs
+  `if (arguments.size() < defaultArguments.length)` around
+  `addAll(Arrays.asList(…).subList(…))` — correct, and it reads worse than the loop.
+
+### java:S1171 (instance initializer) — **Correction: SHIPPED**, both recorded reasons were wrong
+Recorded as *"~30 lines and moving it into a constructor is past the mechanical bar"* and (elsewhere)
+*"file claimed by open PR #1875"*. The first is a misreading: nothing moves — the bare `{` becomes
+`public DefaultExtensionSerializer()\n{` and the 30 lines stay where they are, a 4-line diff. The
+second was stale. Shipped in commons #1942. `AV4uHSLB5jV1AdqTqBv_`.
 
 ### java:S6213 (restricted identifier) — the METHOD half only
 
@@ -289,12 +308,16 @@ revapi `java.method.visibilityReduced`.
   WikiScannerUtil, `AV2j0WndpvRVEt3bvRpt` HtmlEntityUtil, `AV2j0WoGpvRVEt3bvRqD` WikiEntityUtil,
   `AV2j0WsMpvRVEt3bvRsp` XWikiScannerUtil.
 
-### java:S2198 (comparison always true/false) — a dead range that mirrors the XML spec
-`WikiPageUtil.isValidXmlNameStartChar(char ch, …)` ends its range table with
-`(ch >= 0x10000 && ch <= 0xEFFFF)`, unreachable for a `char`. Deleting it is behaviour-preserving but
-drops the supplementary-plane row of the XML 1.0 `NameStartChar` production the table transcribes,
-and the real fix (take an `int` code point) is an API change. Both keys sit on the same line.
-- `AZ_01MtBbzuOmnNi3w77`, `AZ_01MtBbzuOmnNi3w78` WikiPageUtil L310.
+### java:S2198 (comparison always true/false) — **Correction: SHIPPED**, the objection was a COMMENT
+`WikiPageUtil.isValidXmlNameStartChar(char ch, …)` ended its range table with
+`(ch >= 0x10000 && ch <= 0xEFFFF)`, unreachable for a `char`. The recorded reason for leaving it — that
+deleting it drops the supplementary-plane row of the XML 1.0 `NameStartChar` production the table
+transcribes — is right about the *information* and wrong about the conclusion: the information belongs
+in a comment, not in a comparison that never fires. Shipped in rendering #425 as the deletion
+plus a three-line note saying the range exists in the spec, cannot be tested against a `char`, and
+would need an `int` code-point signature. **Generalises: when a dead-code drop is justified by "the
+code documents intent", the fix is to move the intent into a comment — that answers the objection
+instead of deferring to it.** ~~`AZ_01MtBbzuOmnNi3w77`, `AZ_01MtBbzuOmnNi3w78` WikiPageUtil L310.~~
 
 ### java:S1066 (merge nested if) — comment between the two ifs
 - `AZFHCq1E-4lPKEDZswFl` AbstractBoxMacro L261 — a MULTI-line `//` comment sits between the outer and
@@ -487,12 +510,23 @@ Comment-only rule (see [rules/java-S1186.md](rules/java-S1186.md)). Two differen
 the first group is a real drop.
 
 **Real drops — a comment would have to invent the intent:**
-- `AW5-S6Pl1Yj5qvzeRnH0` — `BaseClass#merge(BaseClass)` (oldcore)
-- `AW5-S6Pz1Yj5qvzeRnIS` — `ComputedFieldClass#displayHidden(...)` (oldcore)
-- `AW5-S56l1Yj5qvzeRm8G` — `UserInstanceOutputFilterStream#endUser(...)` (oldcore)
+- `AW5-S6Pl1Yj5qvzeRnH0` — `BaseClass#merge(BaseClass)` (oldcore). A `public` method with an entirely
+  empty body and no sibling that explains it; whether that is intended is a maintainer's call.
+- **Correction: the other two SHIPPED** (platform #6280), because the rationale was
+  written down in the file all along and the earlier pass did not look for it. The lesson is the
+  general one for this rule: before declaring a reason un-statable, read the CLASS Javadoc and the
+  *sibling* members, not just the empty body.
+  - `AW5-S6Pz1Yj5qvzeRnIS` `ComputedFieldClass#displayHidden(...)` — the class Javadoc says "a field
+    **without storage**" and `fromString`/`newProperty` both `return null` under the comment "There is
+    no content in a computed field".
+  - `AW5-S56l1Yj5qvzeRm8G` `UserInstanceOutputFilterStream#endUser(...)` — `beginUser()` twenty lines
+    above builds the user document and calls `saveDocument`, and the sibling `endWiki()` exists only to
+    null out per-wiki state that `endUser` has no equivalent of.
 
 **Deferred, NOT dropped — one singleton alone in its own module, so shipping it would add a whole
-module to the reactor for one issue.** Ride these along whenever a run builds the module anyway:
+module to the reactor for one issue.** **All 14 of these SHIPPED in platform #6280**,
+in one 23-module reactor built for the mechanical batch anyway — which is exactly the condition the
+entry named, so a "deferred on build ROI" note is a standing invitation, not a drop:
 - `AZBvgO7Gcj_-G2g1uBrJ` annotation-core, `AZBvgRy4cj_-G2g1uBsB` component-wiki,
   `AXG6od2tUBz12AiapMr1` eventstream-api, `AZBvgPJrcj_-G2g1uBrL` mail-send-api (test),
   `AZBvgPG5cj_-G2g1uBrK` mail-send-default, `AW5-S4rZ1Yj5qvzeRms8` rendering-macro-container,
@@ -516,6 +550,117 @@ sites that still must not be fixed:
 - `AY974q9gKZk1650DhyVD` MessageStreamTest#setupForLimitQueries L154 — the parameters mirror the
   `verifyLimitQueries(expectedLimit, expectedOffset)` call each test pairs it with, and Sonar flags
   only one of the two, so "fixing" it breaks the pairing.
+
+### java:S1172 — two more `private`/package-private sites where the fix MOVES the issue
+Both drops are the same shape and it is the one the rule file does not name: shortening the flagged
+signature leaves the *argument's producer* unused one level up, on a method that cannot follow.
+- `AaAv1RlpObA3UIzK3uTW` (blocked by an open PR anyway) and `AW5-S6qr1Yj5qvzeRnlq`
+  RightsManager#fillLevelTreeMap L615 — the declaration line it rewrites already carries a pre-existing
+  `java:S3776` (complexity 27), so `Quality / Analyze` counts that finding as this PR's. Same site the
+  previous run had reverted for the same reason; the pre-check in `learnings.md` catches it.
+- `AW5-S6py1Yj5qvzeRni4` XWikiHibernateRecycleBinStore#getDeletedDocument L335 — dropping
+  `bTransaction` makes the private 4-arg helper collide with the `public getDeletedDocument(long,
+  XWikiContext, boolean)` two lines above (the `nparams - 1` collision).
+- `AW5-S8xr1Yj5qvzeRoO-` AttachInputSocket L48 / `AW5-S8xU1Yj5qvzeRoO7` AttachOutputSocket L44 —
+  package-private *constructors* whose sole caller is `AttachNode.input(BitField)` /
+  `output(BitField, Entry)`, both **`protected`**. Removing the constructor parameter orphans the
+  caller's own parameter, i.e. it trades this issue for a new `S1172` on a `protected` method that
+  cannot be fixed. **Generalises: before shortening a signature, check whether the argument's producer
+  is itself a parameter of a non-`private` method.**
+- `AaAv1RlpObA3UIzK3uTW`-shaped cascade, worth its own line: `AZMlOt6o1YOsw_u-zo4h`
+  IncludeMacroRefactoring L127 and `AZMlOxbz1YOsw_u-zo4r` ResourceReferenceRenamer L292 both carry a
+  `// FIXME: … we don't need to use updated documents parameters here` directly above the declaration,
+  and `AaAv1RlpObA3UIzK3uTW` DocumentLocaleReader#readXMLElement L498 cascades through
+  `readDocument(…)` (private) onto the **public** `read(XMLStreamReader, Object filter, …)`, so the
+  chain ends on published API and the "fix" only moves the issue.
+
+### java:S2093 (try-with-resources) — every remaining platform `finally` is a state RESTORE
+Not one of the 11 open platform sites closes anything; the discriminator is one look at the `finally`.
+`AZbU8DY3GHlYUfXgHgO9` + `AW5-S9J01Yj5qvzeRoVb` + `AW5-S9J01Yj5qvzeRoVe` (rendering-context pop),
+`AZO91cC0xltl5snfPKEv` (wiki-id restore), `AX4vwXs1QZ7ZdoOVq7Ht` (skin restore),
+`AW-AiMNSpjn0nASQAOhU` (semaphore release), `AW5-S8vk1Yj5qvzeRoOt` (script-context attribute),
+`AW5-S6141Yj5qvzeRnva` (temp-dir delete), `AW5-S6IL1Yj5qvzeRnAe` (progress endStep),
+`AW5-S4nz1Yj5qvzeRmsb` (writer/reader/bindings restore), `AW5-S-oQ1Yj5qvzeRo5E` (`filecontent.reset()`).
+
+### java:S1185 (useless override) — the whole platform pool is plugin classes, and they SAY so
+14 of 14 dropped. 12 of them (`skinx` ×9, `FileUploadPlugin` ×2, `PackagePlugin`, `JodaTimePlugin`)
+carry the Javadoc *"We must override this method since the plugin manager only calls it for classes
+that provide their own implementation, and not an inherited one"* — the `XWikiPluginManager`
+`getDeclaredMethods()` dispatch the OKF family file describes, stated in the source. The 15th,
+`AZwedJQk7L5XoT2tQWhQ` `EmbeddedClient#queryAndStreamResponse` L167, carries a `// TODO: might also
+need some workaround here` on the override. Do not re-triage this rule in platform.
+
+### java:S1118 / java:S2440 (utility-class constructor / instantiation) — the pair is unfixable here
+`AW5-S6yy1Yj5qvzeRnt4` `AW5-S6yy1Yj5qvzeRnt5` `AW5-S6yy1Yj5qvzeRnt6` `AW5-S6yz1Yj5qvzeRnt7`
+(S2440, `XWikiCriteriaServiceImpl#get*Factory` each `return new XFactory()`) and the four matching
+S1118 "Hide this public constructor" sites (`DurationFactory`, `PeriodFactory`, `RangeFactory`,
+`ScopeFactory`) are one problem: the public `XWikiCriteriaService` API *returns instances* of classes
+whose methods are all static. Satisfying either rule changes that API. The other three S1118 sites are
+`public` classes in non-`internal` packages (`AbstractNode`, `CodeMacroLayout`,
+`AbstractSecurityConfiguration`), where adding a private constructor removes the implicit public one →
+Revapi.
+
+### java:S1165 (exception field should be final) — the class has public setters
+- `AW5-S62B1Yj5qvzeRnvc` `AW5-S62B1Yj5qvzeRnvd` `AW5-S62B1Yj5qvzeRnve` `XWikiException.module/code/args`
+  — `setModule`/`setCode`/`setArgs` are `public`, so `final` does not compile and removing them is an
+  API break. The rule's free subset is a field with no setter: `PackageException.plugName` shipped.
+
+### java:S1640 (convert to EnumMap) — `null` is a documented key
+- `AXFqzITY-w3IdlBFv6Fa` `AW5-S4591Yj5qvzeRmu7` `Right.ENABLED_RIGHTS` /
+  `UNMODIFIABLE_ENABLED_RIGHTS` — `enableFor(EntityType type)` documents *"@param type the entity type,
+  **null for the main wiki**"*, and `EnumMap` throws on a null key. Read the writer's Javadoc, not just
+  the field's type arguments.
+
+### java:S2676 (`Math.abs`/negation on a possible MIN_VALUE) — split verdict
+- **Fixed** (`FeedPlugin` ×2): `-a.compareTo(b)` → `b.compareTo(a)` is free for `Date`, whose
+  `compareTo` only ever returns -1/0/1.
+- **Dropped**: `AW5-S8QH1Yj5qvzeRoF4` `ImageId#getId` and `AW5-S8EE1Yj5qvzeRoD8`
+  `ImageFilter` L176 — both are `Math.abs(x.hashCode())` used to build a cache key / an attachment
+  file name, so removing the `abs` changes generated identifiers that already exist on disk.
+
+### java:S1871 / java:S3626 / java:S1643 / java:S3358 / java:S6916 — the fix is blocked or invented
+- **S1871** `AZbU8BJ4GHlYUfXgHgO7` (RequiredRightsInfoUIExtension) and `AXnpAd1eDDFOvAKXAQIQ` +
+  `AXnpAd1eDDFOvAKXAQIS` + `AXnpAd1eDDFOvAKXAQIR` (ScopeNotificationFilterPreferencesGetter — a
+  four-branch `return false` chain): the merged condition is 5-10 boolean operators against
+  Checkstyle `BooleanExpressionComplexity`'s cap of 3. That method already carries
+  `@SuppressWarnings("checkstyle:CyclomaticComplexity")`, which is the codebase saying it is not
+  simplifiable.
+- **S3626** `AXnpAe8rDDFOvAKXAQOa/b/c` (XWikiAction, three `return;` in nested try/catch/finally
+  inside one very long method) and `AW5-S6tI1Yj5qvzeRnoL` (Package L530) +
+  `AW-kEsoeDYXZF0Pw6gz4` (ListClass L388): the two `continue;` sites are the *first* arm of an
+  `if`/`else if` chain, so deleting the jump empties the branch and the fix becomes "invert the
+  chain", a restructuring rather than a cleanup.
+- **S1643** `AW5-S6z-1Yj5qvzeRnuI` + `AW5-S6z-1Yj5qvzeRnuJ` TOCGenerator L102/106 — the concatenation
+  **prepends** (`number = num + "." + number`), so a `StringBuilder` needs `insert(0, …)` and the
+  rewrite is surgery, not a swap.
+- **S3358** `AW5-S6XA1Yj5qvzeRnND` AttachmentDiff L43 — the nested ternary is an argument of a
+  `this(…)` delegating constructor, so nothing may precede it. `AW5-S9MC1Yj5qvzeRoWH`
+  DefaultWikiDescriptorBuilder L221 — every non-nested rewrite of
+  `secure != null ? (secure == Boolean.TRUE ? 1 : 0) : -1` either keeps a ternary or replaces the
+  reference comparison `== Boolean.TRUE` with a value one, which is a (theoretical) behaviour change.
+- **S6916** `AZqCQr1OWrST1JcpjTkl` + `AZqCQr1OWrST1JcpjTkm` ScopeNotificationFilter L101/107 — the
+  known false positive: a `when` guard is only legal on a *pattern* label and the flagged `switch`
+  uses enum-constant labels. See [rules/java-S6916.md](rules/java-S6916.md).
+
+### java:S3824 (computeIfAbsent) — six sites, each with a reason in the flagged block
+`AW8Kv7iBPTv0sE1_7izG` XWikiAttachmentRCSArchive L93 (the mapping function calls `Node.newNode`, which
+throws two checked exceptions a lambda cannot), `AW5-S7bh1Yj5qvzeRn7x` DefaultWikiComponentMethodExecutor
+L162 (a context save/restore, and the message is `computeIfPresent`), `AW5-S6qr1Yj5qvzeRnlc`
+RightsManager L1263 (the mapping function calls another component and throws), `AXnpAhXIDDFOvAKXAQwP`
+XClassBreakingQuestion L105 (the guarded block also feeds `this.xclassPages`),
+`AW5-S4nz1Yj5qvzeRmsY` AbstractJSR223ScriptMacro L315 (`getEngineByName` can return `null`, so
+`computeIfAbsent` would stop caching the negative result), `AW5-S4591Yj5qvzeRmu9` Right L297 (also
+puts into `UNMODIFIABLE_ENABLED_RIGHTS`).
+
+### java:S1192 / java:S1872 / java:S2177 — one line each
+- `AW5-S6tI1Yj5qvzeRnnj` Package#toXML L1077 — the "already-defined constant" is
+  `DefaultPluginName = "package"`, a *plugin name*; the literal here is an XML element name. Coincidental
+  semantics.
+- `AW5-S8FG1Yj5qvzeRoEQ` + `AW5-S8FG1Yj5qvzeRoER` OfficeServerLifecycleListener L84/86 — already
+  recorded under S1872: `isAssignableFrom` accepts subclasses where the name comparison does not.
+- `AW5-S6MQ1Yj5qvzeRnEl` + `AW5-S6MQ1Yj5qvzeRnEw` MyPersistentLoginManager `encryptText`/`decryptText` —
+  `encryptText` is **public**, so the rename is an API change, and renaming only the private
+  `decryptText` half would split a pair that reads as one.
 
 ### javascript:S7741 (`typeof x === 'undefined'`) — the operand is a possibly-undeclared GLOBAL
 `x === undefined` throws a `ReferenceError` where `typeof x` is safe, so a bare global is a permanent
@@ -573,8 +718,9 @@ per-site product decision, not a cleanup. Same shape in commons (see that sectio
   migration's statements changes its failure granularity and error reporting.
 
 
-### java:S5778 (one throwing call per `assertThrows` lambda) — same FILE as an open agent PR
-- `AZ_Y1yTvsEtYd74_M78C`, `AZ_Y1yTvsEtYd74_M78E` ClassPropertyValuesResourceImplTest L137/L145 — the
+### java:S5778 (one throwing call per `assertThrows` lambda) — **SHIPPED**, the blocking PR merged
+~~`AZ_Y1yTvsEtYd74_M78C`, `AZ_Y1yTvsEtYd74_M78E`~~ platform #6279 (hoist
+`List<String> properties = List.of("text")`). Original note: - the
   fix itself is clean (hoist `List.of("text")`), but the file is already touched by an open `S1130`
   agent PR, so editing it risks a merge conflict. Re-triage once that PR has merged; this is a
   timing drop, not a correctness one.
@@ -599,8 +745,11 @@ Not defects: the extraction is valid, but Sonar's `textRange` gives no type to n
 so a scripted batch cannot do it. Recoverable by hand *when the stubbed method's return type is already
 imported in the test* (that is how 6 of 7 such sites were converted); a drop only when naming the type
 would mean adding an import from a foreign library.
-- `AZ-5kehz8JWMl105u6eb` (L305), `AZ-5kehz8JWMl105u6ed` (L334) DefaultModelBridgeTest;
-  `AZ-5kZa38JWMl105u6dV` InternalTemplateManagerTest L90.
+- **SHIPPED** in platform #6279: ~~`AZ-5kehz8JWMl105u6eb`, `AZ-5kehz8JWMl105u6ed`~~
+  DefaultModelBridgeTest and ~~`AZ-5kZa38JWMl105u6dV`~~ InternalTemplateManagerTest L90. Note the
+  recorded condition is narrower than "already imported": `DocumentAuthors` was NOT imported in
+  DefaultModelBridgeTest and adding an `org.xwiki.*` import is fine — the drop line is a *foreign
+  library* import (Hibernate), which is what the last site below actually needs.
 - `AZ-5kc4M8JWMl105u6eJ` DefaultBaseClassRequiredRightAnalyzerTest L262 — naming the type of
   `this.hibernate.getConfiguration()` requires importing a Hibernate type into the test.
 
@@ -760,11 +909,11 @@ demoting it to a local silently changes object lifetime. All `src/main`.
   `private static` written and returned in the same method, nothing else reads it) — deferred, not
   dropped, because one issue does not pay for an oldcore reactor. Take it as a rider.
 
-### java:S1121 (extract the assignment) — deferred, viable, needs a repository-server-api build
-`AW5-S-g71Yj5qvzeRo3o` / `AW5-S-g71Yj5qvzeRo3p` XWikiRepositoryModel:572/575
-(`repository.substring(0, index = repository.indexOf(':'))`). The rewrite is mechanical and
-order-preserving — hoist each `indexOf` into its own `int` local before the `substring` that uses it —
-but it is `src/main` and only worth doing as a rider on a reactor that already builds that module.
+### java:S1121 (extract the assignment) — **SHIPPED** as a rider
+~~`AW5-S-g71Yj5qvzeRo3o` / `AW5-S-g71Yj5qvzeRo3p`~~ XWikiRepositoryModel:572/575, platform
+#6279. Confirmed mechanical: give each `indexOf` its own named `int` local
+(`idIndex`, `typeIndex`) *before* the `substring` that uses it, which also makes the left-to-right
+argument evaluation the original relied on explicit.
 
 ### java:S3252 (static access via a derived type) — the derived type is XWiki's own utility subclass
 `org.xwiki.text.StringUtils` and `org.xwiki.localization.LocaleUtils` deliberately **extend** the
@@ -1112,7 +1261,9 @@ commons `KeyUsage`). Renaming one is a Revapi break, not a naming tidy-up. Do no
 - commons: `AV2juHohVSxcxmoV58Xh` … `AV2juHohVSxcxmoV58Xp` (the nine `KeyUsage` constants),
   `AZBcC1AnMsaU12VbzF4u` (`EnumConverterTest`)
 The four remaining sites are genuine `private static final` constants in **test** classes and are
-still fixable: platform `AZBvgVsLcj_-G2g1uBuG`/`AZBvgVsLcj_-G2g1uBuH` (`DefaultCSRFTokenTest`).
+**SHIPPED** in platform #6279: ~~`AZBvgVsLcj_-G2g1uBuG`/`AZBvgVsLcj_-G2g1uBuH`~~
+(`DefaultCSRFTokenTest`, two `private static final` constants in a test class — `private` is the whole
+test and every occurrence in the file was renamed).
 
 ## java:S2177 — one site left open: the counterpart cannot follow
 

@@ -499,6 +499,29 @@ rows for the rules you commit to fixing this run.
   "receiver must be checked"; run after the edits it would only have documented what already shipped.
   Same lever as the throwaway `javac`/`java` file for a Java question — and the same payoff, since the
   output is also the strongest thing to put in the PR body.
+- **A signature-shortening fix can MOVE the issue instead of clearing it — check whether the removed
+  argument's producer is itself a parameter of a non-`private` method.** The recorded `S1172` guards
+  cover the overload collision and the orphaned local; this is a fourth shape and it costs nothing to
+  test. Three of five `private` platform sites failed it: `AttachInputSocket`/`AttachOutputSocket`'s
+  package-private constructors are called only from `AttachNode.input(BitField)` /
+  `output(BitField, Entry)`, both **`protected`**, so removing the constructor parameter orphans the
+  caller's own parameter and trades the issue for a fresh `S1172` that can never be fixed; and
+  `DocumentLocaleReader#readXMLElement`'s `filter` cascades through a private `readDocument(…)` onto the
+  **public** `read(XMLStreamReader, Object filter, …)`. Walk one level up the call graph per site and
+  drop when the chain ends on anything non-`private`. Same reflex for any rule whose fix narrows a
+  signature (`S1130` included) — the recorded "fix the whole file" advice only helps when the cascade
+  terminates inside the file.
+- **A RAW-typed local erases the generics of everything you read through it, so a retyping fix that is
+  correct against the declaration still fails to compile.** `BaseCollection#getFields()` is declared
+  `private Map<String, Object>`, so `for (String key : this.getFields().keySet())` compiles — but the
+  second loop in the same method reads through `BaseCollection oldCollection = (BaseCollection)
+  oldObject;`, a **raw** type, which erases the member's type arguments and makes `keySet()` a raw
+  `Set`. `java.lang.Object cannot be converted to java.lang.String`, at minute 2 of a 23-module
+  reactor. The fix is to parameterize the local (`BaseCollection<?> oldCollection = (BaseCollection<?>)
+  oldObject;`) rather than reverting the loop — the helpers it is passed to take the raw type, so a
+  wildcard is assignable and nothing else changes. Expect this on any `S4838`/`S6201`-style retyping in
+  oldcore, which is full of raw locals: **when the fix retypes a value read off a variable, check that
+  variable's own declaration for a raw type, not just the method's return type.**
 - **A batch that REMOVES an element from a parameter/argument list needs three guards the obvious
   script does not have.** (Learned removing 41 unused private-method parameters; applies to any rule
   that shortens a call.) (a) **The collision guard must use the RESULTING arity**: asserting that only
@@ -538,6 +561,15 @@ rows for the rules you commit to fixing this run.
   when nothing in the test file references it. Same reflex for `@InjectMockComponents`,
   `@RegisterExtension` and Mockito's `@Mock`/`@Captor` — an annotated field is never dead code, and
   Sonar's `S1068` exempts them too.
+- **A fix that changes a MODIFIER can move the field into a different rule's scope — the clearest case
+  is `final`.** `java:S1165` asks for `static String plugName` → `static final String plugName`, and
+  `static final` is precisely what makes a field a *constant*, so `java:S115` (and Checkstyle's
+  `ConstantName`, which XWiki enables in `checkstyle.xml`) then demand `CONSTANT_CASE`. The fix has to
+  carry the rename or it trades one issue for another; here the field was package-private and read only
+  by three `super(...)` calls in its own file, so `PLUG_NAME` was free. Ask it of any fix that adds
+  `final`, `static`, `transient` or a visibility keyword: *which rule's pool does this field/method now
+  belong to?* (The same rule's other sites are a clean drop for a different reason — `XWikiException`
+  has `public` setters, so `final` does not compile at all.)
 - **A fix must not introduce a NEW Sonar issue — check the shape you are creating, not just the one you
   are removing.** A removal that orphans a constant or an import creates `S1068`/`S1128`, so delete those
   in the same edit; a declaration for a generic type should carry its type arguments and let the factory
@@ -674,6 +706,43 @@ rows for the rules you commit to fixing this run.
   sweep re-fought a settled decision. Guard, cheap enough for any deleting rule: loop
   `git log -1 --format='%h %s' -- <file>` over `git diff --name-only`, and when a subject is recent and
   JIRA-numbered, `git show <sha> -- <file>` to check it did not introduce the shape you are removing.
+- **Cross-check the drop index with a SUBSTRING test per key, never a regex that guesses the key
+  SHAPE — and this is the single most expensive mistake available in the find phase.** A run built its
+  "is this key already dropped?" set by regexing `dropped-issues.md` for
+  `\bAY[\w-]{10,}\b` plus a UUID pattern. SonarCloud keys in these three projects start with **`AV`,
+  `AW`, `AX`, `AY`, `AZ` and `Aa`**, so the set held 179 keys out of the ~700 the file actually lists,
+  every non-`AY` key read as "fresh", and the run re-triaged from scratch ~60 keys the index already
+  explained (`S9357` ×2 with the identical verdicts written down, `S2093` ×11, `S1185`, `S1118`,
+  `S3824`, `S1871`, `S1640`, `S1643`, `S2440`, `S6916`, `S2177`, `S1192`). Worse, it *applied* two
+  commons fixes the index had rejected on behaviour grounds, built them green, and had to revert them
+  in a second commit on an already-open PR. The check that cannot fail is `key in
+  open(dropped).read()` per key (or one `grep -F -f keys.txt`) — the file is one blob of text and the
+  keys are literals, so no pattern is needed at all. **Verify the set size against the file**: a count
+  far below the number of `` ` ``-quoted keys in the file is the symptom.
+- **A drop-index entry that says "deferred, NOT dropped — build ROI" is a standing invitation, and the
+  moment to cash it is when your reactor is already wide.** 14 `java:S1186` singletons, one per module
+  across 14 modules, had been written off because "shipping it would add a whole module to the reactor
+  for one issue" — and all 14 shipped for free in a run whose mechanical batch already needed a
+  23-module reactor. So after choosing the batch, re-read the index for *deferred* (not rejected)
+  entries and intersect their modules with your `-pl` list; it is the cheapest yield in the run.
+- **"A comment would have to invent the intent" is a claim to re-derive, and the answer is usually two
+  members away.** For a comment-only rule the recorded drop condition is truthfulness, which makes it
+  tempting to write a site off from the empty body alone. Two of three `java:S1186` platform "real
+  drops" had their reason in plain sight: `ComputedFieldClass#displayHidden` is empty because the
+  class Javadoc says "a field **without storage**" and its `fromString`/`newProperty` siblings both
+  `return null` under the comment "There is no content in a computed field";
+  `UserInstanceOutputFilterStream#endUser` is empty because `beginUser()` twenty lines above builds the
+  document and calls `saveDocument`. Read the CLASS Javadoc and the sibling members before concluding a
+  reason cannot be stated.
+- **When a dead-code drop is justified by "but the code documents intent", the fix is to move the
+  intent into a COMMENT.** `java:S2198` on `WikiPageUtil.isValidXmlNameStartChar(char ch, …)` had been
+  dropped because deleting the unreachable `(ch >= 0x10000 && ch <= 0xEFFFF)` row drops the
+  supplementary-plane row of the XML `NameStartChar` production the table transcribes. That is right
+  about the information and wrong about where it belongs: a comparison that can never fire is not
+  documentation. Shipping the deletion *plus* a three-line note (the range exists in the spec, a `char`
+  cannot reach it, supporting it needs an `int` code point) answers the objection instead of deferring
+  to it, and it converts a permanent drop into a fix. Ask this of every "the dead code is a record of
+  something" rejection.
 - **Consult `dropped-issues.md` for EVERY rule you shortlist, before reading ANY source — one grep of
   all the shortlisted keys, not one per rule you commit to.** This has now cost source reads twice:
   `S6035`/`S2093` in one run, `S1118`/`S3415` (rendering) in another, all four already recorded with
@@ -707,6 +776,17 @@ rows for the rules you commit to fixing this run.
   `'\n'.join(keys)` produces exactly that, so a 106-key loop processes 105 and the miss looks like a
   transient API failure. End the file with a newline or iterate in Python; either way re-verify the
   count afterwards.
+- **STOP RUNNING THE ACCEPT LOOP FOR ISSUES THE PR FIXES — the skill now forbids it, and that
+  supersedes every bullet below.** `xwiki-fix-sonarqube-issue` (1.5.x) says it outright: *"Never
+  transition an issue the PR fixes. SonarCloud closes it as FIXED on its own at the next branch
+  analysis after the merge. Accepted means 'won't fix': on a fixed issue it buys nothing, and hides a
+  real defect from the quality gate if the PR never lands."* So the whole throttled-loop apparatus
+  below (30-50 min of wall clock, ~2 requests per key, the confirm pass, the reopen-after-a-closed-PR
+  repair) now applies to **only** the issues the code deliberately keeps — a `falsepositive` or an
+  `accept` with a stated reason — which in this routine is close to zero, because analyzed-but-unfixed
+  issues go to `dropped-issues.md` instead. Skipping it also removes the "a closed PR makes your
+  SonarCloud comments wrong" failure mode entirely. Keep the mechanics below for the rare deliberate
+  transition; do not budget wall clock for a sweep any more.
 - **An *Accepted* issue still flips to FIXED on its own once the fix lands** — the accept is interim
   bookkeeping, not a permanent verdict, so it never leaves a wrong record. Measured on this sweep: hours
   after the Java PR merged its 25 keys read `FIXED` while the 23 JS keys (PR merged minutes earlier) were
@@ -1008,6 +1088,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   disagreement between two runs IS the proof), and build the same modules from a master worktree
   (`git worktree add /tmp/masterwt <masterSha>` — cheap, and it also re-installs master's artifact,
   so rebuild your own module afterwards). Do not report such a red as "flaky" without both.
+  **Correction, measured: "the oldcore+legacy reactor" is NOT what saves it — the reactor's WIDTH is.**
+  A 2-module `-pl oldcore,legacy-oldcore` run fails **30 of 48** with that exact signature
+  (`java.lang.RuntimeException: Failed to get [role = DocumentReference hint = [current]]` at
+  `setUp`, via `Utils.getComponent`), twice in a row, while a **23-module** reactor containing the same
+  two modules and the same tree passes **48/48**. So do not use a narrow oldcore+legacy re-run as the
+  "same tree" check.
+  **The cheapest decisive proof is a one-file A/B, not a master worktree**: revert *only* the file you
+  suspect (`git checkout <masterSha> -- <file>`), re-run the identical narrow composition, and see the
+  identical 30/48. That took **1:57** — against ~10 min for a worktree — and it exonerates the change
+  outright rather than arguing about it. It works because the composition, not the content, is the
+  variable; use it whenever a red appears in a *narrower* re-run than the one that was green.
 - **A module can be red on master because of an EXTERNAL dependency, and the proof costs nothing.**
   `xwiki-platform-security-authorization-api` failed `testCompile` on `RightSetTest#testSetEquals()`
   — an `@Override` against a method `commons-collections4`'s `AbstractSetTest` no longer declares. The
