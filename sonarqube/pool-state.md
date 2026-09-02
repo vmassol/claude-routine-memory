@@ -245,6 +245,10 @@ rendering 2 = 44; the ninth run to ship in all three repos):**
   so the declaration-line pre-check (run before pushing, and clean) held for every site. **No
   SonarCloud accept loop was run** — the skill now forbids transitioning an issue the PR fixes, which
   also means a future run must not read a lingering `OPEN` on these keys as a failed accept.
+  **commons #1942 MERGED uncommented** ~5 h after opening — with its mid-PR *drop* commit (the
+  withdrawn `S2093`/`S3012`) and with all three of its drop-index **corrections** (`S1186` ×2,
+  `S1171`) in it, so re-opening a recorded drop on evidence is not held against a PR, and neither is
+  a revert commit.
 
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
