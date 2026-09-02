@@ -240,8 +240,11 @@ rendering 2 = 44; the ninth run to ship in all three repos):**
   error in `BaseCollection` (see `learnings.md`), which skipped 14 of 23 modules; the recovery pass was
   the failed module plus those 14.
 - PRs: platform #6279 (23, mechanical) and #6280 (15, `S1186` comments),
-  commons #1942 (4), rendering #425 (2). **No SonarCloud accept loop was run** — the
-  skill now forbids transitioning an issue the PR fixes.
+  commons #1942 (4), rendering #425 (2). **All four green and `mergeable_state: clean` on the first
+  push** — `Quality / Analyze`, `SonarCloud`, `SonarCloud Code Analysis` and Socket Security all pass,
+  so the declaration-line pre-check (run before pushing, and clean) held for every site. **No
+  SonarCloud accept loop was run** — the skill now forbids transitioning an issue the PR fixes, which
+  also means a future run must not read a lingering `OPEN` on these keys as a failed accept.
 
 **Current standing state — after the S2386/S1172/long-tail sweep (platform 32 = 25 + 7, commons 3,
 rendering 3 = 38; the eighth run to ship a real batch in all three repos; 40 accepted first pass, 2
