@@ -655,7 +655,8 @@ of it MERGED, plus the OKF correction PR:**
   these files, so `node --check` plus a `node` equivalence program is the behaviour evidence.
 
 **Current standing state — after the S5993 full sweep (platform 83, commons 60, rendering 19 = 162,
-the largest single-rule batch this routine has shipped):**
+the largest single-rule batch this routine has shipped — ALL THREE PRs MERGED uncommented within ~4 h,
+#6293 / #1945 / #427):**
 
 - **Everything cheap really is dry, and this run measured all of it in one pass.** Pulling every open
   issue per repo once (`issueStatuses=OPEN` by severity, 5 800 issues into a local JSON) and grepping
