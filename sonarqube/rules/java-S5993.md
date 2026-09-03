@@ -60,6 +60,9 @@ Compute the collision set from the project's open issues before applying — no 
 
 - Run A: **81 sites merged** in all three repos within hours, not one review comment
   (`xwiki/xwiki-platform#6226` 59, `xwiki/xwiki-commons#1926` 20, `xwiki/xwiki-rendering#414` 2).
-- Run B: **162 sites** (`xwiki/xwiki-platform#6293` 83, `xwiki/xwiki-commons#1945` 60,
-  `xwiki/xwiki-rendering#427` 19) over 33 modules, 4120 tests green, `revapi:check` passing in every
-  one of them.
+- Run B: **162 sites** (`xwiki/xwiki-platform#6293` 83, **`xwiki/xwiki-commons#1945` 60 — MERGED by
+  Vincent with zero review comments, ~4 h after opening**, `xwiki/xwiki-rendering#427` 19) over 33
+  modules, 4120 tests green, `revapi:check` passing in every one of them. So the visibility question
+  did not come up on the *non*-`internal` half either: the two proofs in the body (the `revapi:check`
+  output and JLS §6.6.2.2) are what a reviewer needs, and a rule rescued by running its gate merges as
+  quietly as one rescued by re-reading its reason.
