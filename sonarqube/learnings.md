@@ -120,15 +120,21 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
-  **The escape is not always the member's modifier — it can be the PACKAGE, and the authority is the
-  repo's own gate CONFIG rather than your reading of the rule.** `java:S5993` ("make this abstract
-  class's constructor `protected`") was denylisted as a Revapi `visibilityReduced` break; one
-  `'/internal/' in path` bucketing pass over 244 open sites gave **81 in packages
-  `revapi.json` excludes from the API check outright** (`type ^org.xwiki.**.internal.** {}`), i.e. not
-  published API at all — 0 drops, `revapi:check` green in all 32 modules. So when a denylist reason
-  names a BUILD GATE, read that gate's configuration file before believing the reason applies; XWiki's
-  lives in `xwiki-commons-tool-verification-resources/src/main/resources/revapi.json` and excludes
-  `**.internal.**` and `**.test.**` in both `org.xwiki` and `com.xpn.xwiki`.
+  **When a denylist reason names a BUILD GATE, RUN THE GATE. Reading its config is the weaker move and
+  it cost a whole extra run.** `java:S5993` ("make this abstract class's constructor `protected`") was
+  denylisted as a Revapi `visibilityReduced` break. Run A read `revapi.json`, found it excludes
+  `**.internal.**` and `**.test.**` in both `org.xwiki` and `com.xpn.xwiki`, shipped the **81
+  `internal`** sites on that basis and wrote the other 163 down *here* as a permanent drop —
+  a correct fix built on an unverified premise. Run B spent **2:01** instead: apply four
+  non-`internal` sites in a small leaf module, `mvn package revapi:check -Pquality -DskipTests -pl
+  <module>` → *"API checks completed without failures"*, and the "permanent drop" shipped as **162
+  sites across all three repos**. The mechanism was in the same config file the first run had already
+  opened: it reclassifies **all source-compatibility checks to EQUIVALENT severity**, and narrowing an
+  abstract class's constructor is source-only. Generalise: a config file tells you what the gate
+  *looks at*; only running it tells you what the gate *says*, and one small module with `-DskipTests`
+  is two minutes. Do this for every denylist entry whose reason is "the build will reject it" —
+  Revapi, Checkstyle metrics, Enforcer, JaCoCo — before believing it, and before believing your own
+  earlier run that only read the config.
   **And a "reduces visibility" objection is sometimes refutable outright, not just scoped away** — for
   an *abstract* class, JLS §6.6.2.2 permits both `super(...)` and `new AbstractX(…){…}` on a
   `protected` constructor from any package, and plain `new AbstractX(…)` is already illegal, so no
@@ -437,6 +443,15 @@ rows for the rules you commit to fixing this run.
   greater import" walks it across a blank-line group boundary. One file needed five imports removed
   and two added; getting either direction wrong fails only in `checkstyle:check`, i.e. after the
   tests, i.e. a whole build round.
+- **A PROBE edit left in the working tree silently shrinks the batch — collect the sites from a
+  pristine tree, or re-derive after the probe.** The `S5993` run applied four sites by hand to test
+  the gate, then built its site table from the working copy; the collection pass required the flagged
+  line to start with `public`, so those four now read as "already fixed" and were skipped. They were
+  then reverted by the branch reset, so the batch shipped **158 of 162** and the gap only showed up
+  when the PR-body count was cross-checked against the facet. Recovering it cost a second commons
+  reactor. Two guards: run the collection pass before any probe (or after `git checkout -- .`), and
+  always reconcile the applied-edit count against the rule's own live `total` per repo before writing
+  the PR body — the same cross-check the recorded "re-derive the fixed count at PR time" rule asks for.
 - **Re-run the whole script from `git checkout -- .` after EVERY fix to it.** Three successive bugs
   (a `} else if` brace-count, a `\b` that will not match after `]`, and a paren-greedy cast pattern)
   were each found by reading the compact diff `git diff -U0 | grep '^[+-]'` — a full-file diff is
@@ -1032,6 +1047,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `ajc` (`The method getDisplayValue(int) … is not applicable for the arguments (XWikiContext, int)`).
   Two cheap guards for any batch that changes a member of an oldcore class: grep
   `--include=*.aj` for the member name, and put the matching `*-legacy-*` module in the `-pl` list.
+- **Datapoint for a one-token three-repo sweep across 33 modules, 162 sites** (cold `~/.m2` for
+  platform): commons 7 modules **2:07** (357 tests) + rendering 5 modules **2:03** (1483) + platform
+  **21** modules incl. `oldcore` and `legacy-oldcore` **10:30** (2280, oldcore 1188) ≈ **15 min** for
+  4120 tests, `revapi:check` green in all 33. A one-keyword edit costs the same reactor as a big one,
+  so pick the widest pool the rule offers rather than trimming modules.
+- **A second pass over the same modules reports FEWER tests, and that is the Develocity build cache,
+  not a regression.** Re-running the commons leg with one module added showed `surefire` executing but
+  printing no `Tests run:` for the four modules whose sources had not changed since the first pass
+  (their reactor times dropped to 2-8 s), while the changed modules ran their suites normally and the
+  build was `BUILD SUCCESS`. So when you re-run a leg to pick up a late site, quote the UNION of the
+  two passes in the PR body, and don't read the smaller number as tests having been skipped by the
+  change.
 - **Datapoint for a three-repo chain from a COLD `~/.m2`, 38 sites**: commons 5 modules **4:02**
   (651 tests, extension-api re-run separately) + rendering 1 module **0:36** (93) + platform **14**
   modules incl. oldcore and legacy-oldcore **13:16** (1831 tests, oldcore 1160) ≈ **18 min** for 2575

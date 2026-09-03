@@ -10,11 +10,14 @@ history — merge/trim in place, don't append dated anecdotes.
 OKF denylist and the recently-triaged ones in `pool-state.md` (currently S4144 identical-method-bodies; S6213 and
 S5993 are only HALF rejected — see below). Check both before triaging individual keys of a rule.
 
-**`java:S5993` outside an `internal` package — permanent drop in ALL THREE repos, not listed
-key-by-key** (platform 83, commons 60, rendering 20). Making an abstract class's constructor
-`protected` is a genuine published-API visibility reduction there and Revapi rejects it. The
-`internal` subset is the opposite — it shipped with 0 drops, see
-[rules/java-S5993.md](rules/java-S5993.md). Bucket by `'/internal/' in path` before reading anything.
+**`java:S5993` — Correction: NOT a drop at all, the whole pool SHIPPED.** This entry used to read
+*"outside an `internal` package — permanent drop in ALL THREE repos … Revapi rejects it"*. A 2-minute
+probe (`mvn package revapi:check -Pquality -DskipTests` on four non-`internal` sites) falsified it:
+`API checks completed without failures`. XWiki's `revapi.json` reclassifies *source*-compatibility
+checks to EQUIVALENT severity, and narrowing an abstract class's constructor is source-only. The
+residue this entry wrote off then shipped as 162 sites (platform #6293 83, commons #1945 60,
+rendering #427 19). See [rules/java-S5993.md](rules/java-S5993.md). Only one site is a real drop:
+rendering `AZNziSnUEcK0YeraNzEz` — see the metric-collision section at the end.
 
 **`java:S8786` (non-linear backtracking regex) — WHOLE-RULE permanent drop in all three repos, not
 listed key-by-key** (platform 17, commons 2, rendering 3). A flagged site already carries the
@@ -24,6 +27,29 @@ flagged, so the remediation does not clear the issue; the rest of the pool is `P
 
 **`java:S5961` (too many assertions in a test method) — WHOLE-RULE rejection** (platform 34, commons
 17, rendering 11): splitting a test method is a test-design decision, not a cleanup.
+
+**`java:S6355` residue — WHOLE-RULE permanent drop, measured, not listed key-by-key** (platform 245,
+commons 38, rendering 6 after the 464-site sweep). A script walked every flagged `@Deprecated` up to
+its Javadoc block: **1** site states a derivable version, 144 have a `@deprecated` tag with no
+version, 123 have no Javadoc block at all and 21 have a Javadoc block with no `@deprecated` tag. The
+deprecating version is simply not in the source for the residue, and guessing it is worse than the
+open issue. Re-run that script (it needs no API calls beyond the issue list) only if a run has reason
+to think versions were added since.
+
+**`java:S1123` — deferred, with two measured reasons** (platform 166, commons 35, rendering 3). The
+`message` histogram splits it 185 *"Add the missing `@deprecated` Javadoc tag"* (prose only the API's
+author can write) / 19 *"Add the missing `@Deprecated` annotation"*. The annotation half is the
+mechanical one and XWiki's own convention wants it (`okf/conventions/versioning.md`: *"Always both"*),
+but only **8 of the 19** state a version in their `@deprecated` tag — adding a bare `@Deprecated` to
+the other 11 immediately raises a fresh `java:S6355`. So the genuinely clean subset is 8 sites, and
+the run that wants them should take them as a rider on a batch already building `oldcore`,
+`refactoring-api` and `extension-api` (which hold 9 of the 19).
+
+**`java:S2386` commons remainder (8) — drop, the value cannot be made immutable.** The recorded escape
+(clear the rule by making the *value* immutable instead of taking the message's `protected`) does not
+apply here: `VelocityParser`'s five `public static final Set<String>` constants are `new HashSet<>()`
+filled by a static block, and `FilterEventParameters.EMPTY` is an instance of a mutable class. Both
+would need a real refactor, not a `List.of` swap.
 
 Sections are per REPO — issue keys are unique per SonarCloud project, so a key from
 `org.xwiki.commons:xwiki-commons` never collides with a platform one. Repos with no drops yet are
@@ -1372,7 +1398,7 @@ whole rules rather than key-by-key:
   org.apache.commons.lang3.StringUtils`, `Logger extends org.slf4j.Logger`, `CollectionConverter
   extends com.thoughtworks.xstream…`). A class rename is an API break and loses the intent.
 
-## java:S3776 collisions — a declaration line that already carries a cognitive-complexity issue
+## Metric-rule collisions — a declaration line that already carries an `S3776`/`S107`/`S1541` issue
 
 Both fixes were correct and both were reverted: rewriting the declaration line made
 `Quality / Analyze` attribute the method's pre-existing `java:S3776` to the PR, and reducing that
@@ -1383,3 +1409,7 @@ complexity is a refactor rather than a cleanup. Skip these two, and pre-check th
   line carries `S3776` at complexity 27.
 * `java:S1130` commons `MockitoComponentMocker#registerMockDependencies` `AWgZSVQPUMkE2J58eTdz` — the
   declaration line carries `S3776` at complexity 22.
+* `java:S5993` rendering `test/integration/AbstractInternalRenderingTest.java:89`
+  `AZNziSnUEcK0YeraNzEz` — the constructor line carries `java:S107` (8 parameters). Caught by the
+  pre-check, i.e. before the push, which is where it belongs: the collision set for a whole batch is
+  one pass over the project's already-fetched open issues.

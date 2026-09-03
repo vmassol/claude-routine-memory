@@ -10,6 +10,14 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **The single highest-yield move known to this routine is now: take the biggest denylisted pool whose
+  reason is "a build gate rejects it", and RUN THAT GATE on one small module.** `java:S5993`'s
+  non-`internal` residue had been written off twice — once in the OKF, once in `dropped-issues.md` as
+  a "permanent drop in all three repos" — and a 2:01 `revapi:check` probe on four sites in
+  `xwiki-commons-cache-api` returned *"API checks completed without failures"*. 162 sites shipped
+  (platform #6293 83, commons #1945 60, rendering #427 19) on a day when the mechanical allowlist,
+  the `S6355` residue, the `S1172` `private` subset and the never-mentioned-rule diff ALL returned
+  zero workable sites in all three repos. See [rules/java-S5993.md](rules/java-S5993.md).
 - **A rule on the OKF DENYLIST can still be the run's best pool — re-read the denylist reason against
   the rule's own definition.** `S3252` was listed as "static-access … usually backward-compat-bearing
   public API"; the rule actually only asks you to qualify a static member with the class that declares
@@ -645,6 +653,28 @@ of it MERGED, plus the OKF correction PR:**
 - Build datapoint: `xwiki-platform-web-war` alone, warm-ish `~/.m2`, **6:12**, BUILD SUCCESS (all
   three `closure-compiler:minify` executions + `yuicompressor:compress`). No unit tests exist for
   these files, so `node --check` plus a `node` equivalence program is the behaviour evidence.
+
+**Current standing state — after the S5993 full sweep (platform 83, commons 60, rendering 19 = 162,
+the largest single-rule batch this routine has shipped):**
+
+- **Everything cheap really is dry, and this run measured all of it in one pass.** Pulling every open
+  issue per repo once (`issueStatuses=OPEN` by severity, 5 800 issues into a local JSON) and grepping
+  the keys against `dropped-issues.md` is cheaper than the per-rule allowlist query and answers every
+  rule at once. Results that day: the ~78-rule mechanical allowlist **0 workable**; `S6355` residue
+  **1 of 289** has a derivable version; `S1172` **0 of 81** is `private`; the never-mentioned-rule
+  diff (run per severity AND per language, so the 100-value facet cap cannot truncate it) returned
+  **23 rules, every one a singleton**. Don't re-derive these four; go straight to the denylist.
+- **Remaining big denylisted pools and why each still holds** (platform/commons/rendering workable):
+  `S1135`+`S1134` 783 TODO/FIXME, `S1133` 420, `S112` 321, `S3776` 280, `javabugs:S2259` 244,
+  `S2143` 209 (java.time migration), `S1123` 204 (see `dropped-issues.md` — 8 genuinely clean sites),
+  `S1168` 148, `S2160` 114, `S1172` 81 (all non-`private`), `S9149` 54 (`StringTool` mirroring
+  `commons-lang3`), `S2065` 68 / `S1948` 59 (XStream `transient`), `S1141` 65, `S5961` 62, `S1181` 62.
+  The one with an untested gate-shaped reason was `S5993`, and it fell.
+- **Never-triaged singles left, all analyzed only from the site list**: `css:S4666` 9 (duplicate CSS
+  selectors — merging two rule blocks changes cascade order relative to intervening rules, so it needs
+  per-site analysis, not a batch); `javascript:S3504` 18 (`var`→`let` in
+  `sortPicker/gallery/clean/lock/notification.js` — per-iteration binding and hoisting both change);
+  `javabugs:S6416` 5. Platform's JS pool is still PR-constrained (#6210/#6211 open).
 
 **Current standing state — after the S1186 sweep (platform 95, commons 48, rendering 29 — the second
 run ever to ship a real batch in all three repos):**
