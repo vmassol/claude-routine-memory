@@ -1683,6 +1683,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     the construct in the apply script and drop the site when it would cross the cap* — splitting the
     method is a refactor, not a Sonar cleanup, and the rejection is the codebase stating the merged
     form is not more readable.
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#103` OPEN** (the `S5993` denylist entry deleted,
+  the rule moved into `syntax-rules` and added to the rule map, and the `S2386` bullet's "the same
+  break as S5993" cross-reference fixed). Eighth "actively-wrong entry" correction, and the first
+  where the entry was wrong *because a previous correction of the same entry* (#78) narrowed the claim
+  instead of testing it — so a corrected entry is not a verified one. Written to the shape that keeps
+  merging: minimal, leading with the cost (163 issues written off), and citing the three sweep PRs
+  (#6293/#1945/#427) that were already open when it was filed. Note the version rule inverted on
+  2026-09-01 — the PR must NOT touch any version field, and `node scripts/validate.mjs` enforces that.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#79` MERGED** (plugin 1.1.11 live on master; the `S1130`
   "`src/main` is a permanent drop" line corrected to non-`private`, plus the unreachable-`catch`
   cascade). Seventh "actively-wrong entry" correction, and the first found in a **family file**
