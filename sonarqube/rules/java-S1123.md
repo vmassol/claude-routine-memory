@@ -39,6 +39,12 @@ smaller half is worth a judgement PR.
 
 Net on the 2026-09 pool: 16 platform → 5 shippable, 3 commons → 2, rendering → 0.
 
+**Outcome: the judgement half MERGED, uncommented** — commons #1946 (2 sites) landed within hours of
+opening, with no question raised about the deprecation-warning cost the rule is denylisted for. So
+the annotation shape is welcome where the version is derivable; it is the *tag* shape (writing the
+prose) that stays a permanent drop. Keep shipping it as its own PR anyway — the split is what let it
+merge on its own schedule.
+
 ## Revapi does not object
 
 `revapi:check` under `-Plegacy,quality` passed on `oldcore`, `legacy-oldcore`, `refactoring-api` and
