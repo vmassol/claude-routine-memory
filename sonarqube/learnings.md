@@ -984,7 +984,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   file would have stopped parsing) and 1 was `javascript:S4138` on a `for (var i …)`. Fixing them in
   the same edit turned a 4-site drop into **+9 issues** (6 `S2814`, 2 co-located `S2392`, 1 `S4138`).
   So run the pre-check BEFORE deciding the batch's contents, not just before the push, and classify
-  each hit: metric rule ⇒ drop the site; anything with a mechanical fix ⇒ fold it in.
+  each hit: metric rule ⇒ drop the site; anything with a mechanical fix ⇒ fold it in. **Outcome:
+  `Quality / Analyze` went green first try on all three PRs of that sweep** (platform #6303/#6304,
+  commons #1946), and so did the `SonarCloud` project gate — no moved-finding artifact, no comment
+  to argue. Re-running the check after applying is what makes the zero meaningful; it costs one
+  `issues/search` per changed file.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
