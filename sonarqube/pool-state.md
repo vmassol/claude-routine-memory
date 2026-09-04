@@ -466,7 +466,29 @@ generation):**
 
 ## Where the classic allowlist stands
 
-**Latest sweep (platform 35, commons 15, rendering 0).** The 56-rule mechanical allowlist queried in
+**Latest sweep (platform 45 mechanical + 5 judgement, commons 2, rendering 0) — the JAVA side is now
+closed in all three repos, and the volume is in platform's JavaScript.** The 2026-09-04 pass ran
+every recorded find-phase opener and each of them returned nothing: the never-mentioned-rule diff
+(5 severities × 10 languages × 3 repos, 226 rules) surfaced **23 rules, all singletons**; the
+~140-rule mechanical allowlist cross-checked against `dropped-issues.md` left platform 881 / commons
+275 / rendering 66 "fresh" keys of which **every bucket over 10 was a recorded shape-drop or a
+whole-rule drop** (`S6355` 304 = exactly the recorded non-derivable count, `S1123`, `S9149`, `S2176`,
+`S1452`, `S127`, `S8786`); and the `S1172` `private` re-bucketing — the lever that paid 41 sites once
+— returned **zero `private` sites in all three repos** (platform 19 protected / 65 public, commons
+8/12, rendering 3/1). The one Java rule that had regenerated was **`S1117` (13, two oldcore test
+classes)**. Everything else came from **`javascript:`**, which remains the only untouched generation:
+`S3504` 16, `S2814` 6, `S6557` 3, `S7781` 4, `S2392` 2, `S4138` 1 → platform #6303. Generalise: once
+the Java facet is this drained, spend the run's first query on `&languages=js`, not on another Java
+re-derivation.
+
+Also settled that pass: **`java:S1123`'s annotation half is a real, small pool** (16/3/0 → 5/2/0
+shippable; see [rules/java-S1123.md](rules/java-S1123.md)), and **the remaining big JS rules are
+still traps** — `S1848` 76 (Prototype false positive), `S4138` 47, `S7740` 32, `S7741` 28, `S7761`
+26, `S1121` 23 (20 of them in the vendored `tablefilterNsort.js`), `S1874` 20, `S2392`/`S2814` in
+`suggest.js`. The provably-safe JS subset is now `S6557`, `S7781`, `S6353`, `S7773`, `S7765`,
+`S6582`, `S6660`, `S6644`, `S3504` (see the Rule index).
+
+**Previous sweep (platform 35, commons 15, rendering 0).** The 56-rule mechanical allowlist queried in
 ONE call per repo returns platform 60 / commons 18 / rendering 6 — and cross-checking those 84 keys
 against `dropped-issues.md` left only **17 in platform and 0 in the siblings**. That cross-check is
 the single cheapest step in the run: do it on the whole shortlist before opening any source file.

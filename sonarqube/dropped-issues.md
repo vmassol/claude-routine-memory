@@ -1413,3 +1413,86 @@ complexity is a refactor rather than a cleanup. Skip these two, and pre-check th
   `AZNziSnUEcK0YeraNzEz` — the constructor line carries `java:S107` (8 parameters). Caught by the
   pre-check, i.e. before the push, which is where it belongs: the collision set for a whole batch is
   one pass over the project's already-fetched open issues.
+
+## `java:S1123` (annotation half) — the "add the missing `@Deprecated` annotation" drops
+
+The other shape of the rule (*"add the missing `@deprecated` Javadoc tag"*, 190 across the three
+repos) is a whole-shape drop and is recorded above with `java:S6355`. These are the annotation-shape
+sites that are NOT shippable; the other 7 went out as platform #6304 / commons #1946. Full triage in
+[rules/java-S1123.md](rules/java-S1123.md).
+
+* **A commented-out annotation under a `// TODO:` already states the decision** — `// TODO: uncomment
+  the annotation when XWiki Standard scripts are fully migrated to the new API` sits directly above
+  `// @Deprecated(since = "17.0.0RC1")` in all seven: `ScriptHttpSession` `AZ4cWy0hDEwl2Xf2zCY2`,
+  `WrappingXWikiRequest` `AZ4cWyhnDEwl2Xf2zCY1`, `WrappingXWikiResponse` `AZ4cWyXhDEwl2Xf2zCYz`,
+  `ScriptXWikiServletResponse` `AZRfe0eW80sOVmdacTcW`, `ScriptXWikiServletRequest`
+  `AZRfe0e080sOVmdacTcc`, `XWikiServletRequestStub` `AZRfe0LM80sOVmdacTXN`, `XWikiServletResponseStub`
+  `AZRfe0K780sOVmdacTXJ`.
+* **The `@deprecated` tag names no version**, so a bare `@Deprecated` would trade `S1123` for a fresh
+  `java:S6355` — platform `LegacyOfficeImporterScriptService` `AYVR6ujnMcTx3rsGLmtF`
+  `AYVR6ujnMcTx3rsGLmtH` `AYVR6ujnMcTx3rsGLmtJ` `AYVR6ujnMcTx3rsGLmtL`.
+* **A copy of somebody else's API** — commons `jakarta.servlet.http.HttpSessionContext`
+  `AZRQnUte6WWG1k8VL2IO`, whose tag (`deleted in Servlet 6`) records a servlet-spec fact, not an
+  XWiki version; the `jakartabridge` modules deliberately mirror the spec.
+
+## platform `javascript:` — the 2026-09 WAR sweep's drops
+
+Shipped in #6303: `S3504` 16, `S2814` 6, `S6557` 3, `S7781` 4, `S2392` 2, `S4138` 1. These are the
+analyzed rejects of the same pass. (The vendored-file rule still applies on top — see the
+`javascript:* — VENDORED third-party scripts` sections above; `tablefilterNsort.js` and `ieemu.js`
+are third-party.)
+
+* **`javascript:S3504`, the two module-global `var XWiki`** — `lock.js:20`
+  `AY1U1sW-0GHv9uFD3jxr` and `notification.js:20` `AY1U1sQ50GHv9uFD3jf8`. A top-level `var` in a
+  classic script publishes `window.XWiki`; `const` does not, and the augmentation pattern depends on
+  it. Permanent. See [rules/javascript-S3504.md](rules/javascript-S3504.md).
+* **`javascript:S6535` + `javascript:S6325` on `xwiki.js:829`/`833`** — `AY1U1sK70GHv9uFD3jNV`
+  `AY1U1sK70GHv9uFD3jNW` (S6535), `AY1U1sK70GHv9uFD3jNN` `AY1U1sK70GHv9uFD3jNT` (S6325). Line 833
+  builds a regex from a *string* in which `\*` is just `*`, so what compiles is `/*` = "zero or more
+  slashes" rather than a literal `/*`: the "unnecessary escape" is a latent bug, and both remediations
+  either preserve it or silently change what the advanced-content check matches. Report it, do not
+  sweep it.
+* **`javascript:S7780` (`String.raw`)** — `simpletoolbar.js:68` `AaAfd1i1UI0v6xilqCMk`,
+  `xwiki.js:674` `AZlyHaUzlYnK6j8fkQX6` `AZlyHaUzlYnK6j8fkQX7`, `xwiki.js:685`
+  `AZlyHaU0lYnK6j8fkQX8` `AZlyHaU0lYnK6j8fkQX9`. Pure style, and a `String.raw` template around each
+  `\b` fragment of a dynamically built `new RegExp(...)` reads worse than the `'\\b'` it replaces.
+  Whole rule: not worth a PR.
+* **`javascript:S7746` / `javascript:S6671` / `javascript:S3696`** — `return Promise.reject(e)` →
+  `throw e`, and rejecting/throwing a non-`Error`. All three change what a caller's `catch` receives,
+  so they are behaviour changes in promise chains, not cleanups: `AZ-LGmBRRQLNEUYjlwfX`
+  `AZlyHbIxlYnK6j8fkQgW` `AZlyHbIxlYnK6j8fkQgX` `AZlyHa1glYnK6j8fkQeQ` (S7746);
+  `AZosp0KlC-grSB_GeR7L` `AZosp0RsC-grSB_GeR7P` `AZosp0RsC-grSB_GeR7Q` `AZosp0HMC-grSB_GeR7K`
+  (S6671); `AY1U1sTz0GHv9uFD3jqv` `AY1U1sTa0GHv9uFD3jpz` `AY1U1sTa0GHv9uFD3jqE`
+  `AY1U1sPJ0GHv9uFD3jYB` `AY1U1sPJ0GHv9uFD3jYD` (S3696).
+* **`javascript:S1515`** (`suggest.js:833` `AY1U1sR60GHv9uFD3jkm`, `livetable.js:1318`
+  `AY1U1sNQ0GHv9uFD3jUd`) — the message is *"Make sure this function is not called after the loop
+  completes"*, i.e. a review request, not a transform.
+* **`javascript:S878` (comma operator)** — `modalPopup.js:46` `AY1U1sOd0GHv9uFD3jVj` is the only
+  non-vendored one, and splitting it changes the expression's value position.
+* **`javascript:S1121`** — 20 of the 23 are in the vendored `tablefilterNsort.js`; the rest
+  (`picker.js:226` `AY1U1sUr0GHv9uFD3js5`, `ieemu.js:288` — also vendored) leave nothing to sweep.
+* **`javascript:S2814` outside `usersandgroups.js`** — the 11 `suggest.js` sites and the singletons in
+  `select.js`/`actionButtons.js`/`create.js`/`livetable.js`/`xwiki.js`/`accordion.js` are genuine
+  re-declarations inside long functions where hoisting one declaration to the top would need the
+  function read end-to-end; deferred on ROI, not rejected.
+
+## The Java allowlist is EMPTY of `private` `S1172` sites in all three repos
+
+Re-bucketing `java:S1172` by visibility — the lever that once turned "132/25/5, all denylisted" into
+41 shipped sites — now returns **zero** `private` sites: platform 19 `protected` / 65 `public`,
+commons 8/12, rendering 3/1. The private subset is spent; do not spend a run re-deriving it until the
+rule regenerates.
+
+## Rules triaged from the `message` alone and rejected (all three repos, no source reads)
+
+One `issues/search` per rule, read the `message` histogram, reject. Recorded so a future run does not
+re-open them: `java:S1181` "Catch Exception instead of Throwable" (platform 45, commons 17, rendering
+3 — narrowing what is caught is a behaviour change); `java:S135` "reduce the number of break/continue"
+(18/16/7 — a refactor); `java:S5961` "too many assertions in this test" (34/17/11 — test design);
+`java:S110` inheritance depth (39/6/0); `java:S1134` FIXME tags (98/10/4 — the fix is the FIXME);
+`java:S2112` "use the URI class instead" (commons 5 — different equality semantics);
+`java:S3077` "use a thread-safe type" (5/3 — a concurrency design change);
+`java:S2274` "move this `await` into a `while` loop" (4/1 — a real-bug rule, per site);
+`java:S2326` unused type parameter (5/1 — a published signature change);
+`java:S1319` "use the collection interface" (6/2 — same, on `public` returns);
+`java:S1150` "implement Iterator rather than Enumeration" (commons 4 — API change).

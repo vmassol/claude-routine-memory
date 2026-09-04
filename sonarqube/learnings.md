@@ -60,6 +60,8 @@ rows for the rules you commit to fixing this run.
 | `java:S9357` | [rules/java-S9357.md](rules/java-S9357.md) | the 2026 restatement of `S1604`, so its drop index already applies; two more drops are a target parameter typed `Object` and an observed `getClass().getSimpleName()` |
 | `java:S2386` | [rules/java-S2386.md](rules/java-S2386.md) | denylisted for the MESSAGE's fix (`protected` → Revapi); making the value immutable clears it with no declaration change |
 | `java:S2198` | [rules/java-S2198.md](rules/java-S2198.md) | ask WHY the comparison is dead — a proper fix that RE-ADDS your deleted line means the line was evidence of a defect |
+| `java:S1123` | [rules/java-S1123.md](rules/java-S1123.md) | splits by `message`; the annotation half's biggest bucket is sites carrying a COMMENTED-OUT `@Deprecated` under a `// TODO:` |
+| `javascript:S3504` | [rules/javascript-S3504.md](rules/javascript-S3504.md) | the module-global `var XWiki = (function…)` must stay `var`; the rest co-locates with `S2814`/`S4138` |
 
 ## Picking a target rule (find phase)
 
@@ -973,6 +975,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the whole re-verification, no rebuild needed), **reopen** the issue in SonarCloud with a correction
   comment naming the PR, and say in the PR's *Clarifications* what was dropped and why — the gate
   agreeing with you is a better line in a PR body than a green run you had to argue for.
+  **"Drop the site" is only the answer when the colliding issue is a METRIC — ask first whether the
+  collision is itself mechanical, because then it is yield, not a drop.** The recorded cases were all
+  `S3776`/`S107` (a refactor, so a drop), which made the pre-check read as a drop-detector. It is
+  really a *co-location* detector, the same lever as the `S7781`+`S6397` pairing: of 4 collisions in
+  one JS batch, 3 were `javascript:S2814` on a `var` the batch was converting to `const` (and
+  ignoring them would not merely have failed the gate — `let`/`const` cannot be redeclared, so the
+  file would have stopped parsing) and 1 was `javascript:S4138` on a `for (var i …)`. Fixing them in
+  the same edit turned a 4-site drop into **+9 issues** (6 `S2814`, 2 co-located `S2392`, 1 `S4138`).
+  So run the pre-check BEFORE deciding the batch's contents, not just before the push, and classify
+  each hit: metric rule ⇒ drop the site; anything with a mechanical fix ⇒ fold it in.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
