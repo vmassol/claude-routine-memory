@@ -39,6 +39,11 @@ Two mechanics:
 * **Order the edits: replace the bodies FIRST, insert the helper second.** The helper's body is
   byte-identical to the string you are replacing, so an insert-first script rewrites the helper too.
 
+**Outcome: rendering #428 merged uncommented**, same day, alongside the commons `S3398` PR. So the
+extraction half of this rule is welcome as-is — the anticipated "these are distinct entry points"
+objection never came — and the three reported defects were accepted as reports rather than being
+asked for as fixes. That is the ninth denylist rescue to merge without a review comment.
+
 ## What a reviewer is likely to ask
 
 That these are distinct listener/printer entry points and the duplication is fine. The answer is in
