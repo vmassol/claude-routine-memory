@@ -37,6 +37,11 @@ ones**. `ResourceLoader`'s three helpers:
 Dropping the heaviest one (`parseJarIndex`) took 22 → under the cap and still shipped 2 of 3, with
 0 Checkstyle violations. One extra 23-second module build settled it.
 
+**Outcome: commons #1953 merged uncommented**, partial application and the `toPackageIndex` rename
+included — so neither the "you only did two of the three" gap nor the rename drew a question, given
+that the PR body stated the Checkstyle cap and the `S1845` collision as the reasons. Platform still
+holds 6 untouched sites.
+
 ## Two more drop conditions, both free to check
 
 * **The method reads OUTER instance state.** `DefaultExtensionJobHistory#save(...)` uses three
