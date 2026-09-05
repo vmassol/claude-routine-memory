@@ -78,6 +78,10 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **S6068** Mockito `eq()` | **Drained in all three repos** (platform 102 → 35 → 17 → 0, over three passes; the last 17 were thin-spread one-to-three per module across 11 modules). Commons 4 done, rendering 0. | **0 drops (106/106).** Fully scriptable and test-only, so the module tests are the whole verification. Key the edit to the whole STATEMENT (scan up/down to the `;`), never the flagged argument. |
 | **S9016** nested mock creation | Platform 101 → 49 → **4** (one 45-site PR across 26 modules; the pool was thin-spread — 1-4 per module — and a 26-module platform reactor still builds in 18 min). Commons 6 (1 extension-api + 5 store-blob-s3) still unswept. Rendering 0. | **~8%: only the type-inferred `mock()` form drops.** 39 of the 45 were scripted off `textRange`; 6 of the 7 `mock()` sites were still recoverable by hand (the stubbed getter's return type was already imported). The one real drop needed a *new foreign* import (Hibernate `Configuration`) — that is the drop line for this rule. |
 | **S8714** try/catch/fail→`assertThrows` | **Drained in all three repos.** The platform 49 went in one PR (security-authorization-api 11, rest-server 8, export-pdf-default 7, model-api 7, oldcore 5, export-pdf-api 4, livedata-livetable 2, + 5 singletons = 21 files / 12 modules). Regenerates slowly. | **0 drops (62/62 across the three repos).** Three shapes, all safe: single-call try (~90%), `catch { fail() }` → `assertDoesNotThrow`, and a multi-statement try where only the last call throws (hoist the setup out, effectively-final locals still work in the lambda). |
+| **css:** the whole facet | **Opened for the first time and nearly drained**: platform 19 (`S4666` 9, `S4656` 3, `S4670` 2, `S4651` 2, singletons), all in `xwiki-platform-web-war`; commons and rendering have **no CSS at all**. 13 shipped in #6321, 5 dropped, 1 false positive → ~5 left, all recorded drops. Regenerates only when a skin CSS file is edited. | **26% (13/19).** Every drop is a *browser-compat or dead-selector* decision, never a merge risk: the merge itself is free unless both blocks set the same property (1 site). |
+| **javascript:S4138 / S2392 / S2814 / S6645** WAR loops & scopes | Platform only. `S4138` ~60 open, of which 17 are in the two vendored files; the XWiki-owned unclaimed subset was 14 and went in #6321 along with `S2392` 7, `S2814` 1, `S6645` 1. What remains is claimed by other agent PRs or vendored. | **0 drops on the owned subset (23/23).** The whole drop list is provenance (vendored files) plus one `S1940` false positive. |
+| **S4144** identical bodies | Rendering 6 → 1, commons 2 → 0 (both reported as defects), platform **11 untouched** (mostly `src/test`). | ~40%: the split is the pair's names — see the rule file. |
+| **S3398** move private method to inner class | Commons 4 → 2, platform **6 untouched**. | 50%, and the reason is a *Checkstyle metric* (`ClassFanOutComplexity`), so re-check it per target class rather than assuming. |
 | **S4201** null check before `instanceof` | Commons 4 (crypto-pkix 2, extension-api 2) — drained. Not yet counted in platform/rendering. | **0 drops (4/4).** Pure one-line delete of `x == null \|\|`; every site was the `equals()`/validate shape. |
 | **S1192 / S1121 / S1153 / S1659 / S6353 / S1450 / S2133 / S1144** commons long tail | One-to-three each; 19 issues over 11 rules in one PR across 16 files / 14 modules (whole-repo build). | ~30% drops, all for a *reason visible in the site*: a duplicated literal inside a vocabulary list, an "unused" private method asserted by name in a reflection test, a `throws` on a `src/main` method. |
 | **S5786** JUnit5 visibility | Commons 5 → 3 fixed. Class-level flags expand to several method strips per file. | **40% drops.** Two hard blockers: a test class read from ANOTHER package (constants like `X.HEADER`), and a `@BeforeEach @Override` of a public parent method — reducing an override's visibility does not compile. Check both before committing to a file. |
@@ -411,8 +415,14 @@ generation):**
   API change and stays a drop; `"Rename this variable"` is a parameter/local rename that breaks
   nothing, and it was 16 of commons' 18 and 4 of platform's 6. Commons' 16 shipped as a judgement PR.
   See [rules/java-S6213.md](rules/java-S6213.md).
-- **`S4144`** "implementation is identical to method X" — **rejected**: deduplicating two methods that
-  legitimately mean different things is a design decision, not a cleanup.
+- **`S4144`** "implementation is identical to method X" — **CORRECTION, the blanket rejection was
+  wrong**: "two methods that legitimately mean different things" is not the whole pool, it is the
+  *classifier*. When the two names describe the **same** operation the duplication is deliberate and
+  one private helper clears it (rendering 5/5, #428); when they describe **different** operations
+  the identical body is a real defect (three found: a `getHtmlSymbol(char)` returning the wiki
+  symbol, a `getSpaces` matching all whitespace, a test named for InputStream that converts a File)
+  and the right move is to report it, not clear it. Pool: platform 11, rendering 6 → 1, commons 2.
+  See [rules/java-S4144.md](rules/java-S4144.md).
 - **`S6035`** "replace this alternation with a character class" (`"^(?:d|F)ownload:.*"` → `"^[dF]…"`)
   — **rejected when the regex is a `public static final String`**: the value of a compile-time
   constant changing is a Revapi `java.field.constantValueChanged` break even though the regex is

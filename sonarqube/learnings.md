@@ -62,6 +62,10 @@ rows for the rules you commit to fixing this run.
 | `java:S2198` | [rules/java-S2198.md](rules/java-S2198.md) | ask WHY the comparison is dead — a proper fix that RE-ADDS your deleted line means the line was evidence of a defect |
 | `java:S1123` | [rules/java-S1123.md](rules/java-S1123.md) | splits by `message`; the annotation half's biggest bucket is sites carrying a COMMENTED-OUT `@Deprecated` under a `// TODO:` |
 | `javascript:S3504` | [rules/javascript-S3504.md](rules/javascript-S3504.md) | the module-global `var XWiki = (function…)` must stay `var`; the rest co-locates with `S2814`/`S4138` |
+| `css:S4666` `S4656` `S4657` `S4670` `S4651` `S8759` `S125` | [rules/css-rules.md](rules/css-rules.md) | the whole CSS facet: merging a duplicate selector is free UNLESS both blocks set the same property, and a `.css` file can be a Velocity template (S4670 FP) |
+| `java:S3398` | [rules/java-S3398.md](rules/java-S3398.md) | the only rule whose fix is metric-exposed *by construction* — moving a method INTO a class raises that class's Checkstyle `ClassFanOutComplexity`; recover by moving the cheap ones only |
+| `java:S4144` | [rules/java-S4144.md](rules/java-S4144.md) | a BUG detector half the time — the pair's NAMES classify it: same operation ⇒ extract, different operations ⇒ the identical body is the defect, report it |
+| `javascript:S4138` `javascript:S1940` | [rules/javascript-S4138.md](rules/javascript-S4138.md) | not a trap: index-used-only-as-`collection[i]` plus a `Symbol.iterator` receiver check (jQuery ≥3 — read the pom). `S1940`'s `!(x >= 0)` → `x < 0` is an FP |
 
 ## Picking a target rule (find phase)
 
@@ -398,6 +402,28 @@ rows for the rules you commit to fixing this run.
   A fix that does not clear the issue is worthless here, so the whole rule went to
   [rules/java-S8786.md](rules/java-S8786.md) as a drop. Sibling of the `S108` move (read the rule's
   own *Exceptions* section) — both are one API/grep call that decides a rule before any real triage.
+- **When the Java facet AND the JavaScript facet are both claimed, the answer is `languages=css`.**
+  Recorded as "the only never-opened language facet left" and now opened: platform 19 issues over 7
+  CSS rules, **13 shipped / 5 dropped / 1 false positive**, commons and rendering 0. Three things
+  make it the best pool available on such a day: it is decidable from ~10 lines plus a scan of what
+  sits *between* the two blocks an issue names (no whole-file reads, no dataflow), it sits in
+  `xwiki-platform-web-war` where the `closure-compiler:minify`/`yuicompressor` executions are real
+  verification, and **no agent PR had ever touched a `.css` file**, so nothing was claimed. See
+  [rules/css-rules.md](rules/css-rules.md). Corollary for the find phase: run the facet query per
+  `languages=` (`java`/`js`/`css`/`xml`) rather than trusting one call — the same 100-value cap that
+  hides the low-count Java tail also buries the whole CSS facet under the Java rules.
+- **The "deferred, NOT dropped" entries of `dropped-issues.md` are a standing invitation that
+  EXPIRES — re-query the keys before planning a batch around them.** The recorded lever ("after
+  choosing the batch, re-read the index for *deferred* entries and intersect their modules with your
+  `-pl` list") paid 14 sites once. This run it returned mostly **GONE**: all 7 of the
+  `java:S7476`/`S3706` `search-solr-api` keys and the whole `javascript:S6637` `dashboard.js` set had
+  been fixed or claimed by another PR in the meantime. One `issues/search?issues=<keys>` over the
+  deferred list costs one call and tells you which invitations are still open — do it before
+  budgeting a module into the reactor for them.
+- **A run can find the never-mentioned-rule diff genuinely EMPTY, and that is information, not a
+  failed query.** Five severity-split facet calls per repo returned, across all three repos, only
+  count-1 rules plus `javabugs:S6322` (rendering 2). When that happens the catalogue really is swept
+  and the next lever is a *language* facet (above) or a re-derivation, not another rule hunt.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -989,6 +1015,21 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   commons #1946), and so did the `SonarCloud` project gate — no moved-finding artifact, no comment
   to argue. Re-running the check after applying is what makes the zero meaningful; it costs one
   `issues/search` per changed file.
+- **`xwiki-rendering` master cannot run ANY test right now, and the fix is a LOCAL, REVERTED pom
+  edit — not a dropped verification and not a repair commit.** `xwiki-rendering/pom.xml` (lines
+  124-129) pins a surefire `listener` property to `org.xwiki.test.CaptureConsoleRunListener`, a
+  JUnit 4 class that no longer exists in `xwiki-commons-tool-test-simple` (the current SNAPSHOT
+  ships only `org.xwiki.test.junit5.CaptureConsoleExtension`, and the old name appears nowhere in
+  the `xwiki-commons` sources). Every rendering module whose surefire forks dies in the *booter*:
+  `SurefireReflectionException: java.lang.ClassNotFoundException: …CaptureConsoleRunListener`,
+  `Tests run: 0`, and `-fae` does not save the modules behind it — a 5-module reactor reported one
+  FAILURE and four SKIPPED. Two things to do with it: (a) recognise it instantly — a
+  ClassNotFound in the *booter* is a POM/classpath fact, so a diff of `src/main/**.java` cannot
+  cause it; (b) **delete those six pom lines locally, build, then `git checkout -- pom.xml` before
+  committing**, which turned "no verification at all" into 1255 tests green across 5 modules. Put
+  the mechanism, the exact error and the fact that the edit was reverted in the PR's *Executed
+  Tests* section — that is the recorded "state the breakage precisely, don't repair it in a cleanup
+  PR" rule, with the verification actually done rather than skipped.
 - **A JavaScript batch DOES have Maven verification — the earlier "none exists" note was wrong.**
   `xwiki-platform-web-war/pom.xml` runs `closure-compiler:minify` (three executions: strict,
   non-strict, merge) and `yuicompressor:compress` over every resource, so
@@ -1269,8 +1310,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (max 30 per method)** and — third metric, and the one that cost this routine its most recent build
   round — **`CyclomaticComplexity` (max 10 per method)**, where a `case` label counts and the
   `else if` it replaced did not, so an `if`-chain → `switch` conversion (`S6880`) raises the count by
-  one per branch. The list is not exhaustive; treat *any* fix that changes a method's control-flow
-  shape as metric-exposed and pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
+  one per branch — and now a **fourth**, **`ClassFanOutComplexity`** (max 20 referenced types per
+  class), which is the first one triggered by a fix that adds no statement and lengthens no
+  expression: `java:S3398` *relocates* a method into a class, so the class inherits every type that
+  method mentions (22 > 20 on commons `ResourceLoader.JarInfo`). So the generalisation is wider than
+  "control-flow shape": treat any fix that changes a method's control flow **or moves code between
+  classes** as metric-exposed. The list is not exhaustive; pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
   one costs a whole build round. Pre-check them in the apply script, where it is nearly free: for a
   merge-two-branches fix count the `&&`/`||` in the merged condition and refuse >3; for a hoist-an-
   expression fix count the statements already in the target method. When one fires, **drop the site** —
@@ -1694,11 +1739,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     **`BooleanExpressionComplexity`** (max 3 operators, `S1871`/`S2589` merges),
     **`ExecutableStatementCount`** (max 30/method, `S3358` hoists) and now
     **`CyclomaticComplexity`** (max 10/method, `S6880` `if`-chain → `switch`, where a `case` label
-    counts and the `else if` it replaced did not). The generic statement is what belongs there: *any
-    fix that changes a method's control-flow shape or lengthens a condition is metric-exposed; count
-    the construct in the apply script and drop the site when it would cross the cap* — splitting the
-    method is a refactor, not a Sonar cleanup, and the rejection is the codebase stating the merged
-    form is not more readable.
+    counts and the `else if` it replaced did not) and **`ClassFanOutComplexity`** (max 20 types per
+    class, `S3398`'s move-a-method-into-the-inner-class). The generic statement is what belongs
+    there: *any fix that changes a method's control-flow shape, lengthens a condition, or moves code
+    between classes is metric-exposed; count the construct in the apply script and drop the site
+    when it would cross the cap* — splitting the method or the class is a refactor, not a Sonar
+    cleanup, and the rejection is the codebase stating the merged form is not more readable. One
+    refinement the `S3398` case adds: when several flagged sites feed the same cap, **rank them by
+    cost and apply the cheap ones** rather than dropping the rule — 2 of 3 shipped that way.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#103` OPEN** (the `S5993` denylist entry deleted,
   the rule moved into `syntax-rules` and added to the rule map, and the `S2386` bullet's "the same
   break as S5993" cross-reference fixed). Eighth "actively-wrong entry" correction, and the first

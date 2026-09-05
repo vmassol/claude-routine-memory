@@ -7,8 +7,14 @@ won't match an open issue). Group by rule; keep the reason to one line. This is 
 history — merge/trim in place, don't append dated anecdotes.
 
 **Whole rules** rejected during triage are NOT listed key-by-key here: the permanent ones are in the
-OKF denylist and the recently-triaged ones in `pool-state.md` (currently S4144 identical-method-bodies; S6213 and
+OKF denylist and the recently-triaged ones in `pool-state.md` (S6213 and
 S5993 are only HALF rejected — see below). Check both before triaging individual keys of a rule.
+
+**Correction (2026-09-05): `java:S4144` was NOT a whole-rule rejection.** It splits on the flagged
+pair's *names*: same operation ⇒ extract one private helper (rendering 5/5, #428); different
+operations ⇒ the identical body is a real defect and the fix is a behaviour change, so report it
+instead of clearing the issue. See [rules/java-S4144.md](rules/java-S4144.md); the individual
+report-don't-fix keys are listed below.
 
 **`java:S5993` — Correction: NOT a drop at all, the whole pool SHIPPED.** This entry used to read
 *"outside an `internal` package — permanent drop in ALL THREE repos … Revapi rejects it"*. A 2-minute
@@ -1496,3 +1502,84 @@ re-open them: `java:S1181` "Catch Exception instead of Throwable" (platform 45, 
 `java:S2326` unused type parameter (5/1 — a published signature change);
 `java:S1319` "use the collection interface" (6/2 — same, on `public` returns);
 `java:S1150` "implement Iterator rather than Enumeration" (commons 4 — API change).
+
+### css:S4666 / S4670 / S4651 / S8759 — the CSS residue (platform `web-war`)
+The rest of the CSS facet shipped (13 of 19, platform #6321); see [rules/css-rules.md](rules/css-rules.md).
+- `AY1U1sUQ0GHv9uFD3jrp` job.css:62 `.ui-progress-bar` (S4666) — the ONE duplicated selector whose
+  two blocks set the same property (`background-color`, the first `!important`). Merging creates a
+  fresh `css:S4656`; clearing that means deleting the declaration `!important` already makes dead —
+  a decision about which colour was intended.
+- `AY1U1sI80GHv9uFD3jIc` dataeditors.css:166 `.xobject-content xdt` (S4670) — `xdt` is not an
+  element, so the rule matches nothing today; deleting it and correcting it to `dt` both change
+  rendering.
+- `AY1U1sUQ0GHv9uFD3jrn`, `AY1U1sUQ0GHv9uFD3jro` job.css:87/91 (S4651) and `AZ7wbHfA4L5Jot4fhHVz`
+  job.css:48 (S8759) — Gecko-only legacy. `@-moz-keyframes progress-animation` is the *only*
+  definition of the animation `-moz-animation-name` refers to, so removing it deletes the animation;
+  adding the unprefixed forms switches it on where it is inactive today. Product decisions.
+- **Resolved FALSE POSITIVE in SonarCloud, not dropped**: `AY1U1sW00GHv9uFD3jxe` columns.css:50
+  (S4670 "unknown type selector `@media`") — the file is a Velocity template and the `#foreach`
+  block above desynchronises the CSS parser. There is no `@SuppressWarnings` for CSS.
+
+### javascript:S4138 — vendored WAR scripts only
+The 14 XWiki-owned sites shipped (platform #6321); see [rules/javascript-S4138.md](rules/javascript-S4138.md).
+Permanent drops, third-party scripts XWiki redistributes rather than maintains:
+- `ieemu.js`: `AY1U1sPk0GHv9uFD3jax`, `AY1U1sPk0GHv9uFD3ja7`, `AY1U1sPk0GHv9uFD3jbF`.
+- `tablefilterNsort.js` (14): `AY1U1sNB0GHv9uFD3jO9`, `AY1U1sNB0GHv9uFD3jPD`, `AY1U1sNB0GHv9uFD3jPK`,
+  `AY1U1sNB0GHv9uFD3jPf`, `AY1U1sNB0GHv9uFD3jPi`, `AY1U1sNB0GHv9uFD3jPl`, `AY1U1sNB0GHv9uFD3jPp`,
+  `AY1U1sNB0GHv9uFD3jPw`, `AY1U1sNB0GHv9uFD3jQQ`, `AY1U1sNB0GHv9uFD3jQX`, `AY1U1sNB0GHv9uFD3jQg`,
+  `AY1U1sNB0GHv9uFD3jRW`, `AY1U1sNB0GHv9uFD3jRb`, `AY1U1sNB0GHv9uFD3jRg`.
+- `js/xwiki/accordion/accordion.js` is vendored too (*Accordion 2.0, Kevin P Miller, MIT*, header
+  lines 4-7): `AY1U1sPJ0GHv9uFD3jYG` (S2392:57) and `AY1U1sPJ0GHv9uFD3jYI` (S2814:59).
+- **Resolved FALSE POSITIVE in SonarCloud**: `AY1U1sTz0GHv9uFD3jqu` `javascript:S1940`
+  formAsyncValidation.js:110 — `!(delay >= 0)` is not `delay < 0`; the negated form is also true for
+  `undefined`/`NaN`, which is what the guard on an optional argument is for.
+
+### java:S3398 — the move blows Checkstyle's fan-out cap, or drags outer state along
+Two of four shipped (commons #1953); see [rules/java-S3398.md](rules/java-S3398.md).
+- `AWgZSU5fUMkE2J58eTbx` ResourceLoader:723 `parseJarIndex` — moving all three helpers into
+  `JarInfo` takes its `ClassFanOutComplexity` to 22 (max 20) and `checkstyle:check` fails the
+  module. This one is the heaviest importer, so leaving it out is what let the other two ship.
+- `AWgZSTH7UMkE2J58eTTD` DefaultExtensionJobHistory:156 `save(...)` — reads three fields of the
+  *outer* instance and calls another outer private method, so the move buys a chain of
+  `Outer.this.…` accesses. Churn, not a cleanup.
+
+### java:S4144 — the identical body is the DEFECT (report, do not clear)
+Rendering's 5 deliberate-duplication sites shipped (#428). These three are real defects whose fix is
+a behaviour change and needs an owner:
+- `AWgjJjgg1_eUtAp8ETSw` (rendering) WikiEntityUtil:188 — `getHtmlSymbol(char)` returns
+  `entity.fWikiSymbol` while its `String` overload returns `fHtmlSymbol`. Copy-paste slip in a
+  `public static` API.
+- `AWgZSUnFUMkE2J58eTZa` (commons) VelocityParser:660 — `getSpaces` is documented "ASCII 32" and its
+  body matches `Character.isWhitespace`, identical to `getWhiteSpaces`. Javadoc or body is wrong;
+  both `public`.
+- `AY-F48azUnN6kAHHxlUw` (commons) OutputTargetConverterTest:88 — `convertFromInputStream()` is a
+  copy of `convertFromFile()` and never touches an InputStream. Fixing it means writing the test.
+
+### java:S2065 "remove the transient modifier" — WHOLE RULE, all three repos
+(platform 24, commons 41, rendering 3.) The denylist reason ("changes what gets persisted") is right
+for a reason the rule's own precondition hides: the rule fires because the class is **not**
+`Serializable`, so Java serialization is irrelevant — but **XStream honours `transient` on any
+class**, and XWiki XStream-serializes job statuses into the job log. The pools are exactly those
+graphs: commons `AbstractJobStatus`, `DefaultJobProgressStep`, `XStreamFileLoggerTail` and the
+extension repositories; platform `IndexerJob`, `PDFExportJobStatus`, `DistributionJobStatus` and the
+distribution steps. Removing `transient` changes what is written to disk. Do not re-derive this.
+
+### java:S9149 "rename this method; it hides X in Y" — WHOLE RULE, commons
+**42 of the 45 commons sites are one file**: `xwiki-commons-velocity`'s `StringTool`, which extends
+`StringUtils` and re-declares its static methods for Velocity. `$stringtool.chomp(...)` is a
+scripting-facing API, so the rename the rule asks for breaks wiki content. Platform 8 / rendering 1
+are the same shape. Confirms the earlier whole-rule rejection with the actual reason.
+
+### java:S127 "do not assign to this loop counter from within the loop body" — WHOLE RULE, rendering
+(rendering 13, platform 8.) Every rendering site is a hand-written scanner
+(`XWikiReferenceParser` 6, `XWikiScannerUtil` 4, `WikiPageUtil` 2, `MacroTransformation` 1) where
+advancing `i` from inside the body IS the parsing algorithm. Converting to a `while` is a rewrite
+with an off-by-one risk on parser code, not a cleanup.
+
+### java:S4968 / java:S115 — commons signature and constant renames
+- `AYD8Ak7HgbAFyTJJmJLU`, `AYD8Ak7HgbAFyTJJmJLV` MockitoComponentMocker:132/147 (S4968) — the
+  parameter is `List<? extends Class<?>>`; `Class` is final but `Class<String>` *is* a subtype of
+  `Class<?>`, so narrowing to `List<Class<?>>` rejects callers that compile today. Public
+  constructors of a `test-jar` class.
+- `java:S115` `KeyUsage` (crypto-pkix, 9 keys `AV2juHohVSxcxmoV58Xh`-`AV2juHohVSxcxmoV58Xp`) — the
+  constants are `public static final` on a published API class; the rename is a break.
