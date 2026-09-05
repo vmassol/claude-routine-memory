@@ -1747,6 +1747,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     cleanup, and the rejection is the codebase stating the merged form is not more readable. One
     refinement the `S3398` case adds: when several flagged sites feed the same cap, **rank them by
     cost and apply the cheap ones** rather than dropping the rule — 2 of 3 shipped that way.
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#114` OPEN** (the `java:S4144` denylist bullet
+  rewritten in place to state the name-based split). Ninth "actively-wrong entry" correction, and
+  the second whose wrongness is *scope* rather than content — the recorded sentence
+  ("deduplicating two methods that legitimately mean different things is a design decision") is
+  true of half the pool and written as if true of all of it, which is the same failure mode as
+  `S1172`'s "a real signature change". Written to the shape that keeps merging: one bullet, no
+  rule-map row, no family file (the transform is conditional, so its mechanics stay in
+  [rules/java-S4144.md](rules/java-S4144.md)), leading with the cost (19 issues in all three repos,
+  never touched) and citing the sweep PR that had already shipped (#428). Note `#103` was still
+  open when this was filed and also edits `index.md`, on different lines.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#103` OPEN** (the `S5993` denylist entry deleted,
   the rule moved into `syntax-rules` and added to the rule map, and the `S2386` bullet's "the same
   break as S5993" cross-reference fixed). Eighth "actively-wrong entry" correction, and the first
