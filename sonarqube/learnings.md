@@ -957,6 +957,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   *different* ones, and master's snapshot listed neither set. So never promise that fixing the finding
   a project-gate check named will turn that check green: say `Analyze` is the verdict and flag the
   instability rather than letting the reviewer discover it.
+  **The duplication twin has a SECOND trigger: two near-identical FILES, not two copies in one
+  file** — and there the arithmetic is even stronger, because the fix can make the block *shorter*.
+  Platform #6321 failed `4.9% Duplication on New Code (≤3%)` = **2 duplicated lines / 41 new lines**
+  because `javascript:S4138` was open at the same place in `ExtensionBreakingQuestion.js` and
+  `XClassBreakingQuestion.js`, two near-identical jsTree handlers. `api/duplications/show` run with
+  and without `&pullRequest=N` gives the whole answer in one table: the block is
+  `ExtensionBreakingQuestion.js:21` ↔ `XClassBreakingQuestion.js:20`, **size 25 on master and size
+  24 on the PR** (the for-of conversion deletes the `var node = selectedNodes[i];` line in both),
+  and the run's second block (`suggestAttachments.js` ↔ `suggestPages.js`, size 26) is byte-identical
+  and merely shifted one line. So say "the block got one line *shorter*" rather than only "it
+  pre-dates me" — and refuse the tempting fix (convert only one of the two files), which leaves the
+  same loop written two ways in near-identical files. **`Quality / Analyze` was GREEN on the same
+  commit**, which is the point: the app check's project gate counts a whole changed file, the repo's
+  own check counts your lines, and only the second is the verdict.
   **And the duplication twin has a specific trigger this routine will keep hitting: fixing the SAME
   rule in both halves of an already-duplicated block.** Platform #6272 failed
   `6.7% Duplication on New Code (≤3%)` = **2 duplicated lines / 30 new lines**, because its
