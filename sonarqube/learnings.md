@@ -982,6 +982,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   declaration line carried `S3776` complexity 22) and platform `RightsManager#fillLevelTreeMap`
   (`S1172`, same line carried `S3776` complexity 27). Neither fix changed the complexity by one point;
   rewriting the line was enough.
+  **But the pre-check cannot see an issue the PR CREATES on a line it rewrites, and that is a real
+  second failure mode.** It compares your written lines against *master's* open issues, so it is
+  blind to a rule that does not fire on master and starts firing because of your edit. Measured:
+  `select.js` carries **0** `javascript:S3504` on master and **19** in the PR analysis, because
+  adding a `const` loop binding (a `javascript:S4138` for-of conversion) flips SonarJS into treating
+  the file as ES6 and it then reports every `var` in it — three of them on lines the conversion
+  rewrote, so `Quality / Analyze` failed. The guard is not another query: it is to ask, per changed
+  file, *what does this file not currently get flagged for that my edit could switch on*, and to
+  read your own added lines for the shape the newly-active rule is about (here: any `var` on an
+  added line). See [rules/javascript-S4138.md](rules/javascript-S4138.md); the fix was one commit
+  and the PR went green, but it cost a CI round.
   **The pre-check is ~10 lines and needs no source reads**: parse `git diff -U0 <base> <branch>` hunk
   headers into the set of *written* line numbers per file, then one
   `issues/search?componentKeys=<projectKey>:<path>&issueStatuses=OPEN` per changed file, and print any

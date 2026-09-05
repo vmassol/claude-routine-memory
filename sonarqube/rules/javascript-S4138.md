@@ -31,6 +31,29 @@ intra-file inconsistency a reviewer will point at.
   is unchanged.
 * Never name a binding `event` — it shadows the browser global. Use `eventName`.
 
+## The expensive one: converting a file to ES6 CHANGES WHICH RULES SONARJS RUNS ON IT
+
+Measured on `uicomponents/widgets/select/select.js`: **0 `javascript:S3504` issues on `master`, 19 in
+the pull-request analysis.** Introducing a `const` loop binding is what flips SonarJS into treating
+the file as ES6, and it then reports *every* `var` in it — including declarations the diff never
+touched. Two consequences, and neither is visible to any pre-push check, because on `master` the
+rule does not fire in that file at all:
+
+1. **The three `var`s directly under a converted loop header are the PR's own**, because the
+   conversion rewrites that line (`var category = $(categories[i]);` →
+   `var category = $(categoryElement);`). `Quality / Analyze` fails on exactly those. Declare them
+   `const` in the same edit — check first that each is assigned once and read only inside the loop.
+2. **The remaining `var`s of the file become reported on `master` once the PR merges.** They are not
+   attributed to the PR (right lines, wrong author) so the gate stays green, but the project's open
+   count goes up. Say so in the PR body and offer the whole-file `var` → `let`/`const` conversion as
+   a separate change rather than slipping it in — each one needs its own scope check.
+
+Generalises beyond this rule: **any fix that introduces a modern construct into a legacy script can
+switch on a whole rule family for that file.** Before converting, ask what the file currently does
+*not* get flagged for that it "should" — one
+`issues/search?componentKeys=<projectKey>:<path>&resolved=false` on master, compared with the same
+query on `&pullRequest=N` after the first analysis, is the only way to see it.
+
 ## Where the pool is
 
 Platform only (commons and rendering have no JavaScript), ~60 open, concentrated in
