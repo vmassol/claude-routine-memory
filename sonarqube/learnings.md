@@ -126,6 +126,17 @@ rows for the rules you commit to fixing this run.
   review comment at all**, which is now the fourth denylist rescue to land that way — the
   re-derivation keeps paying, and it is worth one turn every time the allowlist reads dry. Same lever as `S1130`'s
   annotation-and-`private` bucketing and `S117`'s locals-vs-parameters split.
+  **But the visibility split HAS a failure mode, found 2026-09-06 on `java:S1168`: it is free only for
+  a rule about a SIGNATURE, never for a rule about a VALUE'S MEANING.** `S1168` ("return an empty
+  collection instead of `null`", 113/46/1) looked like the next rescue — 33 of the 160 sites are
+  `private`, so the caller set is one file and the compiler sees everything. It is still a drop:
+  visibility bounds *who can call*, which is the whole question for `S1172`/`S1130`/`S116`/`S5993`
+  (can a caller outside this file break?), and it says nothing at all about whether those callers
+  *distinguish* `null` from empty — which for `S1168` is the entire question, and has to be argued
+  per call site. Reading the 33 sites' callers took one script and killed 32 of them (`if (x == null)`
+  guards, `null` meaning "no stack yet", setters where `null` means *unset*). So before spending a
+  bucketing pass, ask **what the rule's fix changes**: a declaration ⇒ visibility decides it; a
+  returned value, a thrown type, a logged string ⇒ visibility decides nothing.
   **When a denylist reason names a BUILD GATE, RUN THE GATE. Reading its config is the weaker move and
   it cost a whole extra run.** `java:S5993` ("make this abstract class's constructor `protected`") was
   denylisted as a Revapi `visibilityReduced` break. Run A read `revapi.json`, found it excludes
@@ -763,6 +774,28 @@ rows for the rules you commit to fixing this run.
   open(dropped).read()` per key (or one `grep -F -f keys.txt`) — the file is one blob of text and the
   keys are literals, so no pattern is needed at all. **Verify the set size against the file**: a count
   far below the number of `` ` ``-quoted keys in the file is the symptom.
+- **The per-KEY drop check silently misses every WHOLE-RULE entry — grep the RULE key as well, and
+  read the matching line.** A whole-rule rejection in `dropped-issues.md` deliberately lists no issue
+  keys ("not listed key-by-key"), so `key in open(dropped).read()` reports all of its issues as
+  *fresh*. That is not a small tail: on 2026-09-06 the mechanical allowlist returned 540 / 145 / 14
+  "fresh" keys and **`java:S9149` (54 across three repos) and `java:S2176` (32)** were both re-triaged
+  from scratch — rule definition fetched, every site's declaration line read — although both were
+  already recorded as whole-rule drops with the right reason (deliberate mirror classes:
+  `StringTool extends StringUtils`, the `javax`/`jakarta` bridges, the `*-legacy-*` name-alike
+  subclasses). Cost: two turns and ~4 K tokens. The fix is one extra line in the same pass: after the
+  allowlist query, `collections.Counter(i['rule'] for i in fresh)` and grep each **bare rule key with
+  a word boundary** against the concatenated corpus (`dropped-issues.md` + `pool-state.md` +
+  `learnings.md` + `rules/*.md` + `okf/sonarqube/*`); print the matching lines and skip the whole
+  bucket when one of them says WHOLE RULE / permanent drop. Same grep the never-mentioned-rule diff
+  already builds — just run it over the *fresh* rules instead of over the whole facet.
+- **A repo's SonarCloud analysis can LAG its master HEAD, and then a MERGED fix reads as an open
+  pool.** The recorded reason to compare `api/project_analyses/search` `analyses[0].date` with
+  `git log -1 --format=%ci` is line drift; the bigger one is that the *issue list itself* is stale.
+  Commons was analysed 2026-09-04 12:07 while its master was 2026-09-05 18:38, two merged PRs later,
+  so both of its "fresh" `java:S3398` keys pointed at code the previous run had already fixed — and
+  the working copy showed the fix in place while the API still listed the issue OPEN. Do the date
+  comparison for **all three repos in the find phase**, not only for the repo you are about to edit,
+  and treat a repo whose analysis predates its HEAD as "counts are an upper bound".
 - **A drop-index entry that says "deferred, NOT dropped — build ROI" is a standing invitation, and the
   moment to cash it is when your reactor is already wide.** 14 `java:S1186` singletons, one per module
   across 14 modules, had been written off because "shipping it would add a whole module to the reactor

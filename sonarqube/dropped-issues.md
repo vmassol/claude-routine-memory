@@ -34,22 +34,42 @@ flagged, so the remediation does not clear the issue; the rest of the pool is `P
 **`java:S5961` (too many assertions in a test method) — WHOLE-RULE rejection** (platform 34, commons
 17, rendering 11): splitting a test method is a test-design decision, not a cleanup.
 
-**`java:S6355` residue — WHOLE-RULE permanent drop, measured, not listed key-by-key** (platform 245,
-commons 38, rendering 6 after the 464-site sweep). A script walked every flagged `@Deprecated` up to
-its Javadoc block: **1** site states a derivable version, 144 have a `@deprecated` tag with no
-version, 123 have no Javadoc block at all and 21 have a Javadoc block with no `@deprecated` tag. The
-deprecating version is simply not in the source for the residue, and guessing it is worse than the
-open issue. Re-run that script (it needs no API calls beyond the issue list) only if a run has reason
-to think versions were added since.
+**`java:S6355` residue — WHOLE-RULE permanent drop, re-measured 2026-09-06, not listed key-by-key**
+(platform 260, commons 38, rendering 6 — 304 sites, and now **zero** derivable). Re-running the
+recorded classifier over the whole open pool gives exactly the recorded split and no hits: **160**
+have a `@deprecated` tag naming no version, **123** have no Javadoc block at all, **21** have a
+Javadoc block with no `@deprecated` tag. So the rule is spent, not merely thin: the deprecating
+version is not in the source for any remaining site. The classifier costs one `issues/search` plus a
+local script, so re-run it rather than re-reading this — but expect 0 until a wave of new
+deprecations lands.
 
-**`java:S1123` — deferred, with two measured reasons** (platform 166, commons 35, rendering 3). The
-`message` histogram splits it 185 *"Add the missing `@deprecated` Javadoc tag"* (prose only the API's
-author can write) / 19 *"Add the missing `@Deprecated` annotation"*. The annotation half is the
-mechanical one and XWiki's own convention wants it (`okf/conventions/versioning.md`: *"Always both"*),
-but only **8 of the 19** state a version in their `@deprecated` tag — adding a bare `@Deprecated` to
-the other 11 immediately raises a fresh `java:S6355`. So the genuinely clean subset is 8 sites, and
-the run that wants them should take them as a rider on a batch already building `oldcore`,
-`refactoring-api` and `extension-api` (which hold 9 of the 19).
+**`java:S1123` — WHOLE-RULE permanent drop now, re-measured 2026-09-06** (platform 155, commons 32,
+rendering 3). The `message` histogram used to split the pool; it no longer does — **100% of the 190
+open sites read *"Add the missing `@deprecated` Javadoc tag"***, i.e. prose only the API's author can
+write. The mechanical *annotation* half is fully spent (its 8 version-derivable sites shipped as
+platform #6304 and commons #1946). Re-check with one `issues/search` grouped by `message[:45]`; treat
+a non-zero annotation bucket as the only reason to look again.
+
+**`java:S1168` (return an empty collection instead of `null`) — the `private` visibility escape does
+NOT apply, 2026-09-06.** First recorded FAILURE of the visibility split that rescued `S1172`, `S1130`,
+`S116`, `S117` and `S5993`. Bucketing the 160 open sites gives 33 `private` ones (platform 27, commons
+6), and reading their call sites kills essentially all of them: `null` is the method's *signal*, not
+an oversight — `getJobstack(false)` / `getCurrentTemplates(false)` /
+`getUninstalledExtensionCollectionStack(false)` return `null` for "no stack yet",
+`PrepareMailRunnable#getFrom` is called as
+`if (getFrom(mimeMessage) == null)`, `ObjectsOfTypeTreeNode#resolve`'s three callers all read
+`if (parts != null)`, `MethodArgumentsUberspector#convertArguments`' caller is
+`if (convertedArguments != null)`, and the `LiveData*`/`XWikiErrorBlockGenerator` sites feed setters
+where `null` means *unset* and an empty list means *empty*. **The generalisable rule: visibility bounds
+the CALLER SET, which makes a rule about a signature (`S1172`, `S1130`, `S116`) free — it does not make
+a rule about a RETURN VALUE'S MEANING free, because the semantics still have to be argued per caller.**
+Do not re-open this pool.
+
+**`java:S1172` — the `private` subset is EXHAUSTED in all three repos, re-bucketed 2026-09-06**
+(platform 83, commons 20, rendering 4 open, **0 private**: platform 64 public / 19 protected, commons
+12 public / 8 protected, rendering 1 public / 3 protected). [rules/java-S1172.md](java-S1172.md)
+says the rule regenerates from ordinary refactoring, so keep re-bucketing — but this run's re-bucket
+found nothing, and it costs one query plus one line read per site.
 
 **`java:S2386` commons remainder (8) — drop, the value cannot be made immutable.** The recorded escape
 (clear the rule by making the *value* immutable instead of taking the message's `protected`) does not
@@ -1536,6 +1556,20 @@ Permanent drops, third-party scripts XWiki redistributes rather than maintains:
 
 ### java:S3398 — the move blows Checkstyle's fan-out cap, or drags outer state along
 Two of four shipped (commons #1953); see [rules/java-S3398.md](rules/java-S3398.md).
+**Platform swept 2026-09-06: 3 of 6 shipped**, and the two commons keys below are STALE (already
+fixed by #1953 — SonarCloud had not re-analyzed commons yet). Platform drops:
+- `AW5-S5_X1Yj5qvzeRm9h` UsedValuesListQueryBuilder:222 `canView` → `ViewableValueFilter` — the body
+  mentions `Query`, `QueryException`, `EntityType`, `Right`, `DocumentReference`, `ListClass`,
+  `SelectColumnAndFromTable` and reads four outer components; a straight fan-out rejection.
+- `AW5-S7UC1Yj5qvzeRn68` DocumentTranslationBundleFactory:347 `translationDocumentUpdated` → the
+  anonymous `EventListener` — reads three outer members (`registerTranslationBundle`,
+  `unregisterTranslationBundle`, `this.logger`) and the target is a *field initializer*, so the move
+  buries a 15-line method inside a field declaration. Churn, not a cleanup.
+- `AW5-S9rz1Yj5qvzeRomU` FilesystemAttachmentStore:516 `resolveAttachmentVersioningStore` → **applied,
+  then REVERTED**: the move leaves its callee `getAttachmentVersioningStore` called only from the
+  inner class, so Sonar raises a *fresh* S3398 on the callee, and moving that one in too drags
+  `componentManager` + `logger` + `ComponentLookupException` along. See the cascade note in
+  [rules/java-S3398.md](rules/java-S3398.md).
 - `AWgZSU5fUMkE2J58eTbx` ResourceLoader:723 `parseJarIndex` — moving all three helpers into
   `JarInfo` takes its `ClassFanOutComplexity` to 22 (max 20) and `checkstyle:check` fails the
   module. This one is the heaviest importer, so leaving it out is what let the other two ship.
@@ -1554,6 +1588,36 @@ a behaviour change and needs an owner:
   both `public`.
 - `AY-F48azUnN6kAHHxlUw` (commons) OutputTargetConverterTest:88 — `convertFromInputStream()` is a
   copy of `convertFromFile()` and never touches an InputStream. Fixing it means writing the test.
+
+**Platform swept 2026-09-06: 12 sites, 0 fixable.** The name-based classifier puts nine in the
+"different operations ⇒ the identical body IS the defect" bucket (all test methods whose name
+describes a scenario the body does not set up) and three in a "deliberately identical, do not
+extract" bucket. Report, do not clear:
+- `AZ4cWy-ADEwl2Xf2zCY3` CompactStringEntityReferenceSerializerTest:68 `serializeWhenNoContextDocument`
+  is byte-identical to `serializeWhenNoContext`.
+- `AZnKr9zyzyMa6PYUhOfT` XWikiAuthServiceImplTest:251 `stripContextPathFromURLWithSlashBefore` is
+  identical to `…WithSlashAfter` (same `xwiki/` web-app path, same URL).
+- `AY974j-pKZk1650Dhx5H` DocumentMovedListenerTest:211 `onEventWhenNonTerminalDocumentOnSubWiki` is
+  identical to `…OnMainWiki` — same `xwiki` wiki, same `getAllIds()` stub.
+- `AZnKr_KLzyMa6PYUhOfn` DefaultWikiObjectComponentManagerEventListenerTest:123 `…OnWikiReady` vs
+  `…OnApplicationReady`.
+- `AY974pyAKZk1650DhyRf` AbstractDocumentMentionsAnalyzerTest:72 `findDisplayStyleStyleUnknown` vs
+  `…StyleMissing`.
+- `AY974lo7KZk1650Dhx5f` UndeleteActionTest:161 `restoreSingleDocumentWhenDeleter` vs
+  `restoreSingleDocument`.
+- `AZ_1eospLNEW6BykYdm0` MessageStreamTest:125 `setupForPersonalMessage` vs `setupForPublicMessage`,
+  and `AY974q9gKZk1650DhyU_` MessageStreamTest:434 `getRecentPersonalMessagesWithZeroOffset` vs
+  `…WithLimit100` (the same `(100, 0)` call twice).
+- `AY974mB0KZk1650DhyFz` XWikiTest:918 — same shape, and the file is claimed by an open agent PR.
+
+Deliberately identical, not a defect and not extractable (three separate contracts that happen to
+share a value):
+- `AXnpAi8mDDFOvAKXAQ7y` DefaultCacheManagerConfiguration:48 `getDefaultLocalCache` / `getDefaultCache`
+  and `AY974jDwKZk1650Dhx2z` AbstractTestScriptEngineFactory:89 `getLanguageVersion` /
+  `getEngineVersion` — both `@Override` of *different* interface methods; delegating one to the other
+  would assert an equality the contracts do not have.
+- `AW5-S6uC1Yj5qvzeRnpY` XWikiDefaultPlugin:217 `setClassName` / `setName` — the Javadoc says
+  *"Old method that doesn't really work. Don't use."*, i.e. the universal comment drop condition.
 
 ### java:S2065 "remove the transient modifier" — WHOLE RULE, all three repos
 (platform 24, commons 41, rendering 3.) The denylist reason ("changes what gets persisted") is right

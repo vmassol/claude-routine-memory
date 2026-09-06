@@ -890,3 +890,35 @@ out of fear of the review.
   (`S1848` 34 — the Prototype false positive, `S4138` 21, `S1121` 22 but almost all inside the
   vendored `tablefilterNsort.js`, `S3504` 14, `S2004` 13). Nothing provably-safe survives outside the
   vendored and claimed files, same verdict as the previous run.
+
+**Current standing state — 2026-09-06, the DRIEST run yet (platform 5, commons 2, rendering 0).**
+Nine find-phase levers were spent and every one came back empty; the run's real output is the drop
+record below, which closes ~800 issues' worth of pool for future runs.
+
+- **The mechanical Java allowlist (~100 rules) now returns fresh keys in only FOUR rules, and all four
+  are structurally spent.** platform 540 / commons 145 / rendering 14 "fresh" keys break down as
+  `S6355` 304 (0 derivable versions left — classifier re-run, see `dropped-issues.md`), `S1123` 190
+  (100% the *Javadoc tag* half now — the annotation half shipped), `S1172` 107 (**0 `private`** in any
+  repo), `S9149` 54 and `S2176` 32 (already recorded whole-rule drops — the key-grep missed them),
+  then `S1117` 13 (**all in two files claimed by open agent PRs**), `S4144` 12 (all report-not-fix),
+  `S3398` 8 and `S6213` 2. Net workable: **8 sites**.
+- **The never-mentioned-rule diff (5 severity facets × 3 repos) returned only count-1 rules** —
+  `S101`, `S1199`, `S1221`, `S2116`, `S2175`, `S2390`, `S2654`, `S2674`, `S3038`, `S4032`, `S5164`,
+  `S5663`, `S6001`, plus `javascript:S6647`/`S7718`. Only `S5663` was mechanical (shipped). The rest
+  are real-bug or API rules worth a JIRA, not a sweep: `S2175` `Document:3409`
+  (`List<String>.contains(DocumentReference)` — always false), `S1206` `Document:2430`,
+  `S2097` ×3 (`equals` with no type test), `S5164` (`ThreadLocal` never removed).
+- **Platform's JS/CSS pool is now 87% claimed**: 652 open JS+CSS issues, only **84** in files no open
+  agent PR touches, and 28 of those are the `S1848` Prototype false positive
+  (`new Ajax.Request(…)` / `new XWiki.widgets.Notification(…)` — the constructor IS the side effect).
+  What is left is `S7740` 11 (`var self = this`), `S7741` 4, `S2004` 13 (nested-function depth),
+  `S1874` 5, `S8786` 3, `S7761` 2. Nothing provably safe outside the claimed files.
+- **Commons and rendering: CLOSED, tenth and eleventh confirmation.** Commons' entire non-denylisted
+  facet is `S112` 52, `S2176` 18, `S5961` 17, `S1181` 17, `S135` 16, then `S1319`/`S110`/`S2326`/
+  `S3077`/`S5413`/`S2112` at 5-6 — all design work; its only shippable sites this run were **2
+  `java:S131`** (add a `default` case to a Checkstyle-check token switch). Rendering yielded **zero**:
+  its facet is `javabugs:S2259` 93, `S1135` 56, `S3776` 25, `S127` 13, `S112` 13, `S5961` 11 — every
+  one denylisted or recorded.
+- **Do NOT budget commons/rendering by their last-seen counts** — commons' SonarCloud analysis was a
+  day behind its master HEAD, so two `S3398` keys read OPEN while the previous run's merged PR had
+  already fixed them in the working copy.

@@ -1,8 +1,8 @@
 # `java:S3398` — "`private` methods called only by inner classes should be moved to those classes"
 
-Pool: platform 6, commons 4, rendering 0. Mechanical *in principle* — the method keeps its
-signature, its visibility and its body, and the compiler is the whole verification — but this is the
-one rule whose remediation is **metric-exposed by construction**, and it is the first rule found
+Pool: platform 6, commons 4, rendering 0 (platform swept 2026-09-06: **3 shipped, 3 dropped**).
+Mechanical *in principle* — the method keeps its signature, its visibility and its body, and the
+compiler is the whole verification — but this is the one rule whose remediation is **metric-exposed by construction**, and it is the first rule found
 where a Checkstyle metric fires on a change that adds no statement and lengthens no expression.
 
 ## The drop condition is Checkstyle `ClassFanOutComplexity`, and it fires on the MOVE itself
@@ -53,3 +53,37 @@ holds 6 untouched sites.
   and an instant `java:S1845` ("methods and field names should not be the same"). Rename as part of
   the move (`package2url` → `toPackageIndex`) and update the single call site, or you trade one
   issue for another. Grep the target class's field names before moving anything.
+
+## The move CASCADES onto the moved method's own private callees
+
+Third drop condition, and the one that cost a revert on the platform sweep. Sonar reports only the
+**frontier** of the private call graph — the same behaviour recorded for `S1130` and `S1172`. Once
+you move the flagged method into the inner class, any `private` outer method it calls is left with
+callers *only* inside that inner class, so the next scan raises a fresh `S3398` on the callee. Two
+outcomes, both decidable before applying by grepping the callee's other call sites:
+
+* **The callee has no other caller and drags little** → move it in too, in the same edit.
+  `R72000XWIKI12153DataMigration#convert` → `R72000Work` had to take `addBatch` with it; `addBatch`
+  reads one outer field, so it became
+  `R72000XWIKI12153DataMigration.this.serializer.serialize(…)` and nothing else changed.
+* **The callee drags outer state** → **drop the whole site**, do not move only the frontier.
+  `FilesystemAttachmentStore#resolveAttachmentVersioningStore` was applied and then reverted:
+  its callee `getAttachmentVersioningStore` has no other caller, but moving it in needs
+  `componentManager`, `logger` and `ComponentLookupException` — the "reads outer state" drop above.
+  Moving only `resolveAttachmentVersioningStore` clears one issue and creates one, which is worse
+  than leaving both open.
+
+`AbstractGroupCache#addToIndex(String, Collection)` is the shape that is safe: its callee
+`addToIndex(String, DocumentReference)` keeps a caller in the outer class (`getCacheEntry`), so
+nothing regenerates. Note that once the inner class declares a method of that *name*, Java resolves
+unqualified calls only among the inner class's own overloads, so the call to the outer overload must
+be written `Outer.this.addToIndex(...)` even though the arities differ.
+
+## The other two platform drops
+
+* `UsedValuesListQueryBuilder#canView` → `ViewableValueFilter` — fan-out, as above (seven types plus
+  four outer components).
+* `DocumentTranslationBundleFactory#translationDocumentUpdated` → an anonymous `EventListener` that
+  is a **field initializer**. Beyond the three outer members it reads, the move buries a 15-line
+  method inside a field declaration; that is a readability regression, so an anonymous-class target
+  is worth its own look before applying.
