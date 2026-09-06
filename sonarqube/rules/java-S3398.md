@@ -1,6 +1,6 @@
 # `java:S3398` — "`private` methods called only by inner classes should be moved to those classes"
 
-Pool: platform 6, commons 4, rendering 0 (platform swept 2026-09-06: **3 shipped, 3 dropped**).
+Pool: platform 6, commons 4, rendering 0 (platform swept 2026-09-06: **2 shipped, 4 dropped**).
 Mechanical *in principle* — the method keeps its signature, its visibility and its body, and the
 compiler is the whole verification — but this is the one rule whose remediation is **metric-exposed by construction**, and it is the first rule found
 where a Checkstyle metric fires on a change that adds no statement and lengthens no expression.
@@ -18,7 +18,15 @@ ResourceLoader.java:[399,5] (metrics) ClassFanOutComplexity: Class Fan-Out Compl
 
 This extends the recorded metric list (`BooleanExpressionComplexity`, `ExecutableStatementCount`,
 `CyclomaticComplexity`) with a fourth cap and a *new trigger shape*: not "the fix adds control flow"
-but "the fix relocates code". Pre-count in the apply script where you can — but the honest cheap
+but "the fix relocates code".
+
+**And when the target is an ANONYMOUS class there is a FIFTH cap, `AnonInnerLength` (max 20
+lines)** — measured, not guessed: moving `AbstractMimeMessageIterator#onPrepare` (10 lines) into the
+20-line anonymous `VoidMailListener` that is its only caller gave
+`AnonInnerLength: Anonymous inner class length is 26 lines (max allowed is 20)` and failed the
+module *after* its 16 tests had passed. An anonymous target is therefore capped at ~20 lines total,
+which almost no listener/callback can absorb: **count the target's lines before applying, and treat
+an anonymous-class target as a drop unless the listener is tiny.** Pre-count in the apply script where you can — but the honest cheap
 move is to run the module build, because the fan-out cap counts distinct referenced types and
 guessing the baseline is unreliable.
 
@@ -85,5 +93,9 @@ be written `Outer.this.addToIndex(...)` even though the arities differ.
   four outer components).
 * `DocumentTranslationBundleFactory#translationDocumentUpdated` → an anonymous `EventListener` that
   is a **field initializer**. Beyond the three outer members it reads, the move buries a 15-line
-  method inside a field declaration; that is a readability regression, so an anonymous-class target
-  is worth its own look before applying.
+  method inside a field declaration; that is a readability regression, and `AnonInnerLength` would
+  have rejected it anyway.
+* `AbstractMimeMessageIterator#onPrepare` → the anonymous `VoidMailListener` — applied, built, and
+  reverted on the `AnonInnerLength` failure above. It is the one site of the six whose *code* was
+  fine (compiles, 16 tests green, `AbstractMimeMessageIterator.this.eventStore` resolves) and whose
+  only problem was the cap.

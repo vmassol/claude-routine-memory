@@ -1556,7 +1556,7 @@ Permanent drops, third-party scripts XWiki redistributes rather than maintains:
 
 ### java:S3398 — the move blows Checkstyle's fan-out cap, or drags outer state along
 Two of four shipped (commons #1953); see [rules/java-S3398.md](rules/java-S3398.md).
-**Platform swept 2026-09-06: 3 of 6 shipped**, and the two commons keys below are STALE (already
+**Platform swept 2026-09-06: 2 of 6 shipped** (platform #6325), and the two commons keys below are STALE (already
 fixed by #1953 — SonarCloud had not re-analyzed commons yet). Platform drops:
 - `AW5-S5_X1Yj5qvzeRm9h` UsedValuesListQueryBuilder:222 `canView` → `ViewableValueFilter` — the body
   mentions `Query`, `QueryException`, `EntityType`, `Right`, `DocumentReference`, `ListClass`,
@@ -1565,6 +1565,11 @@ fixed by #1953 — SonarCloud had not re-analyzed commons yet). Platform drops:
   anonymous `EventListener` — reads three outer members (`registerTranslationBundle`,
   `unregisterTranslationBundle`, `this.logger`) and the target is a *field initializer*, so the move
   buries a 15-line method inside a field declaration. Churn, not a cleanup.
+- `AXnpAeFmDDFOvAKXAQJ8` AbstractMimeMessageIterator:209 `onPrepare` → the anonymous
+  `VoidMailListener` — applied and built green (16 tests), then reverted: `checkstyle:check` reports
+  `AnonInnerLength: Anonymous inner class length is 26 lines (max allowed is 20)`. A **fifth**
+  Checkstyle metric cap for this routine's list, and it makes any anonymous-class target a drop
+  unless the listener is under ~10 lines.
 - `AW5-S9rz1Yj5qvzeRomU` FilesystemAttachmentStore:516 `resolveAttachmentVersioningStore` → **applied,
   then REVERTED**: the move leaves its callee `getAttachmentVersioningStore` called only from the
   inner class, so Sonar raises a *fresh* S3398 on the callee, and moving that one in too drags

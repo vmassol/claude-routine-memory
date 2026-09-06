@@ -1371,7 +1371,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   one per branch — and now a **fourth**, **`ClassFanOutComplexity`** (max 20 referenced types per
   class), which is the first one triggered by a fix that adds no statement and lengthens no
   expression: `java:S3398` *relocates* a method into a class, so the class inherits every type that
-  method mentions (22 > 20 on commons `ResourceLoader.JarInfo`). So the generalisation is wider than
+  method mentions (22 > 20 on commons `ResourceLoader.JarInfo`) — and a **fifth**,
+  **`AnonInnerLength`** (max 20 lines per anonymous inner class), which the same rule hits whenever
+  its target is an anonymous listener rather than a named nested class (26 > 20 on platform
+  `AbstractMimeMessageIterator`, after that module's 16 tests had already passed). So the generalisation is wider than
   "control-flow shape": treat any fix that changes a method's control flow **or moves code between
   classes** as metric-exposed. The list is not exhaustive; pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
   one costs a whole build round. Pre-check them in the apply script, where it is nearly free: for a
@@ -1380,6 +1383,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   splitting the method or re-nesting the condition is a refactor, not a Sonar cleanup — and say so in the
   PR's *Clarifications*. Useful side effect: a metric rejection is the codebase stating that the merged
   form is NOT more readable, which is a far better answer than a reviewer's opinion.
+- **A module can be red STANDALONE because its surefire discovers no tests, and the A/B on your own
+  tree is what separates that from a regression.** `xwiki-commons-tool-verification-resources` built
+  with `-pl` compiles its three test classes and then reports `Tests run: 0`, so `jacoco:check` fails
+  it at *"instructions covered ratio is 0.00, but expected minimum is 0.80"* — identically on
+  `master` content and on a two-line change. Adding `-Dtest=SinceFormatCheckTest,UnstableAnnotationCheckTest`
+  runs **17 tests, all green**, and the ratio becomes 0.67. Two things to carry: a `Tests run: 0` in a
+  module that clearly has `*Test` classes is a **discovery** problem, not a skipped-test problem, and
+  naming the classes explicitly both recovers the verification and proves the gate failure is not
+  yours; and the cheap control is `git checkout <masterSha> -- <module>` + rebuild **in place**
+  (~1.5 min here), which is the recorded "your own tree, not a worktree" rule applied to a whole
+  module.
 - **`-Dcheckstyle.skip=true` does NOT disable XWiki's Checkstyle gate** — the plugin configuration
   wins over the user property and `checkstyle:check` still fails the build. Useful consequence: you
   cannot skip past a pre-existing violation. The tests still run *before* Checkstyle, so a failed run
@@ -1454,6 +1468,12 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `git diff --name-only` degrades into `git diff --no-index` *usage output* rather than an error, which
   reads like a flag problem. Put `cd /home/user/<repo> &&` on every git line too, or run the apply
   script by absolute path and never leave the repo.
+- **`git push --force-with-lease` FAILS with `! [rejected] … (stale info)` when the branch does not
+  exist on the remote at all.** The designated feature branches are recreated from `master` every
+  run, and after a merged-and-deleted PR they are simply absent upstream; the lease then has nothing
+  to compare against. It reads like a race with another session and is not one — check
+  `git ls-remote --heads origin <branch>` (empty ⇒ plain `git push -u origin <branch>`), and keep
+  `--force-with-lease` for the case where the branch really is there.
 - **Chain the multi-repo builds with plain newlines, not `&&`** — a failure in repo A must not prevent
   repos B and C from building, since each ships its own PR.
 - **Read the OKF from the SOURCE REPO, not the session cache, before deciding any fix.** This is the

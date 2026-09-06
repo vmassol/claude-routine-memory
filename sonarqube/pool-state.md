@@ -893,7 +893,9 @@ out of fear of the review.
 
 **Current standing state — 2026-09-06, the DRIEST run yet (platform 5, commons 2, rendering 0).**
 Nine find-phase levers were spent and every one came back empty; the run's real output is the drop
-record below, which closes ~800 issues' worth of pool for future runs.
+record below, which closes ~800 issues' worth of pool for future runs. Shipped: platform
+[#6325](https://github.com/xwiki/xwiki-platform/pull/6325) (`S3398` 2, `S5663` 1, `S1450` 1) and
+commons [#1954](https://github.com/xwiki/xwiki-commons/pull/1954) (`S131` 2). Rendering: nothing.
 
 - **The mechanical Java allowlist (~100 rules) now returns fresh keys in only FOUR rules, and all four
   are structurally spent.** platform 540 / commons 145 / rendering 14 "fresh" keys break down as
