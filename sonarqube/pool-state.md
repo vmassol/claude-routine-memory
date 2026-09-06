@@ -896,6 +896,10 @@ Nine find-phase levers were spent and every one came back empty; the run's real 
 record below, which closes ~800 issues' worth of pool for future runs. Shipped: platform
 [#6325](https://github.com/xwiki/xwiki-platform/pull/6325) (`S3398` 2, `S5663` 1, `S1450` 1) and
 commons [#1954](https://github.com/xwiki/xwiki-commons/pull/1954) (`S131` 2). Rendering: nothing.
+`Quality / Analyze` and the SonarCloud project gate went green **first try on both**, and commons
+#1954 **merged uncommented within ~5 h** — so `java:S131` ("add a `default` case") joins the
+comment-only rules as reviewer-safe when the switch already falls through and the added case says
+so.
 
 - **The mechanical Java allowlist (~100 rules) now returns fresh keys in only FOUR rules, and all four
   are structurally spent.** platform 540 / commons 145 / rendering 14 "fresh" keys break down as
