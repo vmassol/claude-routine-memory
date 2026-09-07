@@ -1007,6 +1007,19 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   carrying the traceback, the `isNew` table, the sibling PRs' green `Analyze`, and a proposed patch —
   retry the 404 in `api()` rather than repairing the workflow inside a `[Misc]` cleanup PR. Done on
   platform #6327.
+  **And a crashed `Analyze` cannot be re-armed at all without a maintainer**: `quality-pr-sonar.yml`
+  triggers only on `pull_request_target: [opened, synchronize, reopened]` with no
+  `workflow_dispatch`, so the only re-triggers are a push carrying a real commit, a close-and-reopen
+  or the Re-run button — and the middle one is forbidden, an empty commit is forbidden, and the
+  button is the 403. So the end state on such a PR is legitimately "one comment and keep watching",
+  not a push. Resist manufacturing a commit to kick it: the tempting candidate here was a 77th site
+  the batch had dropped (`DefaultDocumentAccessBridge:632`), and reading the interface confirmed the
+  drop was right — `getAttachmentContent(AttachmentReference)` is not deprecated there, so there was
+  nothing to copy. Check the drop before treating it as spare yield.
+  **The sibling PRs are the control, and here they settle it: commons #1955 and rendering #430 of the
+  same sweep both merged while platform sat red on the crash** — same rule, same transform, same day.
+  Two green-and-merged siblings are the cheapest evidence that a red third is the run and not the
+  change, so cross-link the siblings in every body and say so in the standing-down comment.
   **But the arithmetic proof is not always available, because a `javabugs:` finding can exist ONLY in
   the PR analysis.** The recorded proof (same rule, same message, two line deltas matching the diff)
   assumes the finding is on master at a shifted line. It sometimes is not: platform #6273 failed
