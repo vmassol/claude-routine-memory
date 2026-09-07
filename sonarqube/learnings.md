@@ -1766,6 +1766,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     holding up the Java half: the Java PR merged in ~14 h, uncommented, while the JS one was still
     waiting. Same mechanics as the safe/unsure split (disjoint file sets, one build, split by file
     afterwards), and the sibling cross-links in both bodies are what tell the reviewer it is one sweep.
+    **UPGRADE THIS FROM AN OPTIMISATION TO A RULE: the language split is MANDATORY, and a run that
+    skips it gets told so.** Platform #6303 bundled 13 `java:S1117` oldcore-test renames with 32
+    `javascript:` WAR fixes because *one reactor verified both* (`oldcore` + `web-war` in one `-pl`
+    list) — and `@manuelleduc` approved it with *"lgtm though I find the scope of the commit, mixing
+    oldcore tests and web-war product JavaScript, rather disturbing."* He is right, and the failure
+    is a specific, repeatable one: **letting the BUILD boundary decide the COMMIT boundary.** One
+    reactor is a reason to verify two changes together, never a reason to hand a reviewer one change.
+    That run *did* split the sweep — the `S1123` half shipped as #6304 — but on the risk axis only;
+    both axes apply at once, so a sweep can legitimately be three PRs (mechanical-Java,
+    mechanical-JS, judgement). Answer such a comment with the reasoning and **do not re-split after
+    an approval**: a force-push to reorganise commits drops the approval for a purely cosmetic gain,
+    which is the one case where "the push is the deliverable" does not hold.
   - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
     the usual candidate). Preferring FILES the safe batch does not touch keeps the split-by-file step
     trivial — but a **shared file is NOT a drop condition when both branches are YOURS and both are cut
