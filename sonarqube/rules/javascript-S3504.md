@@ -45,3 +45,11 @@ Prototype-era files that are full of `var` (`xwiki.js`, `livetable.js`, `suggest
 this rule flags is usually one where *every* `var` can go, which is what makes the intra-file
 consistency story cheap: after the batch, `grep -nE '\bvar '` each changed file and expect only the
 `var XWiki` line to remain.
+
+## Outcome
+
+Shipped in platform #6303 (16 `S3504` sites in 6 files, alongside the co-located `S2814`/`S2392`/
+`S4138` fixes) and **merged**. `@manuelleduc` reviewed the JavaScript and approved it without
+questioning a single transform — including the two deliberately-unconverted `var XWiki` globals,
+which the PR body named. The whole `var`→`const`/`let` shape is therefore settled for these files:
+the only judgement in it is the module-global exception.

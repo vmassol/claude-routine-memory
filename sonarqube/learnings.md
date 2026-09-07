@@ -1777,7 +1777,10 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     both axes apply at once, so a sweep can legitimately be three PRs (mechanical-Java,
     mechanical-JS, judgement). Answer such a comment with the reasoning and **do not re-split after
     an approval**: a force-push to reorganise commits drops the approval for a purely cosmetic gain,
-    which is the one case where "the push is the deliverable" does not hold.
+    which is the one case where "the push is the deliverable" does not hold. **Outcome: #6303 merged
+    ~1.5 h after that reply, all 45 issues intact** — so a scope criticism carried by an *approval*
+    is a process correction to record, not a change to make. The reviewer never questioned a single
+    transform; the whole review cost of a 45-issue mixed batch was one sentence about its boundary.
   - **Choose the sibling PR's sites so they land in a module the safe batch ALREADY builds** (oldcore is
     the usual candidate). Preferring FILES the safe batch does not touch keeps the split-by-file step
     trivial — but a **shared file is NOT a drop condition when both branches are YOURS and both are cut
