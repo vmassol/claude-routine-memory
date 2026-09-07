@@ -980,6 +980,33 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
   *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
   `Analyze` is. Don't act on the app check alone.
+  **`Analyze` RED does not mean it found anything — READ ITS LOG BEFORE BUILDING ANY ARGUMENT, because
+  it can CRASH.** New third failure mode, distinct from both the moved-finding artifact and the
+  genuine "your line carries it" case: the job's inline Python died with a bare
+  `urllib.error.HTTPError: HTTP Error 404` in `written_lines()` → `/api/sources/lines`, ~2 s in, so it
+  never reached the `introduced`/`inherited` classification at all. The cause is a race the script
+  does not guard: `wait_for_the_report()` waits for the compute-engine task to report `SUCCESS` and
+  `reported_issues()` then succeeds, but `/api/sources/lines` still 404s for the pull request for a
+  few seconds afterwards, and `api()` treats every `HTTPError` as fatal. The same call returned 200
+  minutes later, and the two sibling PRs of the same sweep were green — so it is per-run, not
+  per-change. Symptom to recognise instantly: a `Quality / Analyze` failure whose **annotations are
+  only javac warnings** plus one `Process completed with exit code 1`, and no `::error file=…` line.
+  **And the proof to reach for is SonarCloud's own `isNew` flags, not line arithmetic — it is the
+  exact data the gate reads, so it cannot be argued with.** Replicate the job in ~15 lines:
+  `issues/search?componentKeys=<proj>&pullRequest=N&resolved=false` for the issues, then
+  `api/sources/lines?key=<component>&pullRequest=N&from=<line>&to=<line+999>` per file and collect
+  `{l['line'] for l in sources if l.get('isNew')}`. An issue whose line is not in that set is what the
+  workflow calls *inherited*; all-inherited means it would have printed *"No line this pull request
+  writes carries a SonarQube issue."* and exited 0. That replaces the whole "find the master twin and
+  match the delta" dance, and it works in the recorded case where the finding exists **only** in the
+  PR analysis — which is why it is now the first thing to run. (It also exposed that a `javabugs:`
+  finding does not merely shift: master reported `S2259` at 787/834 of the same file while the PR
+  reported 788/847, i.e. *different instances of the same `getDoc()`-may-be-null shape*, same count.)
+  **A 403 on the re-run is not a dead end**: `POST actions/runs/<id>/rerun-failed-jobs` answers
+  `Resource not accessible by integration`, so per the drive-to-green rules the move is one PR comment
+  carrying the traceback, the `isNew` table, the sibling PRs' green `Analyze`, and a proposed patch —
+  retry the 404 in `api()` rather than repairing the workflow inside a `[Misc]` cleanup PR. Done on
+  platform #6327.
   **But the arithmetic proof is not always available, because a `javabugs:` finding can exist ONLY in
   the PR analysis.** The recorded proof (same rule, same message, two line deltas matching the diff)
   assumes the finding is on master at a shifted line. It sometimes is not: platform #6273 failed
