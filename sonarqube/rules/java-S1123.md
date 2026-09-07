@@ -1,14 +1,21 @@
 # `java:S1123` — "deprecated elements should have both the annotation and the Javadoc tag"
 
 OKF-denylisted, and [rules/java-S6355.md](java-S6355.md) records it as *analyzed, not attempted*.
-That is still right for the rule as a whole, but the pool splits cleanly by `message` and the
-smaller half is worth a judgement PR.
+Both halves of the rule have since been shipped: the pool splits cleanly by `message`, and each
+half splits again on a free classifier — the annotation half on *is the version derivable*, the
+tag half on *is the site an `@Override`*.
 
 ## Triage by `message` — one query, no source reads
 
-* **"Add the missing `@deprecated` Javadoc tag"** (platform 155, commons 32, rendering 3) — a
-  permanent drop. The tag has to say *why* and *what to use instead*; a bare `@deprecated since X`
-  clears the rule and leaves worse documentation than it found.
+* **"Add the missing `@deprecated` Javadoc tag"** — **CORRECTION: not a permanent drop.** The
+  recorded reason ("the tag has to say *why* and *what to use instead*") is true only of the sites
+  that declare their own API. **Split the pool on `@Override`**: an override of an
+  already-deprecated parent member inherits the answer, because the parent interface/superclass
+  usually documents it with its own `@deprecated` tag — so the fix *copies* the text instead of
+  inventing it. On the 2026-09 pool that was 102 of 190 sites `@Override`, 76 of them with a
+  signature-matching parent tag. See *The `@Override` half* below. A bare
+  `@deprecated since X` still clears the rule while leaving worse documentation than it found —
+  that shape is what the original verdict was really about, and it stays banned.
 * **"Add the missing `@Deprecated` annotation"** (platform 16, commons 3, rendering 0) — mechanical
   *if* the version is derivable, and a **judgement PR**, never the mechanical batch: the annotation
   makes every existing call site emit a deprecation warning and changes what tooling reports about a
@@ -42,9 +49,8 @@ Net on the 2026-09 pool: 16 platform → 5 shippable, 3 commons → 2, rendering
 **Outcome: BOTH judgement PRs MERGED, uncommented** — commons #1946 (2 sites) and platform #6304
 (5 sites) landed the same day, with no question raised about the deprecation-warning cost the rule
 is denylisted for, and none about the multi-version `since = "10.2,9.11.4"` form. So
-the annotation shape is welcome where the version is derivable; it is the *tag* shape (writing the
-prose) that stays a permanent drop. Keep shipping it as its own PR anyway — the split is what let it
-merge on its own schedule.
+the annotation shape is welcome where the version is derivable. Keep shipping it as its own PR
+anyway — the split is what let it merge on its own schedule.
 
 ## Revapi does not object
 
@@ -54,3 +60,74 @@ static method, and on commons `extension-api` with it added to two `public` inte
 break to argue about is not `java.annotation.added` — it is only the deprecation warnings the
 annotation now emits at call sites, i.e. a product decision. `java-S6355.md` had verified the
 narrower `java.annotation.attributeAdded`; this extends it to the annotation itself.
+
+## The `@Override` half — the tag is a COPY, not prose
+
+The whole batch is one sentence a reviewer can check: *every site is an `@Override` of a member
+whose parent already carries an `@deprecated` tag, and the tag text is that parent's text.* Deriving
+it needs no snippet reads beyond the flagged declaration:
+
+1. Index every `(methodName, paramCount) → @deprecated tag` in **all three repos** (one walk over
+   `*.java`, regex a Javadoc block followed by optional annotations and a declaration). Do it across
+   repos: an oldcore override's parent interface often lives in commons or rendering.
+2. Per site, rebuild the declaration from the flagged line **forward** until the closing `)` — XWiki
+   wraps long signatures, so the flagged line alone gives the wrong param count.
+3. Keep a candidate only if its class simple name occurs in the site file (import / `extends` /
+   `implements`) — that filter is what stops a same-named method in an unrelated class matching.
+4. One distinct tag ⇒ apply. Several ⇒ pick by hand. None ⇒ **drop**, the text would be invented.
+
+Three normalisations, all needed:
+
+* **Strip the version from the copied tag** (`since 4.0M1 use {@link #getRoleType()} instead` →
+  `use {@link #getRoleType()} instead`); the version belongs in `@Deprecated(since = …)` per the
+  Java Code Style, and duplicating it is exactly what the `S6355` sweep was asked to undo.
+* **Qualify a `{@link Type#…}` the subclass does not import** (same-package and imported types are
+  fine, everything else needs the FQN) — the parent's tag was written against the *parent's*
+  imports.
+* **A parent tag can be WRONG; do not copy a typo.** `GroupFilter#endGroup`'s own tag points at
+  `beginGroupContainer`; the override on `endGroup` must say `endGroupContainer`. Read each tag
+  against the member it is going onto — the copy is mechanical, the *check* is not.
+
+Emit a Javadoc holding only the block tag; no `{@inheritDoc}` (Javadoc inherits the main
+description automatically when the subclass comment has none):
+
+```java
+    /**
+     * @deprecated use {@link #getExtensionFeatures()} instead
+     */
+    @Deprecated
+    @Override
+```
+
+### Why the minimal comment is safe and sufficient
+
+* **It clears the rule** — the in-repo-precedent check settles the `S8786` hazard: commons+platform
+  already hold **202** tag-only Javadoc comments above a `@Deprecated` member, and a 40-site sample
+  carries **zero** open `S1123`. (`api/rules/show` cannot answer this; the precedent grep can.)
+* **Checkstyle is satisfied by construction** — `JavadocMethod`'s `allowedAnnotations` defaults to
+  `Override`, so an override with a parameter list needs no `@param` tags, and XWiki enables none of
+  `SummaryJavadoc` / `JavadocParagraph` / `RequireEmptyLineBeforeBlockTagGroup` /
+  `NonEmptyAtclauseDescription`. **A non-`@Override` public method with no Javadoc is a different
+  matter** — adding one there turns `JavadocMethod` on and it then demands `@param`/`@return`, so
+  either write the full comment or drop the site. (It should not arise: `MissingJavadocMethod`
+  means such a method already has Javadoc unless its file is Checkstyle-excluded.)
+* The diff is insert-only, so nothing can be a behaviour change and no line the PR writes can
+  carry a pre-existing finding.
+
+### Drop shapes seen on the 102-site override pool (26 drops)
+
+* **A pure delegate to a third-party API** — `QueryImplementorDelegate` (18) forwards Hibernate's own
+  deprecated `Query` methods under the same name. The deprecation is Hibernate's, its Javadoc is not
+  in these repos, and there is no XWiki replacement to name. Biggest single bucket; recognise it from
+  the body being `return this.delegate.<sameName>(…)`.
+* **The parent declares the member deprecated but documents nothing** (`ServletContainerInitializer`
+  javax overloads, `DelegateComponentManager#getComponentDescriptorList`).
+* **The parent tag is empty** (`DefaultWikiTemplateManager#applyTemplate`).
+
+## Outcome (tag half)
+
+Shipped as one mechanical PR per repo — platform #6327 (53), commons #1955 (21), rendering #430 (2)
+— verified by a three-repo reactor: rendering 517 tests, platform 9 modules / 1526 tests (oldcore
+1209, legacy-oldcore 48), commons 5 modules / 442 tests, all green with `revapi:check` and
+`checkstyle:check`. No safe/unsure split was needed: every site satisfies the one principle the PR
+body states, so there was nothing left to put in a judgement PR.

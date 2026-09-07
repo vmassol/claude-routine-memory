@@ -159,7 +159,7 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 | **javascript:S7765** `indexOf` → `includes` | Platform 90 → 78 open. **73 shipped over two runs**: 12 (#6201) then 27 mechanical + 34 judgement (#6210/#6211). Of the residue, ~40 are the vendored `tablefilterNsort.js` (permanent). **34 of the second run's 61 sat in ONE vendored-derived block** — `BrowserDetect` inside `xwiki.js`. | **0 drops (73/73).** Only differs for `NaN`; the real check is that the receiver is a String or a real Array, not a NodeList/`arguments`/jQuery object. Do NOT "make consistent" the residual `indexOf(x) > 0` / `== 0` sites — those are position tests. |
 | **S1172** unused method parameter | **OKF-denylisted, wrongly for `private` methods; all three sweep PRs merged uncommented.** Platform 132 (39 private: oldcore 21, `DocumentLocaleReader` 7, + singletons over 7 modules), commons 25 (5 private, 5 different modules), rendering 5 (1). **41 shipped** in three PRs; what is left is the non-`private` residue (platform 56 public / 18 protected / 18 package-private) plus 4 recorded drops. Regenerates from ordinary refactoring. | **9% drops (41/45)**, all decidable up front — see [rules/java-S1172.md](rules/java-S1172.md). The three shapes: the shortened signature collides with an existing overload, a `TODO` in the body explains the parameter, or the parameters mirror a sibling method the callers pair it with. |
 | **S6355** `@Deprecated` without arguments | **The biggest pool ever found here: 768 open** (platform 630, commons 119, rendering 19), never touched because the OKF denylisted it. **464 shipped in one three-repo sweep** (mechanical 349/80/10 + judgement 21/1/3): platform `oldcore` alone held 199 of its 349, then `bridge` 20 / `rest-server` 12 / `extension-script` 11 / 1-9 each over 43 more modules; commons `extension-api` 18 / `legacy-component-api` 12 / `job-api` 9 / 19 more modules; rendering `rendering-api` 5 / `legacy-api` 4 / `transformation-macro` 1. **304 remain and are permanent** (no Javadoc / no `@deprecated` tag / a tag with no version). Regenerates from every new deprecation that omits `since`. | **0 drops in 464.** The version is copied from the element's own `@deprecated` Javadoc tag, never invented — see [rules/java-S6355.md](rules/java-S6355.md). Zero drift risk (the flagged line IS the bare `@Deprecated` line, 768/768) and `revapi:check` passed in all 77 modules. |
-| **S1123** missing `@Deprecated` / `@deprecated` | Platform 171, commons 35, rendering 3 — **analyzed, not attempted** (see the S6355 file): one shape needs prose only the API author can write, the other adds an annotation that changes what tools report about a published API. | Not a sweep, but the *"add the missing annotation"* half is mechanically derivable if a run wants to argue it on merit. |
+| **S1123** missing `@Deprecated` / `@deprecated` | **Both halves are now shipped.** The *annotation* half went 5/2/0 (platform #6304, commons #1946, both merged). The *tag* half — 190 open (platform 155, commons 32, rendering 3), written off twice as "needs prose" — splits on `@Override`: **102 overrides**, 76 of them with a signature-matching parent tag, **all 76 shipped** (platform #6327 53 / commons #1955 21 / rendering #430 2). What is left is the **88 non-override sites** (platform 77, commons 10, rendering 1), which really do need the API author's prose, plus 26 recorded override drops (18 of them `QueryImplementorDelegate`). Clusters hard: `DefaultDocumentAccessBridge` alone held 20 of platform's 53. Regenerates from every new `@Deprecated` added without a tag. | **0 drops on the resolvable overrides (76/76)**; 26% of the override pool is a drop, and the classifier is free — is there a parent tag with the same `(name, paramCount)`? See [rules/java-S1123.md](rules/java-S1123.md). |
 | **S1186** methods should not be empty | **Was never attempted** ("needs prose") — wrongly: 192 open (platform 112, commons 50, rendering 30) clustered in 78 files, the top 6 holding 96 (`PrintTextListener` 26, `TestFilterImplementation` 25, `HttpServletResponseStub` 21, `Sax2Dom` 10, `VoidMailListener` 8, `HttpServletRequestStub` 6). **172 shipped in one three-repo sweep** (platform 95 / 44 files / 10 modules, commons 48 / 11 files / 9 modules, rendering 29 / 3 files / 1 module). 20 left open: 6 real drops + 14 one-per-module singletons deferred on build ROI. **ALL THREE PRs MERGED ~6 h after opening (platform #6220, commons #1922, rendering #411), one LGTM and no change requested anywhere.** Regenerates from every new no-op implementation. | **3% drops (172/178 analysed).** Comment-only, so the drop condition is TRUTHFULNESS, not safety — drop only where the emptiness might be a genuine gap. See [rules/java-S1186.md](rules/java-S1186.md); group by FILE, one sentence per class. |
 | **javascript:S7721** functions to the highest scope | Platform 61 (38 workable) — **REJECTED, permanent.** | **100%.** Hoisting a function out of a `Class.create` body or an IIFE is a restructuring of the file, not a cleanup; and in these Prototype-era scripts the enclosing scope is what makes the module private. |
 | **S108** empty block | **Platform-only** (commons/rendering 0) and clustered: 83 in 20 files, 61 of them in four oldcore legacy files (`XWiki` 19, `XWikiRightServiceImpl` 16, `XWikiHibernateStore` 11, `XWikiPluginManager` 10). **82 shipped in one PR**; nearly all are deliberately-empty `catch` blocks. **Cost 4 review rounds but MERGED** — the only PR of the sweep to need any (see the rule file: the comment must be a TODO). Regenerates from legacy maintenance. | **1% drops (82/83).** Comment-only (the rule ignores a block containing a comment), so the drop condition is truthfulness, and the single drop is a *test helper* swallowing the exception of the call under test. See [rules/java-S108.md](rules/java-S108.md). |
@@ -724,11 +724,14 @@ run ever to ship a real batch in all three repos):**
   deprecated code someday" (386/51 — an INFO reminder, not a fix), `S2160` override equals (78/36),
   `S5993` public constructor of an abstract class (142/80 — Revapi break), `S1948` transient/
   serializable (46/14), `S2065` (24/41).
-- **`java:S1123` re-derived and still NOT worth it, but now for a measured reason**: one `ps=500`
-  message histogram splits its 209 issues into **190 "add the missing `@deprecated` Javadoc tag"**
-  (prose only the API author can write) and **19 "add the missing `@Deprecated` annotation"** (the
-  mechanical half). 19 sites is not worth the "adding `@Deprecated` changes what tools report about a
-  published API" argument. Do not re-triage; the histogram is the whole answer.
+- **`java:S1123` — the message histogram was NOT the whole answer, and this note cost the routine
+  several runs.** It splits 209 issues into **190 "add the missing `@deprecated` Javadoc tag"** and
+  **19 "add the missing `@Deprecated` annotation"**, and both halves have since shipped: the
+  annotation half 5/2/0 (merged), and the tag half **76 sites in all three repos** once split a
+  second time on `@Override` (the parent's own tag is the missing prose — see
+  [rules/java-S1123.md](rules/java-S1123.md)). Generalise: a histogram tells you the *shapes*, not
+  the verdicts, and a shape whose verdict is "needs prose" deserves the second split before the
+  rejection is recorded.
 - **Platform's JS pool is PR-constrained again**: #6210/#6211/#6217 claim 14 WAR files (`xwiki.js`,
   `livetable.js`, `suggest.js`, `actionButtons.js`, `dashboard.js`, `extension.js`,
   `usersandgroups.js`, `picker.js`, `panelWizard.js`, `editableProperty.js`, `suggestEntities.js`,
@@ -932,3 +935,34 @@ nobody has yet asked for the remainder.
 - **Do NOT budget commons/rendering by their last-seen counts** — commons' SonarCloud analysis was a
   day behind its master HEAD, so two `S3398` keys read OPEN while the previous run's merged PR had
   already fixed them in the working copy.
+
+**Current standing state — after the S1123 tag-half sweep (76 issues: platform 53, commons 21,
+rendering 2; platform #6327 / commons #1955 / rendering #430):**
+
+- **Every recorded find-phase opener returned nothing, and that is now the expected result.** The
+  never-mentioned-rule diff (3 repos × 5 severities × 11 languages, 202/80/51 rules) surfaced **five
+  count-1 rules**; the full open-Java-issue-key sweep cross-checked against `dropped-issues.md` left
+  commons and rendering with **zero** fresh mechanical keys (every bucket over 2 is a recorded
+  whole-rule drop: `S1135`, `S1133`, `S112`, `S3776`, `S2143`, `S1168`, `S9149`, `S2065`, `S2160`,
+  `S1181`, `S5961`, `S135`, `S1452`, `S1172` non-private, `S6355` residue); and platform's JS pool
+  is claimed. **The only lever that paid was re-splitting a rule this repo had itself written off.**
+  Budget the run that way: one turn to confirm the facets are dry, then straight to a re-derivation.
+- **Platform is PR-saturated: 10 open `llm-agent` PRs claim 99 files**, including almost every dense
+  WAR JavaScript file (`xwiki.js`, `livetable.js`, `suggest*.js`, `select.js`, `extension.js`,
+  `dashboard.js`, `actionButtons.js`, …) plus 8 `.css` files. After excluding them and the vendored
+  scripts, the whole free JS pool is **76 keys** and 55 of those are `S1848` (Prototype false
+  positive), `S2004`/`S3776` (refactors) and `S7740` — i.e. nothing. **`dataeditors.js` (23) is the
+  one dense free JS file left** and is still untriaged; note `dataeditors.css` is claimed by #6321
+  but the `.js` is not.
+- **Commons has a container-level build trap that eats the whole leg** — see the `component-api`
+  bullet in `learnings.md`: Surefire discovers **zero** tests in commons modules unless you pass
+  `-Dtest='*Test' -DfailIfNoTests=false`, `jacoco:check` then fails at ratio 0.00, and because
+  `component-api` heads almost every commons `-pl` list, `-fae` cannot save the rest. Whole-repo
+  `mvn install` fails the same way on the very first module (`tool-verification-resources`). Always
+  add the flag to a commons leg in this container; with it, 5 modules ran **1:30 / 442 tests**.
+- **Datapoint for a comment-only three-repo sweep** (cold `~/.m2`): rendering 2 modules **517 tests**
+  + platform **9** modules incl. oldcore and legacy-oldcore **10:46 / 1526 tests** (oldcore 1209) +
+  commons 5 modules **1:30 / 442 tests** = **2485 tests** green. The platform leg cold with oldcore
+  in it is still under 11 minutes.
+- **Deferred, still open here**: the 88 non-override `S1123` sites (two sub-shapes look derivable —
+  see `dropped-issues.md`), and `dataeditors.js`.

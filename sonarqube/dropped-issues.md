@@ -1652,3 +1652,33 @@ with an off-by-one risk on parser code, not a cleanup.
   constructors of a `test-jar` class.
 - `java:S115` `KeyUsage` (crypto-pkix, 9 keys `AV2juHohVSxcxmoV58Xh`-`AV2juHohVSxcxmoV58Xp`) — the
   constants are `public static final` on a published API class; the rename is a break.
+
+### java:S1123 (tag half, `@Override` sites) — the parent element documents nothing to copy
+
+The workable subset of *"Add the missing `@deprecated` Javadoc tag"* is an `@Override` whose parent
+already carries an `@deprecated` tag (see [rules/java-S1123.md](rules/java-S1123.md)); these 26 are
+overrides where it does not, so the tag text would have to be invented.
+
+**commons** — `AV4uHSsn5jV1AdqTqB0x` DelegateComponentManager:169 `getComponentDescriptorList`
+(the `ComponentManager` declaration carries no tag).
+
+**platform** — `QueryImplementorDelegate` (18, WHOLE FILE, permanent): it forwards Hibernate's own
+deprecated `org.hibernate.query.Query` methods under the same name, so the deprecation is
+Hibernate's, its Javadoc is not in these repos, and there is no XWiki replacement to name —
+`AW5-S6BZ1Yj5qvzeRm-e` `-g` `-i` `-k` `-m` `-o` `-q` `-s` `-u` `-w` `-y` `-0` `-2` `-4` `-6` `-8`
+`--` `AW5-S6BZ1Yj5qvzeRm_A`.
+Plus: `AZRfe10a80sOVmdacTh0` `Th2` `Th4` `Th6` DefaultServletContainerInitializer:110/153/161/168
+(the `javax` overloads' interface declarations are bare `@Deprecated`),
+`AYK2yKAWjX57U6EJhxnL` DefaultDocumentAccessBridge:632 `getAttachmentContent(AttachmentReference)`,
+and `AW5-S9Qb1Yj5qvzeRoWt` / `AW5-S9Qb1Yj5qvzeRoWv` DefaultWikiTemplateManager:166/177 (the parent's
+`@deprecated` tag is empty).
+
+### java:S1123 (tag half, non-`@Override` sites) — deferred, NOT dropped
+The 88 sites that declare their own API (deprecated classes, interfaces, fields, constants and a
+class's own methods — platform 77, commons 10, rendering 1) are the shape the OKF denylist is
+actually about: the tag must state *why* and *what instead*, and only the API author knows. Not
+listed key-by-key. Two sub-shapes look derivable to a later run and were left because the sweep
+already had its volume: a deprecated element whose **class Javadoc already explains the
+replacement** (commons `LocalInfinispanCacheFactory` says *"redirect to standard Infinispan
+implementation instead"*), and a deprecated **private constant with a non-deprecated
+counterpart** (commons `DefaultExtensionSerializer`'s 5 `ELEMENT_*` legacy element names).

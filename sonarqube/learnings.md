@@ -239,6 +239,28 @@ rows for the rules you commit to fixing this run.
   See [rules/java-S1186.md](rules/java-S1186.md). The drop condition on such a rule is not safety but
   **truthfulness**: drop the site when you would have to invent the reason (6 of 192 here), because a
   comment asserting intent the code does not support is worse than the open issue.
+- **"The fix needs prose only the author can write" has a THIRD escape, after per-class prose and
+  the version-in-the-Javadoc one: the answer can live ONE LEVEL UP, in the parent's own comment.**
+  Twelfth denylist rescue, and the one that pays when the whole Java facet is otherwise recorded
+  drops. `java:S1123`'s *"Add the missing `@deprecated` Javadoc tag"* half (platform 155 / commons 32
+  / rendering 3) had been written off *twice* — by the OKF and by this repo's own rule file — as
+  needing *why* and *what to use instead*. That is a property of a site that declares its **own**
+  API. **102 of the 190 sites are `@Override`s**, and an override inherits the answer: the parent
+  interface or superclass usually already documents the member with an `@deprecated` tag, so the fix
+  copies text rather than inventing it. Building a `(methodName, paramCount) → tag` index over all
+  three repos resolved **76** of those 102 and the batch shipped in all three repos (platform #6327
+  53, commons #1955 21, rendering #430 2) — on a day when the never-mentioned-rule diff was empty,
+  commons and rendering had **zero** fresh mechanical keys, and 10 concurrent agent PRs held
+  platform's JavaScript. It is also the only rule of that day with a pool in all three repos, which
+  is what a multi-repo run needs.
+  Generalise the question beyond `@Override`: for any "needs information X" rejection, ask **who
+  else already states X** — the overridden member, the sibling overload, the class Javadoc, the
+  non-deprecated counterpart constant. The classifier itself is free (one token on the flagged
+  line), which is what makes the split worth trying before believing the rejection.
+  Two mechanics that generalise to any copy-the-neighbour's-prose batch: **the source text was
+  written against the SOURCE's imports**, so a `{@link Type#…}` the target does not import has to be
+  qualified; and **the source can be wrong** — one parent tag pointed at `beginGroupContainer` from
+  the `endGroup` method, so the copy is mechanical but the read-back is not.
 - **A "permanent RESIDUE" recorded by a past run is the same visibility split as a denylist entry —
   re-bucket it.** Ninth rescue of this shape, and the first where the wrong record was written by
   *this routine* rather than by the OKF: `pool-state.md` described platform's `java:S1130` remainder
@@ -1383,6 +1405,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   splitting the method or re-nesting the condition is a refactor, not a Sonar cleanup — and say so in the
   PR's *Clarifications*. Useful side effect: a metric rejection is the codebase stating that the merged
   form is NOT more readable, which is a far better answer than a reviewer's opinion.
+- **`xwiki-commons-component-api` in a `-pl` SUBSET reports `Tests run: 0` and then fails
+  `jacoco:check` at ratio 0.00 — and with it goes the WHOLE commons leg, because `-fae` cannot save
+  the modules that depend on it.** Same shape as the `tool-verification-resources` case below (test
+  classes compile, `JUnitPlatformProvider` is selected, zero tests discovered), but far more
+  expensive: nearly every commons `-pl` list has component-api at its head, so one silent discovery
+  failure skips `properties`, `job-api`, `job-default` and `extension-api` in one go. Recognise it
+  instantly — a comment-only or Javadoc-only diff **cannot** move a coverage ratio, so a JaCoCo
+  failure on such a batch is never yours. The remedy is the recorded one: build the **whole commons
+  repo** (`cd /home/user/xwiki-commons && mvn install -Plegacy,quality`) rather than lengthening the
+  `-pl` list, and budget the extra ~17 min from the start whenever a commons batch touches
+  component-api.
 - **A module can be red STANDALONE because its surefire discovers no tests, and the A/B on your own
   tree is what separates that from a regression.** `xwiki-commons-tool-verification-resources` built
   with `-pl` compiles its three test classes and then reports `Tests run: 0`, so `jacoco:check` fails
