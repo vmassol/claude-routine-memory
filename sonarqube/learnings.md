@@ -1953,11 +1953,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   correction the same turn rather than waiting on the sweep. The rule itself is conditional (the
   `internal` split), so its transform stays in [rules/java-S5993.md](rules/java-S5993.md) here and
   the OKF got only the two-line escape.
-- **Owed to the OKF, batch 10** (NOT opened as a PR — three rules with no OKF entry at all, and the
-  recorded rule is that a brand-new entry gets closed for the structural version-bump conflict; the
-  same run's `S6213` *correction* went out on its own, minimal, as `xwiki/xwiki-dev-llm#77` — the
-  shape that does merge). Fold
-  these into a PR a later run is opening anyway; full text in `rules/`:
+- **Owed to the OKF, batch 10** (three rules with no OKF entry at all; fold them into a PR a later run
+  is opening anyway). Their run's `S6213` *correction* went out on its own as
+  **`xwiki/xwiki-dev-llm#77`, MERGED** — a week after opening, and it carried a second, unrelated item
+  (the multi-line Javadoc convention in `conventions/code-style.md`) that also landed. Two things that
+  merge is evidence for: a correction to an actively-wrong entry keeps landing, and **a small
+  unconditional convention can ride along with one**, which is now the cheapest route for the rules
+  below. Full text in `rules/`:
   - **`java:S108`** belongs next to `S1186` — comment-only remediation (the rule's own *Exceptions*
     section: it ignores a block containing a comment), platform-only, clustered in four oldcore
     files, and the drop condition is truthfulness, with `src/test` the place to suspect.
