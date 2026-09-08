@@ -23,6 +23,12 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   same file is unsound. The run's whole yield came from re-reading `S1123`'s own "deferred, NOT
   dropped" note. Budget a find phase accordingly: re-derivations are now mostly confirmations, the
   deferral list is not.
+- **Rendering: CLOSED, seventh confirmation, and it cost two queries.** Its whole fresh-and-unclaimed
+  list (2026-09-08) is `javabugs:S2259` 93 + `S1135` 56 + `S3776` 25 + `S112`/`S127` 13 each +
+  `S5961` 11, then singletons — every one a recorded whole-rule drop or a denylisted refactor. Its
+  lone `java:S1123` site (`TagStack:303`) is a genuine drop: the non-deprecated
+  `getStackParameter(String)` peeks the deque rather than indexing it, so it is not the same
+  operation. Budget rendering at 0 and do not open a PR there without a *new* rule generation.
 - **Platform is PR-congested and the siblings are empty — the reverse of the recorded shape.**
   10 open `llm-agent` PRs held platform on 2026-09-08 (#6210/#6211/#6321 the WAR JavaScript and CSS,
   #6247/#6248/#6272/#6273/#6288/#6289 oldcore and friends, #6327 the `S1123` `@Override` half),

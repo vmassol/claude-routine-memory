@@ -134,7 +134,10 @@ The 88-site residue the `@Override` sweep left was recorded here as *deferred, n
 the way it still works is by delegating to its replacement. **So the classifier is the first line of
 the body, not the comment above it.** 33 of the 101 residue sites shipped on that basis (platform
 [#6334](https://github.com/xwiki/xwiki-platform/pull/6334) 29, commons
-[#1958](https://github.com/xwiki/xwiki-commons/pull/1958) 4). Three convertible shapes:
+[#1958](https://github.com/xwiki/xwiki-commons/pull/1958) 4). **Outcome: commons #1958 MERGED
+uncommented within hours** — the lever's first verdict, and it matches every denylist rescue before
+it, so "the tag is copied, not invented" is a principle a reviewer accepts without argument. Three
+convertible shapes:
 
 * **A jakarta overload of a flagged `javax` method, in the same type** — the body is
   `return getSourceURL(JakartaServletBridge.toJakarta(servletRequest));`, so the replacement is the
