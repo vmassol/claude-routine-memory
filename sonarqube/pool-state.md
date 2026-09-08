@@ -10,6 +10,25 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **When the catalogue is genuinely swept, the pool is a DEFERRED entry in `dropped-issues.md`.**
+  Whole-run observation (2026-09-08): the severity-split never-mentioned-rule diff over all three
+  repos returned only count-1 rules; the full open-issue pull (platform **4348** / commons **882** /
+  rendering **319**) grepped against the drop index left no fresh bucket over 10 that was not already
+  a recorded whole-rule drop; and **four denylist re-derivations in a row confirmed the recorded
+  verdict** — `java:S1172`'s `private` subset is *still* zero in all three repos (53 public / 20
+  protected / 7 public-test, second consecutive zero), commons `java:S2386` is 0/8 (every site is one
+  of its rule file's own drop shapes: `int[]`, a mutable domain object, five `Set`s filled from a
+  `static` block), commons `java:S115` is 7/7 public, and `java:S6355`'s 242-site residue has no
+  class-level version to inherit *and* inferring one from an unrelated sibling deprecation in the
+  same file is unsound. The run's whole yield came from re-reading `S1123`'s own "deferred, NOT
+  dropped" note. Budget a find phase accordingly: re-derivations are now mostly confirmations, the
+  deferral list is not.
+- **Platform is PR-congested and the siblings are empty — the reverse of the recorded shape.**
+  10 open `llm-agent` PRs held platform on 2026-09-08 (#6210/#6211/#6321 the WAR JavaScript and CSS,
+  #6247/#6248/#6272/#6273/#6288/#6289 oldcore and friends, #6327 the `S1123` `@Override` half),
+  claiming **105 files**; commons and rendering had **zero**. So the `(rule + module)` off-limits
+  check mattered more than usual, and the sibling repos were the only places nothing was claimed —
+  even though their pools are the small ones.
 - **The single highest-yield move known to this routine is now: take the biggest denylisted pool whose
   reason is "a build gate rejects it", and RUN THAT GATE on one small module.** `java:S5993`'s
   non-`internal` residue had been written off twice — once in the OKF, once in `dropped-issues.md` as

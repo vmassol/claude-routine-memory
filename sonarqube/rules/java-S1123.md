@@ -16,6 +16,8 @@ tag half on *is the site an `@Override`*.
   signature-matching parent tag. See *The `@Override` half* below. A bare
   `@deprecated since X` still clears the rule while leaving worse documentation than it found —
   that shape is what the original verdict was really about, and it stays banned.
+  **Then split the REMAINDER on "does the member's own BODY name the replacement" — that is a
+  second, independent lever and it is worth 33 more sites.** See *The self-declaring half* below.
 * **"Add the missing `@Deprecated` annotation"** (platform 16, commons 3, rendering 0) — mechanical
   *if* the version is derivable, and a **judgement PR**, never the mechanical batch: the annotation
   makes every existing call site emit a deprecation warning and changes what tooling reports about a
@@ -123,6 +125,65 @@ description automatically when the subclass comment has none):
 * **The parent declares the member deprecated but documents nothing** (`ServletContainerInitializer`
   javax overloads, `DelegateComponentManager#getComponentDescriptorList`).
 * **The parent tag is empty** (`DefaultWikiTemplateManager#applyTemplate`).
+
+## The self-declaring half — read the BODY, not the Javadoc
+
+The 88-site residue the `@Override` sweep left was recorded here as *deferred, not dropped* because
+"the tag must state why and what instead, and only the API author knows". That is true of the site's
+*documentation* and false of its *implementation*: a deprecated member almost always still works, and
+the way it still works is by delegating to its replacement. **So the classifier is the first line of
+the body, not the comment above it.** 33 of the 101 residue sites shipped on that basis (platform
+[#6334](https://github.com/xwiki/xwiki-platform/pull/6334) 29, commons
+[#1958](https://github.com/xwiki/xwiki-commons/pull/1958) 4). Three convertible shapes:
+
+* **A jakarta overload of a flagged `javax` method, in the same type** — the body is
+  `return getSourceURL(JakartaServletBridge.toJakarta(servletRequest));`, so the replacement is the
+  same-named jakarta overload. `HttpServletUtils`, `BrowserTab`.
+* **A non-deprecated counterpart in the same class** — the deprecated constructor delegates
+  (`this(propertyName, new DocumentReference(wiki, space, page))` ⇒
+  `{@link #ClassPropertyReference(String, DocumentReference)}`), the deprecated constant simply *is*
+  it (`ELEMENT_FILES_FILES = ELEMENT_FILES_FILE`), or the existing Javadoc already points at it
+  (`See {@link #CFGPROP_STATS_EXCLUDEDUSERSANDGROUPS_REQUEST}.` ⇒ the same link as the tag). Biggest
+  group: 24 sites.
+* **An in-file note** — `IncludeMacroParameters#setContext` carries
+  `// Marked deprecated since there's now a Display macro instead.` directly above the annotation.
+
+Two free bonuses worth looking for: an **in-file precedent for the wording** (`BrowserTab:87` already
+says `@deprecated use {@link #navigate(URL, Cookie[], boolean, int)} instead`, so the new tags read
+like the old ones), and the fact that the whole diff is **insert-only** — which is the sentence that
+answers the `Quality / Analyze` risk in the PR body.
+
+### Drop shapes of the residue (68 of 101, keyed in `dropped-issues.md`)
+
+* **A delegate to a THIRD-PARTY deprecated API** — `QueryImplementorDelegate` (16), Hibernate's own
+  `Query` methods. The body names a replacement that is not XWiki's to recommend.
+* **A wholesale-deprecated legacy class stating nothing** — the ~21 `xwiki-platform-legacy-oldcore`
+  types (`XWikiCache*`, `com.xpn.xwiki.notify.*`, `XWikiCriteria`/`XWikiQuery`/`OrderClause`,
+  `i18n`). You will *think* you know the replacement (`org.xwiki.cache.Cache`, the observation
+  system, `QueryManager`) and the file will not say so. Truthfulness, not safety, is the bar.
+* **A `javax` overload with NO same-named jakarta counterpart** — and telling this apart from the
+  convertible jakarta shape above is the whole check. `ServletContainerInitializer` (4) +
+  `DefaultServletContainerInitializer` (3): the only jakarta method on that interface is
+  `initializeRequest(HttpServletRequest, HttpServletResponse)`, which folds `initializeResponse` and
+  `initializeSession` into one call, so naming it as *the* replacement for each is a claim about
+  intent. Same for `XWikiAction#initializeXWikiContext` and the oldcore `XWikiRequest` helpers
+  (`Util#getObject`, `Utils#getRedirect`/`getPage`/`prepareContext`, `XWikiForm`): grep the file for
+  a same-named overload *before* assuming the jakarta bridge gives you the answer — 8 of the 21
+  `javax`-shaped sites failed that grep.
+
+### Checkstyle, when the tag needs a whole new Javadoc block
+
+Adding a comment where there was none turns checks on, so decide per file before editing:
+
+* `xwiki-platform-legacy-*` sets `<xwiki.checkstyle.skip>true</xwiki.checkstyle.skip>` in
+  `xwiki-platform-legacy/pom.xml` — nothing is enforced there at all.
+* Otherwise the **module pom's `maven-checkstyle-plugin` `<excludes>` list** decides; grep it for the
+  file's basename (oldcore's list is long and holds `AttachmentDiff`, `XWikiServletRequest`,
+  `XWikiServletResponse` but *not* `StatsUtil`).
+* In a non-excluded file, `JavadocMethod` (`accessModifiers=public`) then demands `@param`/`@return`
+  and `JavadocType` (`versionFormat=\$Id.*\$`) demands `@version` — so **write the complete comment**
+  rather than a tag-only one, and do not create a class-level Javadoc from scratch (every `$Id` in
+  the three repos is an expanded `$Id: <hash> $`; a fresh bare `$Id$` would be the only one).
 
 ## Outcome (tag half)
 

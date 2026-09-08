@@ -1673,12 +1673,51 @@ Plus: `AZRfe10a80sOVmdacTh0` `Th2` `Th4` `Th6` DefaultServletContainerInitialize
 and `AW5-S9Qb1Yj5qvzeRoWt` / `AW5-S9Qb1Yj5qvzeRoWv` DefaultWikiTemplateManager:166/177 (the parent's
 `@deprecated` tag is empty).
 
-### java:S1123 (tag half, non-`@Override` sites) — deferred, NOT dropped
-The 88 sites that declare their own API (deprecated classes, interfaces, fields, constants and a
-class's own methods — platform 77, commons 10, rendering 1) are the shape the OKF denylist is
-actually about: the tag must state *why* and *what instead*, and only the API author knows. Not
-listed key-by-key. Two sub-shapes look derivable to a later run and were left because the sweep
-already had its volume: a deprecated element whose **class Javadoc already explains the
-replacement** (commons `LocalInfinispanCacheFactory` says *"redirect to standard Infinispan
-implementation instead"*), and a deprecated **private constant with a non-deprecated
-counterpart** (commons `DefaultExtensionSerializer`'s 5 `ELEMENT_*` legacy element names).
+### java:S1123 (tag half, non-`@Override` sites) — **Correction: the invitation was cashed, 33 of 101 shipped**
+This entry used to say the ~88 self-declaring sites were deferred because "the tag must state *why*
+and *what instead*, and only the API author knows". Both sub-shapes it flagged as derivable **did**
+convert, and so did a third: the classifier is the member's **body**, not its comment (a deprecated
+member usually delegates to its replacement). Platform
+[#6334](https://github.com/xwiki/xwiki-platform/pull/6334) (29) and commons
+[#1958](https://github.com/xwiki/xwiki-commons/pull/1958) (4) — mechanics in
+[rules/java-S1123.md](rules/java-S1123.md#the-self-declaring-half--read-the-body-not-the-javadoc).
+
+The **68 remaining sites are analyzed and rejected** — listed here so no run re-triages them. Three
+reasons, all "the tag would be invented, not copied":
+
+*Third-party deprecation (the body names someone else's replacement)* — platform
+`QueryImplementorDelegate`:487/494/579/598/605/612/619/626/633/640/647/654/661/668/675/682
+`AW5-S6BZ1Yj5qvzeRm-g` `-i` `-k` `-m` `-o` `-q` `-s` `-u` `-w` `-y` `-0` `-2` `-4` `-6` `-8` `--`.
+
+*A `javax` overload with NO same-named jakarta counterpart* (the grep that separates these from the
+convertible `HttpServletUtils` shape) — platform `ServletContainerInitializer`:33/37/40/43
+`AZRfe11r80sOVmdacTia` `Tic` `Tie` `Tig`; `DefaultServletContainerInitializer`:153/161/168
+`AZRfe10a80sOVmdacTh2` `Th4` `Th6`; `XWikiAction`:836/860 `AZRfe0P580sOVmdacTZ0` `TZ2`;
+`Utils`:257/343/406 `AZRfe0SQ80sOVmdacTbQ` `TbK` `TbO`; `Util`:200 `AZRfe0g080sOVmdacTci`;
+`XWikiForm`:60/67 `AZRfe0Q380sOVmdacTaj` `Tal`; `CommentAddAction`:192 `AZRfe0Rw80sOVmdacTbA`;
+`XWikiServletResponse`:29 `AZRfe0QX80sOVmdacTaS` (also needs a class Javadoc built from scratch);
+`XWikiServletURLFactory`:62 `AZRfe0Ob80sOVmdacTYd`.
+
+*A wholesale-deprecated legacy type or member stating nothing* — platform `XWikiCache`:24
+`AW5-S7sQ1Yj5qvzeRn-N`, `XWikiCacheService`:28 `AW5-S7ru1Yj5qvzeRn99`, `XWikiCacheStub`:28
+`AW5-S7r21Yj5qvzeRn9_`, `XWikiCacheServiceStub`:36 `AW5-S7r_1Yj5qvzeRn-E`,
+`XWikiInitializedWikiCacheStub`:31 `AW5-S7sH1Yj5qvzeRn-J`, `XWikiCacheNeedsRefreshException`:23
+`AW5-S7sY1Yj5qvzeRn-P`, `XWikiNotificationManager`:35 `AW5-S7wU1Yj5qvzeRn_i`,
+`XWikiNotificationRule`:26 `AW5-S7wi1Yj5qvzeRn_4`, `XWikiNotificationInterface`:26
+`AW5-S7wE1Yj5qvzeRn_b`, `XWikiActionNotificationInterface`:26 `AW5-S7vi1Yj5qvzeRn_C`,
+`XWikiDocChangeNotificationInterface`:26 `AW5-S7wM1Yj5qvzeRn_e`, `XWikiActionRule`:29
+`AW5-S7v71Yj5qvzeRn_Q`, `XWikiPageNotification`:32 `AW5-S7vq1Yj5qvzeRn_E`, `DocChangeRule`:29
+`AW5-S7vy1Yj5qvzeRn_I`, `DocObjectChangedRule`:34 `AW5-S7vZ1Yj5qvzeRn-7`, `PropertyChangedRule`:43
+`AW5-S7vQ1Yj5qvzeRn-y`, `XWikiCriteria`:31 `AW5-S7w71Yj5qvzeRoAC`, `XWikiQuery`:37
+`AW5-S7xE1Yj5qvzeRoAG`, `OrderClause`:23 `AW5-S7xN1Yj5qvzeRoAS`, `i18n`:24 `AW5-S7wq1Yj5qvzeRn_7`,
+`DocumentErrorHandler`:30 `AYQ-eVB6YEceb0IEkrCr`, `LegacyWikiMacroConstants`:29
+`AYHIiaVwX4UPVmnPrjli` (its Javadoc says the fields were moved *from* `WikiMacroConstants`, i.e.
+they are gone from the new API — not a replacement), `PdfURLFactory`:42 `AYK2yKWdjX57U6EJhxnP`,
+`SolrInstanceProvider`:38 `AXDtg98AHldYI26Kp3QH`, `AbstractDataMigrationManager`:322
+`AW5-S6nA1Yj5qvzeRng2`, `ObjectDiff`:96/115 `AW5-S6Te1Yj5qvzeRnKG` `AW5-S6Te1Yj5qvzeRnKE` (the
+8-arg constructor the 6-arg one delegates to is itself deprecated); commons
+`DefaultExtensionSerializer`:190/196/199/795 `AV4uHSLA5jV1AdqTqBvx` `AV4uHSLA5jV1AdqTqBvz`
+`AV4uHSLA5jV1AdqTqBv0` `AV4uHSLB5jV1AdqTqBv2` (plain string literals, no counterpart constant),
+`AbstractComponentDependencyFactory`:55 `AV2juHNkVSxcxmoV58RP`, `ListTool`:72
+`AW6oRQpxoucddIov5uRY`; rendering `TagStack`:303 `AV2j0WqNpvRVEt3bvRqr` (the non-deprecated
+`getStackParameter(String)` peeks the deque instead of indexing it — not the same operation).

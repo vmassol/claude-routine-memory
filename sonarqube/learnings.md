@@ -257,6 +257,24 @@ rows for the rules you commit to fixing this run.
   else already states X** — the overridden member, the sibling overload, the class Javadoc, the
   non-deprecated counterpart constant. The classifier itself is free (one token on the flagged
   line), which is what makes the split worth trying before believing the rejection.
+  **And the answer's most reliable source is the one nobody looks at: the member's own BODY.** Every
+  source in that list is a *comment*, which is why a "needs prose" rejection survives — you are
+  searching documentation for something the author never documented. But a deprecated member almost
+  always still works, and the way it still works is by delegating to its replacement, so the
+  implementation names what the documentation does not. Re-reading the `S1123` tag-half residue that
+  way (88 sites this repo had itself recorded as *deferred, needs prose*) converted **33** across
+  platform and commons: a `javax` method whose body calls the jakarta overload, a constructor whose
+  body is `this(<the modern form>)`, a constant whose value *is* the counterpart constant. Ask it of
+  any rule whose fix must name a replacement, and read the first line of the body before the Javadoc
+  above it. The mirror-image drop is just as cheap to spot — when the body delegates to a
+  **third-party** deprecated API (`QueryImplementorDelegate` → Hibernate), the replacement named is
+  not yours to recommend.
+  **Corollary for the find phase: when the never-mentioned-rule diff is empty AND every language
+  facet is claimed, the pool is a DEFERRED entry in `dropped-issues.md`, not a new rule.** That was
+  literally the whole of this run — five severity-split facet calls per repo returned only count-1
+  rules, platform's Java/JS/CSS was held by 10 open agent PRs, and four denylist re-derivations
+  (`S1172` private subset, `S115`, `S2386`, `S6355` class-level version) all confirmed the recorded
+  drop. The one thing that paid was re-reading a deferral this routine had written itself.
   Two mechanics that generalise to any copy-the-neighbour's-prose batch: **the source text was
   written against the SOURCE's imports**, so a `{@link Type#…}` the target does not import has to be
   qualified; and **the source can be wrong** — one parent tag pointed at `beginGroupContainer` from
@@ -513,6 +531,19 @@ rows for the rules you commit to fixing this run.
   reactor. Two guards: run the collection pass before any probe (or after `git checkout -- .`), and
   always reconcile the applied-edit count against the rule's own live `total` per repo before writing
   the PR body — the same cross-check the recorded "re-derive the fixed count at PR time" rule asks for.
+- **An apply script must ACCUMULATE per file — computing each edit's replacement text from the
+  pristine file and writing at the end silently keeps only the LAST edit per file, and every
+  `count == 1` assertion still passes.** New failure mode: the recorded guards are all about whether
+  an `old` *matches*, none about whether several edits to one file *compose*. The script reported
+  "33/33 planned, WROTE 21 files" and 18 tags landed — the 15 lost ones were the non-final edits of
+  `AttachmentDiff` (7), `HttpServletUtils` (3), `JobState`, `StatsUtil` and
+  `DefaultExtensionSerializer` (2 each), i.e. exactly the multi-edit files. It is invisible in the
+  skip table (nothing was skipped) and invisible in the per-edit assertions (each was evaluated
+  against the unmodified text). Two guards: hold a `{path: text}` buffer and re-read `buffers[path]`
+  rather than the file, and **reconcile the applied count against the plan before committing** —
+  `git diff | grep -c '<the marker your edit adds>'` versus `len(EDITS)` catches it in one line,
+  where `git diff --stat` alone ("18 files changed") looks plausible. Same family as the recorded
+  "re-derive the fixed count at PR time", but it has to run *before* the build, not at PR time.
 - **Re-run the whole script from `git checkout -- .` after EVERY fix to it.** Three successive bugs
   (a `} else if` brace-count, a `\b` that will not match after `]`, and a paren-greedy cast pattern)
   were each found by reading the compact diff `git diff -U0 | grep '^[+-]'` — a full-file diff is
@@ -1424,6 +1455,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   breakage precisely in *Clarifications*: the offending file and line, the commit that introduced it,
   the evidence that your diff is elsewhere, and an offer to rebase once master is green. Fixing it
   would muddle the review and can conflict with whoever is already repairing it.
+- **For a comment-only rule the Checkstyle risk is the opposite one: ADDING a comment where there
+  was none turns checks ON.** A member with no Javadoc is not evidence that none is required — it is
+  evidence the file is *excluded*, and the moment you add one, `JavadocMethod`
+  (`accessModifiers=public`) demands `@param`/`@return` and `JavadocType`
+  (`versionFormat=\$Id.*\$`) demands `@version`. Three cheap facts settle it per file, all before
+  editing: `xwiki-platform-legacy-*` sets `<xwiki.checkstyle.skip>true</xwiki.checkstyle.skip>` in
+  `xwiki-platform-legacy/pom.xml` (nothing enforced at all); otherwise grep the **module pom's
+  `maven-checkstyle-plugin` `<excludes>`** for the file's basename (oldcore's list is long); and when
+  in doubt just **write the complete comment** rather than a tag-only one, which is right either way.
+  Do not create a *class-level* Javadoc from scratch though — every `@version` in the three repos is
+  an expanded `$Id: <hash> $`, so a fresh bare `$Id$` would be the only one in the codebase; drop
+  those sites instead.
 - **Checkstyle METRIC rules are a drop condition, and the 120-column rule is not the only one.** Any fix
   that ADDS a statement or LENGTHENS a boolean expression can be rejected by a metric the line-length
   guard cannot see: **`BooleanExpressionComplexity` (max 3 operators)**, **`ExecutableStatementCount`
