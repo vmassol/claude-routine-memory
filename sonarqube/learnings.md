@@ -1011,6 +1011,26 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
   *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
   `Analyze` is. Don't act on the app check alone.
+  **And it fires on the SAFEST diff there is — a comment-only, insert-only one — so never write a PR
+  body promising otherwise.** Platform #6334 added 73 Javadoc lines and removed nothing, not one
+  executable statement in 18 files, and the app gate still went red on *D Reliability Rating on New
+  Code* while `Quality / Analyze` passed on the same commit. The mechanism is the recorded one taken
+  to its limit: the app's gate counts every issue in a **changed file**, and "changed" does not mean
+  "rewritten" — merely being in the diff is enough. So the insert-only argument (the recorded
+  "nothing can be a behaviour change and no line the PR writes can carry a pre-existing finding") is
+  sound about `Analyze` and says nothing about the app check; the PR body should claim only the
+  former. **The `isNew` replication is the whole proof and it is one call**:
+  `api/sources/lines?key=<component>&pullRequest=N&from=<line>&to=<line+60>` returned
+  `isNew: [87]` for the one comment line added, against a finding at line 130 — 43 lines away, in a
+  method the diff never touches. Do that before anything else; here it was also the case where the
+  arithmetic proof is unavailable, since `master` held **no** `javabugs:S6416` in that file at all
+  (it holds 5, all at `EntityReference.java:222`, the superclass method the flagged override
+  delegates to), which is the recorded "a `javabugs:` finding can exist only in the PR analysis"
+  again — now seen on `S6416` as well as `S2259`, so treat it as a property of the `javabugs:`
+  family rather than of one rule. End state: one comment carrying the `isNew` table, the absent
+  master twin, and why the flagged `throw` is deliberate validation (its own Javadoc says
+  *"Overridden to ensure that the parent of a property is always an object"*), plus the green
+  sibling PR as the control. No re-run: this is not a flake, and the app check is not the verdict.
   **`Analyze` RED does not mean it found anything — READ ITS LOG BEFORE BUILDING ANY ARGUMENT, because
   it can CRASH.** New third failure mode, distinct from both the moved-finding artifact and the
   genuine "your line carries it" case: the job's inline Python died with a bare
