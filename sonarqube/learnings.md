@@ -1999,6 +1999,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
     cleanup, and the rejection is the codebase stating the merged form is not more readable. One
     refinement the `S3398` case adds: when several flagged sites feed the same cap, **rank them by
     cost and apply the cheap ones** rather than dropping the rule — 2 of 3 shipped that way.
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#120` OPEN** (the `S6355` drop condition
+  corrected: *"a tag naming no version"* is a property of an element declaring its OWN API, and an
+  `@Override` inherits the version from the member it overrides). Tenth "actively-wrong entry"
+  correction, and the first whose wrongness was found by carrying a *sibling rule's* lever across
+  rather than by re-reading the entry. Written to the shape that keeps merging: four lines inside
+  the existing entry, no new file, no rule-map row, no version field, leading with the cost (304
+  sites written off, 87 of them overrides) and citing the sweep PRs already open (#1961, #432,
+  #6341).
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#114` OPEN** (the `java:S4144` denylist bullet
   rewritten in place to state the name-based split). Ninth "actively-wrong entry" correction, and
   the second whose wrongness is *scope* rather than content — the recorded sentence
