@@ -92,6 +92,10 @@ Javadoc so it cannot drift, but `@deprecated 7.2M1` has nothing else in it, and 
 `java:S1123`. Give it the replacement the file already names — `XARFilterUtils.ROLEHINT` became
 `@deprecated use {@link #ROLEHINT_CURRENT} instead`, the constant declared two lines above it.
 
+Outcome: all three PRs went green first try — `Quality / Analyze` **and** the SonarCloud project
+gate, which for once produced no moved-finding artifact, because the diff only rewrites the
+`@Deprecated` line itself and the pre-push check confirmed no other open issue sits on one.
+
 **Drop shape for the override lever:** the parent is not deprecated at all, so there is no version to
 inherit (commons `DelegateComponentManager#getComponentDescriptorList(Class)` — `ComponentManager`'s
 `default` method carries no `@Deprecated`). One index lookup finds these; do not read the source.
