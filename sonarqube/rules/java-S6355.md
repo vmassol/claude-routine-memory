@@ -94,7 +94,9 @@ Javadoc so it cannot drift, but `@deprecated 7.2M1` has nothing else in it, and 
 
 Outcome: all three PRs went green first try — `Quality / Analyze` **and** the SonarCloud project
 gate, which for once produced no moved-finding artifact, because the diff only rewrites the
-`@Deprecated` line itself and the pre-push check confirmed no other open issue sits on one.
+`@Deprecated` line itself and the pre-push check confirmed no other open issue sits on one. The
+rendering half **merged uncommented** within hours, which is what every denylist/residue rescue of
+this shape has done.
 
 **Drop shape for the override lever:** the parent is not deprecated at all, so there is no version to
 inherit (commons `DelegateComponentManager#getComponentDescriptorList(Class)` — `ComponentManager`'s
