@@ -1404,6 +1404,32 @@ are compile-time constants, so changing the value is a Revapi `java.field.consta
 break — exactly the case the OKF entry carves out. Platform's 7 sites, all `private`/local patterns,
 shipped.
 
+## java:S6355 — the `@Override` half of the residue: 1 drop, 31 DEFERRED, the rest still open
+
+The residue this file and `pool-state.md` both called *"permanent — no version stated anywhere"* has
+an `@Override` escape (the parent's `@Deprecated(since = …)` is copied); see
+[rules/java-S6355.md](rules/java-S6355.md). Triaged 2026-09-09 over all three repos:
+
+* **Shipped**: commons 19 ([#1961](https://github.com/xwiki/xwiki-commons/pull/1961)), rendering 2
+  ([#432](https://github.com/xwiki/xwiki-rendering/pull/432)), plus 3 platform sites whose own tag
+  states a version in a form the strict regex misses
+  ([#6341](https://github.com/xwiki/xwiki-platform/pull/6341)).
+* **DEFERRED, not dropped — 31 platform `@Override` sites** in `DefaultDocumentAccessBridge`,
+  `XWikiCacheStore`, `XWikiHibernateStore`, `SafeExtensionPlanAction`, `DefaultFlavorManager`,
+  `LegacyEventStatusManager`, `AbstractSolr`/`DefaultSolr`,
+  `DefaultTemporaryAttachmentSessionsManager` and friends. Every parent version resolves; the only
+  blocker is that all 31 files are claimed by the open `S1123` PR
+  [#6327](https://github.com/xwiki/xwiki-platform/pull/6327). Keys are deliberately **not** listed so
+  the fresh-key grep still surfaces them — re-run the index once #6327 merges. Same for the 3
+  loose-version sites in `XWiki.java` (`sine 9.10RC1` ×2, `starting with XE 1.8.1`), also #6327's.
+* **Real drop, 1**: `AX5ypm2fhUgnM9vLdrg-` commons `DelegateComponentManager:168`
+  `getComponentDescriptorList(Class)` — the interface method it overrides (`ComponentManager:225`)
+  is a `default` method that is **not deprecated at all**, so there is no version to inherit.
+* **Still open and still needing the API author** (not re-triaged): the non-`@Override` declarations
+  whose `@deprecated` tag names a replacement but no version — platform ~146, commons 18,
+  rendering 4 — plus platform's 61 overrides with no versioned parent. No class-level
+  `@Deprecated(since = …)` exists anywhere in the pool to inherit from (checked, 0 of 304).
+
 ## java:S1452 / java:S1700 / java:S9149 / java:S2176 (all three repos) — whole-rule drops
 
 Re-derived by the visibility split in 2026-09 and **none of them splits**, so these are rejected as

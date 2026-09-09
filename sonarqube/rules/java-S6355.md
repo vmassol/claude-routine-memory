@@ -58,6 +58,44 @@ positive — `replaced by {@link #exists(DocumentReference)} since 2.2.1`, `not 
 `does not do anything since 11.5RC1`. 24 of 439 read that way and all were right; classify on the
 regex, not on the position.
 
+## The "no version anywhere" residue has two escapes
+
+The 304 drops above are *"nothing on this element states a version"*. That is a property of an
+element that declares its **own** API. Two passes recover a chunk of it.
+
+**1. An `@Override` inherits its parent's version.** Exactly the escape that paid for `S1123`'s tag
+half, and it needs no prose at all — the overridden interface method usually already carries
+`@Deprecated(since = "…")`, so the version is copied. Build a `(methodName, paramCount) → version`
+index over all three repos (every `@Deprecated(since = "X")` plus every `@Deprecated` under a
+versioned `@deprecated` tag; only 549 files in the three repos contain `@Deprecated` at all, so the
+scan is seconds), then look each override up. Measured 2026-09-09: **87 of the residue are
+`@Override`s and 52 resolve** — platform 31, commons 19, rendering 2 — every one against a real
+parent, and where two parents matched they agreed. Verify the class implements the named interface
+before shipping; the index is keyed on name+arity, not on the type.
+
+**The trap is scheduling, and it cost this lever its biggest half.** By construction these are the
+*same members* `S1123`'s `@Override` half fixes, so the two rules' site sets coincide file for file:
+all 31 platform hits sat in files claimed by the still-open `S1123` PR (#6327), and were dropped on
+the same-file rule. Run both levers **in one sweep**, or run this one only once the sibling's PRs
+have merged — never concurrently.
+
+**2. A second, keyword-free version scan over the tag.** The `since`-keyword regex is right as the
+*classifier*, but re-scan the residue's tags for a bare `\d+\.\d+[\w.]*` and read the handful of
+candidates by hand. 6 platform sites state a version the strict pass cannot see: `@deprecated 7.2M1`
+(version and nothing else), `@deprecated sine 9.10RC1, use {@link …}` (a typo for *since*), and
+`@deprecated Virtual mode is on by default, starting with XWiki 5.0M2.` (a product name sits between
+the keyword and the number). Do not widen the production regex for these — the boundary rule above is
+why it is strict; eyeball the candidate list instead.
+
+**A version-only tag must not be stripped empty.** The normal strip pass removes the version from the
+Javadoc so it cannot drift, but `@deprecated 7.2M1` has nothing else in it, and an empty tag re-raises
+`java:S1123`. Give it the replacement the file already names — `XARFilterUtils.ROLEHINT` became
+`@deprecated use {@link #ROLEHINT_CURRENT} instead`, the constant declared two lines above it.
+
+**Drop shape for the override lever:** the parent is not deprecated at all, so there is no version to
+inherit (commons `DelegateComponentManager#getComponentDescriptorList(Class)` — `ComponentManager`'s
+`default` method carries no `@Deprecated`). One index lookup finds these; do not read the source.
+
 ## Stripping the version out of the `@deprecated` tag
 
 Three shapes, all on the single line that holds the phrase (it is never split across lines in 464
@@ -148,17 +186,13 @@ miss this) before treating anything about deprecation as a judgement call.**
   arithmetic exactly: platform 370 ACCEPTED / 260 still OPEN, commons 81 / 38, rendering 13 / 6, i.e.
   the OPEN remainder equals the recorded non-derivable count in every repo.
 
-## The sibling rule `java:S1123` — analyzed, NOT attempted
+## The sibling rule `java:S1123` — since swept, and it shares this rule's site set
 
-"Deprecated elements should have both the annotation and the Javadoc tag" (platform 171, commons 35,
-rendering 3). One rule key, two opposite shapes, and neither is free:
-
-* *"Add the missing `@deprecated` Javadoc tag"* — writing the tag means writing **why and what to use
-  instead**, i.e. prose only the API's author can supply. A bare `@deprecated since X` clears the rule
-  and leaves worse documentation than it found.
-* *"Add the missing `@Deprecated` annotation"* — mechanical (the version is in the tag), but it makes
-  every existing call site emit a deprecation warning and changes what tools report about a published
-  API. That is a decision, not a cleanup.
+"Deprecated elements should have both the annotation and the Javadoc tag". The verdict recorded here
+("neither shape is free") was overturned by both halves shipping — see
+[java-S1123.md](java-S1123.md). What matters for *this* rule is that the two fire on the same members,
+so their `@Override` escapes resolve the same files: sweep them together or one after the other, never
+in parallel (above).
 
 ## Where the pool sits
 

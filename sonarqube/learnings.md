@@ -44,7 +44,7 @@ rows for the rules you commit to fixing this run.
 | `javascript:S6582` | [rules/javascript-S6582.md](rules/javascript-S6582.md) | `0?.f()` THROWS where `0 && 0.f()` short-circuits |
 | `javascript:S7765` | [rules/javascript-S7765.md](rules/javascript-S7765.md) | `includes` differs from `indexOf` only for `NaN`; the receiver must really be an Array |
 | `java:S1172` | [rules/java-S1172.md](rules/java-S1172.md) | OKF-denylisted, but only non-`private` is a signature change — the private subset is a 45-site three-repo pool; and `private` is NOT airtight, an AspectJ ITD can call it |
-| `java:S6355` `java:S1123` | [rules/java-S6355.md](rules/java-S6355.md) | OKF-denylisted for "needs the deprecating version" — which the element's own `@deprecated` Javadoc tag already states in 464 of 768 sites |
+| `java:S6355` `java:S1123` | [rules/java-S6355.md](rules/java-S6355.md) | OKF-denylisted for "needs the deprecating version" — which the element's own `@deprecated` tag states in 464 of 768 sites, and the OVERRIDDEN member's annotation states for 52 more |
 | `java:S1186` | [rules/java-S1186.md](rules/java-S1186.md) | comment-only, and the comment is a property of the CLASS — 192 issues are ~20 class-level judgements |
 | `java:S108` | [rules/java-S108.md](rules/java-S108.md) | comment-only too (the rule ignores a block containing a comment); 82 sites are ~35 sentences, and an empty `else`/`finally` is deleted instead |
 | `java:S9142` | [rules/java-S9142.md](rules/java-S9142.md) | hoisting a regex out of a loop is javadoc-definitional, but `String#split` on ONE character compiles no Pattern — that shape is a false positive |
@@ -279,6 +279,24 @@ rows for the rules you commit to fixing this run.
   written against the SOURCE's imports**, so a `{@link Type#…}` the target does not import has to be
   qualified; and **the source can be wrong** — one parent tag pointed at `beginGroupContainer` from
   the `endGroup` method, so the copy is mechanical but the read-back is not.
+- **An escape found for one rule transfers to the rules that fire on the SAME DECLARATION — and so
+  does the file claim, so they are ONE sweep or none.** Thirteenth rescue, and the first found by
+  asking not "what else does the denylist get wrong" but "which *other* rule is about this same
+  member". `S1123` (tag missing) and `S6355` (annotation has no `since`) both fire on a deprecated
+  member, so `S1123`'s `@Override` lever — the parent already documents it, copy rather than invent —
+  answers `S6355`'s recorded 304-site *"no version stated anywhere"* residue verbatim: 87 of it are
+  overrides and **52 inherit a parent's `@Deprecated(since = …)`**. The generic question, worth one
+  turn whenever a lever pays: *which sibling rule fires on the same declarations, and does the same
+  escape apply?* Sonar's rule keys partition by *symptom*, not by *the fact the fix needs*, so a
+  source of truth that answers one usually answers several.
+  **The corollary is a scheduling rule and skipping it cost this run 31 of the 52.** Same
+  declarations means same FILES, so the sibling rule's PR claims every file your lever needs: all
+  31 platform hits sat in files held by the still-open `S1123` PR (#6327) and had to be dropped on
+  the same-file rule, leaving only commons 19 + rendering 2 to ship. So when the sibling lever is
+  found, either fold it into the *same* batch as the rule it came from, or wait for that rule's PRs
+  to merge — a "follow-up next run" on a co-located rule is a follow-up that finds its own files
+  taken. Same shape as the recorded `S7781`+`S6397` co-location lever, one level up: there
+  co-location was free yield within one edit, here it is a claim conflict across two runs.
 - **A "permanent RESIDUE" recorded by a past run is the same visibility split as a denylist entry —
   re-bucket it.** Ninth rescue of this shape, and the first where the wrong record was written by
   *this routine* rather than by the OKF: `pool-state.md` described platform's `java:S1130` remainder
@@ -1298,6 +1316,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (`Math.clamp`) and `S6916` (pattern-match guards) with "Java 21" written next to them, which reads
   like a blocker and is not one — check the pom before writing off a modernization rule on version
   grounds. `S6880` (`if`-chain → `switch` pattern expression) was found this way.
+- **Datapoint for a small three-repo annotation+`throws` sweep** (warm `~/.m2`, 30 sites, 9 modules):
+  commons 4 modules **3:49** (424 tests) + rendering 2 modules **0:58** (517) + platform 3 modules
+  incl. oldcore **5:19** (1288, oldcore 1209 of them) = **~10 min** for 2229 tests, all green,
+  `revapi:check` in all nine. A 30-site batch costs the same shape of reactor as a 300-site one —
+  which is the argument for never trimming a repo out of a multi-repo sweep to save build time.
 - **Datapoint for a three-repo comment-and-constant sweep** (warm `~/.m2`, 119 sites): commons 1
   module **223 tests** + rendering 2 modules **352** + platform **11** modules incl. oldcore and
   `legacy-oldcore` **1501** (oldcore 1149) = **2076 tests**, all green, in a single chained
