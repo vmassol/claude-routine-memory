@@ -2027,6 +2027,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
   wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
   (the multi-line Javadoc rule survived the same review untouched).
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#125` OPEN** (the `S2386` denylist entry rewritten
+  in place to say the objection is to the *message's* remediation, not to the rule). Eleventh
+  "actively-wrong entry" correction, and the first one this routine had *known about for several runs
+  without filing* — the escape was recorded here in `rules/java-S2386.md` and the OKF was left
+  misleading, so two later runs re-derived it from scratch. That is the cost worth naming: a rule
+  file here does not stop the OKF sending the next run away. Written to the shape that keeps merging:
+  one bullet, no new family file, no rule-map row, no version field, leading with the cost and citing
+  the sweep PR (commons #1962) that was already open. Generalises: when a `rules/` file exists here
+  *because* an OKF entry is wrong (not merely incomplete), file the correction the next time the rule
+  pays, rather than deferring it again.
 - **Owed to the OKF, batch 11** (NOT opened as a PR — this is the THIRD time this content comes up
   and the recorded rule says an *addition* to an existing list gets closed for the version-bump
   conflict, which is exactly what happened to it inside `#53` (batch 2). Fold it into a PR a later run
