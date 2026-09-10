@@ -1074,6 +1074,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   master twin, and why the flagged `throw` is deliberate validation (its own Javadoc says
   *"Overridden to ensure that the parent of a property is always an object"*), plus the green
   sibling PR as the control. No re-run: this is not a flake, and the app check is not the verdict.
+  **Cleanest datapoint yet for the moved-finding artifact, and the control is a SIBLING PR of the same
+  sweep.** Platform #6349 failed the app's `SonarCloud Code Analysis` on *C Reliability Rating on New
+  Code* while `Quality / Analyze` passed on the same commit; #6348, cut from the same master the same
+  hour, was green on **both**. The `isNew` replication settled it in two calls and is worth copying
+  verbatim as the shape of the evidence: the PR analysis reported **one** issue project-wide
+  (`javabugs:S2259`, oldcore `Utils.java:696`), and `api/sources/lines?…&pullRequest=N&from=1&to=800`
+  returned `isNew` for exactly **one** line in that file — **389**, the batch's only hunk there, 307
+  lines and one method away. Two refinements to record: (a) query the WHOLE file's line range, not
+  just around the finding — a window around line 696 alone returns an empty `isNew` set, which proves
+  the finding is inherited but cannot show *where* your lines actually are, and naming your own line
+  number is what makes the comment convincing; (b) master held one `javabugs:S2259` in that file at
+  line **301**, in a different method — so this is again the recorded "a `javabugs:` finding does not
+  merely shift, the set is not stable between analyses" case, and the comment should say that fixing
+  the named finding would not reliably turn the check green either.
   **`Analyze` RED does not mean it found anything — READ ITS LOG BEFORE BUILDING ANY ARGUMENT, because
   it can CRASH.** New third failure mode, distinct from both the moved-finding artifact and the
   genuine "your line carries it" case: the job's inline Python died with a bare
