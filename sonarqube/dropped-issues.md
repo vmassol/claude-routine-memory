@@ -1747,3 +1747,96 @@ they are gone from the new API — not a replacement), `PdfURLFactory`:42 `AYK2y
 `AbstractComponentDependencyFactory`:55 `AV2juHNkVSxcxmoV58RP`, `ListTool`:72
 `AW6oRQpxoucddIov5uRY`; rendering `TagStack`:303 `AV2j0WqNpvRVEt3bvRqr` (the non-deprecated
 `getStackParameter(String)` peeks the deque instead of indexing it — not the same operation).
+
+## The small-rule tail — analyzed and rejected, all three repos
+
+Every rule below was triaged for the first time in the sweep that shipped platform #6348 / #6349 and
+commons #1962. Skip these keys; the yield of the tail was 24 issues out of ~45 triaged.
+
+### `java:S4973` — the flagged constant's value is `null`, so the "fix" NPEs
+`AW5-S76z1Yj5qvzeRoB4` `-B5` `-B6` `DocumentSolrMetadataExtractor:281/285`. `TypedValue.TEXT` is
+declared `public static final String TEXT = null` (the sentinel for "analyzed / no explicit type"), so
+`type != TypedValue.TEXT` is a null check and `TypedValue.TEXT.equals(type)` throws. Permanent until
+the sentinel is reworked. See [rules/java-S4973.md](rules/java-S4973.md).
+
+### `java:S1206` — adding `hashCode()` to a legacy oldcore type is a product decision
+`AW5-S50E1Yj5qvzeRm38` `Document:2430`, `AW5-S6T71Yj5qvzeRnKS` `BaseCollection:804`,
+`AW5-S6Pl1Yj5qvzeRnHz` `BaseClass:480`, `AW5-S5zz1Yj5qvzeRm3b` `Class:308`, `AW5-S6Nz1Yj5qvzeRnFy`
+`XWikiUser:456`, `AW5-S6VD1Yj5qvzeRnLb` `ListProperty:133`. These are the same `equals` methods
+`java:S2097` fires on (which *was* fixed, in #6349) — but a new `hashCode` changes how existing
+instances hash in every map and set they already sit in. Do not bundle the two rules.
+
+### `java:S127` (platform) — the same "deliberate parser/serializer index advance" as rendering's
+`AW5-S7QH1Yj5qvzeRn6C` `-6D` `AbstractDistributionJob:215/220`, `AW5-S6WU1Yj5qvzeRnMw`
+`XWikiPatchUtils:110`, `AW5-S6Cs1Yj5qvzeRm_G` `CompactStringEntityReferenceSerializer:66`,
+`AW5-S4v41Yj5qvzeRmti` `-tj` `-tk` `-tl` `XWikiLinkLabelGenerator:89/114/131/149`. Whole-rule drop in
+platform too: the fix is a loop restructuring, i.e. a refactor.
+
+### `java:S5738` — "stop calling / overriding a deprecated-for-removal API"
+`AZvo0ibjN2k1KI3DrPGI` `-GJ` `AttachmentReader:221/225`, `AZvo0hmiN2k1KI3DrPF6`
+`DefaultOfficeServer:217`, `AZvo0el9N2k1KI3DrPDj` `-Dk` `TemporaryFile:53/59`,
+`AYvV4Amuaud_ceNAoaZv` `XWikiSecurityManager:25`, `AY974l88KZk1650DhyBe` `-Bf`
+`BaseStringPropertyTest:63/79`, `AY974qjEKZk1650DhyT5` `SyndEntryDocumentSourceTest:159`. The
+`Don't override this deprecated method` half is not fixable at all (the override is the contract);
+the rest is an API migration, not a cleanup.
+
+### `java:S2583` — the always-true/false condition is a defensive guard or a `boolean` return that is always `true`
+`AY4UlHjMsdDJLhIZOG_8` `XWikiHibernateVersioningStore:80` (a `archive == null` guard returning
+`List.of()`), `AYAqYBvjTBPgKLwK3BDP` / `AYAivpRUdKmvd1jplbc5` `IncludeMacroRefactoring:160/175`
+(`serializeTargetReference` never returns `false`, so the fix is to change *its* signature),
+`AW5-S92l1Yj5qvzeRoot` `AbstractStringEntityReferenceResolver:382`.
+
+### Platform singletons, each rejected on its own terms
+* `AW5-S50E1Yj5qvzeRm5f` `Document:3409` (`java:S2175`) — `List<String>.contains(DocumentReference)`
+  is always `false`, so a permission check that should sometimes be skipped is always run. Fixing it
+  **relaxes** a check; it needs a product decision, not a sweep.
+* `AXnpAfPDDDFOvAKXAQXj` `Util:612` (`java:S6001`) — `text.replaceAll("\\1", "&#49;")` is an invalid
+  backreference (no group 1) in a `@Deprecated` `escapeText`; what the author meant cannot be guessed.
+* `AW5-S60e1Yj5qvzeRnu_` `WikiSubstitution:74` (`java:S2116`) — `String[]#toString()` returned as a
+  regex pattern from a `public` legacy API. `Arrays.toString` is equally meaningless; the method is
+  broken either way.
+* `AYyD4rQPj2dtqk6dnyHq` `BackwardDependenciesResolver:133` (`java:S6206`, class → `record`) —
+  **deferred on diff size, not rejected**: it deletes a hand-written `equals`/`hashCode`/`toString`
+  and renames 12 accessor call sites for one issue. Take it as a rider if a batch already builds
+  `xwiki-platform-extension-security-api`.
+* `AW5-S5WZ1Yj5qvzeRm0s` `AbstractNode:36` (`java:S2390`, class-initialization cycle) — moving the
+  `public static final EMPTY_NODE` constant is an API change.
+* `AY3qDJ-JLr_3TgJF3Djd` / `AZ85PPc17ctcaw4Skp9c` `XWikiRESTServlet:56/103` (`S2226`, `S2654`),
+  `AW5-S5SR1Yj5qvzeRm0U` `ExtendedMimeMessage:42` (`S5164`, `ThreadLocal#remove`),
+  `AZST1DhIZAC_a1NHeUDs` `EmbeddedSolr:345` (`S1199`), `AZ0abRfNXlpOqkNVYPnJ` `package-info.java`
+  (`S4032`) — concurrency/lifecycle design or an extract-method refactor.
+
+### Commons
+* **`java:S115` — `KeyUsage` is the X.509 spec, not a naming slip.** `AV2juHohVSxcxmoV58Xh` … `Xp`
+  (10 keys, `KeyUsage:35`-`67`). They are `public enum` constants named exactly after RFC 5280's
+  `KeyUsage` bits (`digitalSignature`, `nonRepudiation`, `cRLSign`, …); renaming them to
+  CONSTANT_CASE is both an API break and a loss of the spec correspondence the Javadoc relies on.
+  `AZBcC1AnMsaU12VbzF4u` `EnumConverterTest:52` is the same shape in a test fixture.
+* **`java:S2386` — the two non-`VelocityParser` shapes have no immutable form.**
+  `AXjRjQHGRehALszUWgm9` / `-m-` `ExtensionUtils:71/78` are `public static final int[]` delimiter
+  tables and Java has no immutable array, so the only fix is a type change (API break);
+  `AWgZSTTHUMkE2J58eTTr` `FilterEventParameters:45` is `EMPTY`, an instance of a mutable domain class.
+  The five `VelocityParser` keys `AWgZSUnFUMkE2J58eTZb`…`eTZf` **were fixed** (#1962).
+* **`java:S2326` unused type parameter** — `AZ_Q6UY6FD1aNffGPOad` `ArrayListConverter:49`,
+  `AWgZSTrbUMkE2J58eTV5` `DiffConfiguration:30`, `AWgZSTUrUMkE2J58eTTs` /
+  `AWgZSTXuUMkE2J58eTT4` the two `AbstractBean*FilterStreamFactory:46/45`, `AWgZSU77UMkE2J58eTcG`
+  `Converter:54`. Removing a type parameter changes the published generic signature.
+* **`java:S1319`, `java:S5413`, `java:S2445`** — `AZRQnUtE6WWG1k8VL2H3`…`H6` `JakartaServletBridge`
+  and `AV4uHTO45jV1AdqTqB5B` / `AV4uHTO55jV1AdqTqB5C` `BcExtensionUtils` return concrete collection
+  types from `public` methods (API change); `AWy9k6-5YwmYGWzyWmMi`, `AWy9k6N0YwmYGWzyWmMb`,
+  `AWy9k6N1YwmYGWzyWmMc`, `AWy9k6OYYwmYGWzyWmMe`, `AWy9k6OPYwmYGWzyWmMd` are "verify `remove()` is
+  used correctly" review requests, not transforms; `AWgZST1LUMkE2J58eTWz` / `-W0`
+  `EmbeddableComponentManager:715/832` synchronize on a parameter, which is the component manager's
+  per-entry locking design.
+
+### `java:S1172` — the `internal` and `src/test` subsets are NOT the private-subset rescue
+Recorded by shape, not key (platform 12 `protected` main / 61 `public` main / 9 `internal` / 1 test;
+commons 8 / 6 / 6 / 6 test; rendering 3 `internal` / 1). The `internal` sites are abstract-class
+template hooks (`AbstractXMLDiffMarker#acceptPatch`/`acceptChangesFor`,
+`AbstractDocumentRelatedTreeNode#getChildren`/`getChildCount`, `AbstractClassPropertyValuesProvider
+#getValueFromQueryResult`, `AbstractListBlockParser#beginListItem`/`endListItem`,
+`XWikiSyntaxResourceRenderer#printParameters`, `AbstractDocumentConfigurationSource#onCacheCleanup`):
+the parameter exists for the overriders, so it is unused only in the default body. The commons
+`public` **test** sites are `MethodArgumentUberspectorTest`'s `conflictingMethod` /
+`conflictingcasemethod` / `methodWithVararg` fixtures, whose parameters *are* the overload-resolution
+scenario under test. Visibility does not rescue this rule any further.

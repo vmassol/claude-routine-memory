@@ -1015,3 +1015,43 @@ rendering 2; platform #6327 / commons #1955 / rendering #430):**
   in it is still under 11 minutes.
 - **Deferred, still open here**: the 88 non-override `S1123` sites (two sub-shapes look derivable —
   see `dropped-issues.md`), and `dataeditors.js`.
+
+## State after the small-rule-tail sweep (all three repos re-derived from scratch)
+
+- **The whole Java allowlist, the never-mentioned-rule diff and every recorded lever came back empty
+  or blocked in one run.** Measured over 4 339 platform / 858 commons / 317 rendering open issues:
+  the mechanical allowlist returns fresh keys only for `S6355` (257/18/4), `S1123` (112/0/0) and
+  `S1172` (83/20/4), and all three are **in-flight or recorded drops** — the `S6355`/`S1123` "fresh"
+  counts include the sites already fixed in the open PRs, which stay OPEN in SonarCloud until those
+  merge. The never-mentioned-rule diff over the union of five severity-split facets per repo yielded
+  four count-1 rules (`java:S1607`, `java:S3034`, `javascript:S6661`, `javascript:S6666`).
+- **`java:S6355`'s `@Override` residue is still exactly where the last run left it**: re-running the
+  classifier gives 0 derivable from the element's own tag (93 no-Javadoc / 17 no-tag / 147 tag with no
+  version on platform), 62 `@Override` sites of which **30 resolve against the parent index — and all
+  30 are still in files claimed by the open `S1123` PR #6327.** Re-run it the day #6327 merges; the
+  index build is one grep over the 549 files containing `@Deprecated` in the three repos.
+- **`java:S1172` has no `private` sites left anywhere** (platform 12 `protected` main / 61 `public`
+  main / 7 `protected` internal / 2 `public` internal / 1 `public` test; commons 8/6/6 + 6 `public`
+  test; rendering 3 internal + 1). The `internal`-package subset is **not** a rescue: every one is an
+  abstract-class template hook (`AbstractXMLDiffMarker#acceptPatch`, `AbstractDocumentRelatedTreeNode
+  #getChildren`, `AbstractListBlockParser#beginListItem`) whose parameter exists for the overriders,
+  and the commons `public` *test* subset is `MethodArgumentUberspectorTest`'s deliberate
+  overload-resolution fixtures.
+- **Platform is now claimed by 11 open `llm-agent` PRs over 123 files.** After excluding them the free
+  JS pool is `S1121` 22 + `S1874` 7 + `S2004` 13 + `S6582` 6 + `S878` 2, and 20 of the `S1121` and
+  both `S878` sit in the **vendored** `tablefilterNsort.js`; `S2004` is a nesting-depth refactor.
+  Effectively zero. All 8 free `css:S4666`-family keys are claimed by #6321.
+- **Rendering is dry.** Its 269 fresh keys are `javabugs:S2259` 93, `S1135` 56, `S3776` 25, `S112` 13,
+  `S127` 13 (recorded whole-rule drop), `S5961` 11 and a tail of recorded drops. No PR was opened.
+- **Commons yielded exactly one rule**, `java:S2386` on `VelocityParser` (5) — the immutable-value
+  escape, PR #1962. Its other `S2386` sites are `int[]` constants (`ExtensionUtils.STANDARD_DELIMITERS`
+  / `CLASS_DELIMITERS`), which have no immutable form without a type change, and
+  `FilterEventParameters.EMPTY`, a mutable domain object.
+- **Correction to the recorded commons build trap**: `-Dtest='*Test' -DfailIfNoTests=false` was **not**
+  needed for `xwiki-commons-velocity`, which ran **213 tests** in a plain
+  `-pl xwiki-commons-core/xwiki-commons-velocity` build. The zero-discovery problem is specific to
+  `component-api` / `tool-verification-resources`, not to commons `-pl` builds generally — check the
+  module before budgeting the workaround.
+- **Datapoint for a thin-spread small-rule sweep** (cold-ish `~/.m2`): platform **12** modules incl.
+  oldcore (1216) and legacy-oldcore (48) **10:55 / 1861 tests**; commons 1 module **213**. Recovery
+  after the one test failure was a single-module re-run of rest-server plus commons, both green.

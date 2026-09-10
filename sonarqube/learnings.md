@@ -66,6 +66,8 @@ rows for the rules you commit to fixing this run.
 | `java:S3398` | [rules/java-S3398.md](rules/java-S3398.md) | the only rule whose fix is metric-exposed *by construction* — moving a method INTO a class raises that class's Checkstyle `ClassFanOutComplexity`; recover by moving the cheap ones only |
 | `java:S4144` | [rules/java-S4144.md](rules/java-S4144.md) | a BUG detector half the time — the pair's NAMES classify it: same operation ⇒ extract, different operations ⇒ the identical body is the defect, report it |
 | `javascript:S4138` `javascript:S1940` | [rules/javascript-S4138.md](rules/javascript-S4138.md) | not a trap: index-used-only-as-`collection[i]` plus a `Symbol.iterator` receiver check (jQuery ≥3 — read the pom). `S1940`'s `!(x >= 0)` → `x < 0` is an FP |
+| `java:S4973` | [rules/java-S4973.md](rules/java-S4973.md) | the flagged constant's VALUE can be `null` (`TypedValue.TEXT`), and then `x != CONST` is a null check the "fix" NPEs on |
+| `java:S2097` | [rules/java-S2097.md](rules/java-S2097.md) | `getClass().isAssignableFrom(…)` IS a type test — Sonar does not model it, so a third of the pool is a false positive |
 
 ## Picking a target rule (find phase)
 
@@ -493,6 +495,29 @@ rows for the rules you commit to fixing this run.
   failed query.** Five severity-split facet calls per repo returned, across all three repos, only
   count-1 rules plus `javabugs:S6322` (rendering 2). When that happens the catalogue really is swept
   and the next lever is a *language* facet (above) or a re-derivation, not another rule hunt.
+- **When every rule with a POOL is a recorded drop, the run's yield is the 1-to-9-issue TAIL of
+  never-triaged rules — and it comes out of the same query you already ran.** The strongest find-phase
+  signal of a swept catalogue is a run where the mechanical allowlist, the never-mentioned-rule diff
+  (four count-1 rules), the `S6355`/`S1123` `@Override` levers and the `S1172` visibility split *all*
+  return zero or blocked. What still paid: pull **every** open issue per repo (five severity-split
+  `issues/search` calls, ~4 300 keys for platform), grep each key against `dropped-issues.md`, and
+  then read the *rule names* of the fresh remainder **sorted ascending by count**, not descending.
+  Every rule above ~10 issues was a documented drop; the 24 issues that shipped were spread over
+  **ten rules with 1-9 issues each** (`S1607`, `S1223`, `S8745`, `S2272`, `S3038`, `S4973`, `S2097`,
+  `S2225`, `S1221`, `S2674`, plus commons `S2386`). Nothing in the corpus argues against such a rule
+  because nobody has ever opened it, which is the same property that makes a fresh rule *generation*
+  the best pool there is — the tail just gets there without waiting for SonarSource to ship rules.
+  Two consequences: budget the find phase for **one triage pass over ~15 tiny rules** rather than one
+  deep pass over a big one (the per-site cost is ~10 lines of context each, and half get rejected on
+  the first read); and expect the batch to span ~12 modules for ~20 issues, which is one ordinary
+  reactor — the build cost of a thin-spread batch is the same as a dense one.
+- **A rule can be genuinely fresh and still be a drop for a reason the memory already holds one level
+  up.** Of the tail above, roughly half the *rules* died on first read: `java:S127` (assign to the loop
+  counter) is platform's 8-site copy of a shape already recorded as a whole-rule drop in rendering,
+  `java:S1206` (add `hashCode`) fires on the same oldcore `equals` methods as the `S2097` sites but
+  changes how existing instances hash, `java:S5738` is "stop calling a deprecated API", `java:S2583`
+  was three defensive null guards and a `serialize…` method whose `boolean` return is always `true`.
+  Read the shape, not the freshness.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -1376,6 +1401,20 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   = **15:11 for 1479 tests**. A JS batch that spills into a SECOND `*-war` module (here
   `xwiki-platform-tree-war` for one site) still verifies in the same reactor — add the module, don't
   drop the site.
+- **A test that PINS the flagged behaviour is a SPLIT signal, not a drop — move that one site to the
+  judgement PR, test edit included.** The recorded shapes of this ("a test asserts the raw log
+  message", "a test asserts the magnitude of `compareTo`") both ended in *revert the site*. There is a
+  third shape where the right answer is neither revert nor silently adapt: a **characterization test**
+  written to document the defect. `java:S2272` on `RangeIterable#next()` (throw
+  `NoSuchElementException` past the end) failed `RangeIterableTest#nextBeyondEndThrows`, which asserts
+  `IndexOutOfBoundsException` under the comment *"Documents current behaviour: next() is unguarded and
+  relies on the caller checking hasNext()"*. That comment is descriptive, not a rationale, so the
+  universal "a comment explains it" drop condition does not bite — but changing someone else's
+  assertion is exactly the judgement axis the two-PR split exists for. Cost of getting the routing
+  right: the identical fix on the sibling site (`AbstractMessageIterator#next()`, no test pinning it)
+  stayed in the mechanical PR, so one contested site did not take the clean one with it. Cheap
+  pre-check for any rule that changes a thrown type: grep the module's tests for the current
+  exception's simple name before writing the edit.
 - **A logging fix can be contradicted by a TEST asserting the RAW log message.** Converting a
   concatenated log call to the SLF4J parameterized form (`warn("[DEPRECATED] " + m)` →
   `warn("[DEPRECATED] {}", m)`) renders identically but changes `LogEvent.getMessage()`, and
@@ -1522,9 +1561,18 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   method mentions (22 > 20 on commons `ResourceLoader.JarInfo`) — and a **fifth**,
   **`AnonInnerLength`** (max 20 lines per anonymous inner class), which the same rule hits whenever
   its target is an anonymous listener rather than a named nested class (26 > 20 on platform
-  `AbstractMimeMessageIterator`, after that module's 16 tests had already passed). So the generalisation is wider than
-  "control-flow shape": treat any fix that changes a method's control flow **or moves code between
-  classes** as metric-exposed. The list is not exhaustive; pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
+  `AbstractMimeMessageIterator`, after that module's 16 tests had already passed) — and a **sixth**,
+  **`MultipleStringLiterals`**, which is not a metric at all and is triggered by a fix that only
+  *duplicates a literal*: rewriting `java:S2386`'s five `VelocityParser` constants as explicit
+  `Set.of(…)` made each of the two derived sets repeat its base set's directive names, and
+  `checkstyle:check` failed on 13 violations after 213 tests had gone green. The recovery is not to
+  drop the site — it is to stop duplicating: compose the derived sets from the ones already declared
+  and wrap the result in **`Collections.unmodifiableSet(…)`**, which is `S2386`'s own canonical
+  compliant form, so the initializer is still one Sonar recognises as immutable. Generalise: a fix
+  that *spells out* a value the old code *computed* trades a Sonar issue for a Checkstyle one; keep
+  the computation and change only its immutability. So the generalisation is wider than
+  "control-flow shape": treat any fix that changes a method's control flow, **moves code between
+  classes, or repeats a literal** as Checkstyle-exposed. The list is not exhaustive; pre-count in the apply script. They run in `checkstyle:check` *after* the tests, so each
   one costs a whole build round. Pre-check them in the apply script, where it is nearly free: for a
   merge-two-branches fix count the `&&`/`||` in the merged condition and refuse >3; for a hoist-an-
   expression fix count the statements already in the target method. When one fires, **drop the site** —
