@@ -77,3 +77,26 @@ API and belongs in front of a maintainer as one, not buried in a mechanical batc
 
 Platform 21, commons 8, rendering 3. Converted 7 + 0 + 3. It is one of the very few rules that is
 *present in all three repos* while the mechanical allowlist reads dry.
+
+## When the constant is BUILT rather than listed: the analyzer only reads JDK/Guava factories
+
+`VelocityParser`'s five `public static final Set<String> VELOCITYDIRECTIVE_*` (commons) are the other
+shape of this rule: not `Arrays.asList(…)` but `new HashSet<>()` filled by a `static {}` block, with
+three of the five *derived* from the other two. Three lessons, in the order they cost a round:
+
+1. **Do not spell the derived sets out as literals.** Writing each of them as an explicit `Set.of(…)`
+   duplicates the base sets' elements and `checkstyle:check` fails on `MultipleStringLiterals` —
+   13 violations, *after* 213 tests had gone green. Compose instead.
+2. **The composition's outer call must be one SonarJava recognises.** Its check is syntactic and its
+   list of immutable factories is JDK/Guava only — `Collections.unmodifiable*`, `Set.of`/`List.of`/
+   `Map.of`, `ImmutableSet.of`. A third-party call it cannot resolve reads as mutable, so
+   `Collectors.toUnmodifiableSet()`, a private helper, or a bare `SetUtils.union(…)` all risk leaving
+   the issue open — the `S8786` hazard ("does the remediation actually clear the issue?") applied to
+   this rule. Keep `Collections.unmodifiableSet(<whatever computes it>)` as the outermost expression.
+3. **Reviewer datapoint (commons #1962): use the repo's own helper inside that wrapper.**
+   `tmortagne` asked for commons-collections4's `SetUtils#union` instead of a hand-rolled varargs
+   helper — check the module pom first (it *is* a declared dependency there) — which deletes 20 lines
+   and keeps the recognised wrapper. Worth saying in the reply that the wrapper looks redundant
+   (`SetUtils.union` already returns an unmodifiable `SetView`) and *why* it stays, plus an offer to
+   drop it: there is no `public static final` field initialized through `SetUtils`/`ListUtils`
+   anywhere in the three repos, so the in-repo-precedent check cannot settle it.
