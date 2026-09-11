@@ -10,6 +10,21 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **2026-09-11: the catalogue diff was EMPTY and the deferrals were CLAIMED — the pool was false
+  positives.** The strongest "nothing left" reading yet, and the map of where each lever now stands:
+  five severity facets × four language facets per repo gave **199 / 79 / 51** rules and a
+  never-mentioned-rule diff of **zero**; the full open pull (platform **4335** / commons **859** /
+  rendering **317**) left, after the drop-index grep and the claimed-file filter, no bucket above 10
+  that is not a recorded whole-rule drop; `java:S1172`'s `private` subset was **zero for the third
+  consecutive run** (platform 40 public / 9 protected / 1 public-test, commons 6/8/6, rendering 1/3);
+  and `java:S6355`'s derivable-version pool is now **1 own-version + 22 overrides of 177**, with the
+  overrides themselves dead (third-party parents — see `dropped-issues.md`). **13** open `llm-agent`
+  PRs held **140** platform files carrying **1001** open issues, including every workable WAR
+  JavaScript file and the 31 deferred `S6355` `@Override` sites. What paid: the cross-rule
+  false-positive pool, [rules/fp-suppressions.md](rules/fp-suppressions.md) — 32 issues over six PRs
+  (platform #6369/#6370/#6371, commons #1965/#1966, rendering #435), 21 of them by suppression.
+  Its per-run supply is small but it regenerates independently of the mechanical rules, and nothing
+  in the OKF or the drop index argues against it.
 - **When the catalogue is genuinely swept, the pool is a DEFERRED entry in `dropped-issues.md`.**
   Whole-run observation (2026-09-08): the severity-split never-mentioned-rule diff over all three
   repos returned only count-1 rules; the full open-issue pull (platform **4348** / commons **882** /

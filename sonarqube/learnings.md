@@ -68,6 +68,7 @@ rows for the rules you commit to fixing this run.
 | `javascript:S4138` `javascript:S1940` | [rules/javascript-S4138.md](rules/javascript-S4138.md) | not a trap: index-used-only-as-`collection[i]` plus a `Symbol.iterator` receiver check (jQuery ≥3 — read the pom). `S1940`'s `!(x >= 0)` → `x < 0` is an FP |
 | `java:S4973` | [rules/java-S4973.md](rules/java-S4973.md) | the flagged constant's VALUE can be `null` (`TypedValue.TEXT`), and then `x != CONST` is a null check the "fix" NPEs on |
 | `java:S2097` | [rules/java-S2097.md](rules/java-S2097.md) | `getClass().isAssignableFrom(…)` IS a type test — Sonar does not model it, so a third of the pool is a false positive |
+| *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
 
@@ -518,6 +519,34 @@ rows for the rules you commit to fixing this run.
   changes how existing instances hash, `java:S5738` is "stop calling a deprecated API", `java:S2583`
   was three defensive null guards and a `serialize…` method whose `boolean` return is always `true`.
   Read the shape, not the freshness.
+- **When the catalogue is swept AND the files are claimed, the remaining pool is FALSE POSITIVES —
+  and the OKF's own prescribed resolution for one is a real fix.** The strongest "there is nothing
+  left" reading a run can get is the one this lever answers: the never-mentioned-rule diff **0**
+  across all three repos over five severity facets *and* four language facets (199/79/51 rules), the
+  small-rule tail spent, the `S1172` private subset confirmed empty a second time, and the `S6355`
+  `@Override` lever drained. What still paid **32 issues in six PRs**: stop asking "which rule has a
+  mechanical fix" and ask **"which open issues are simply WRONG about this code"**, then resolve them
+  the way `okf/sonarqube/index.md` says to — `@SuppressWarnings("java:SXXXX")` plus a `//` reason, in
+  the code. SonarCloud closes them at the next analysis because the rule stops firing. Three
+  properties make this the best pool on such a day: it is zero-behaviour-risk by construction; the
+  idiom is already established (one grep: platform 36 files, commons 13, rendering 6, `java:`,
+  `javabugs:` and `javasecurity:` keys alike); and **one annotation clears many keys**, because
+  SonarCloud reports a dataflow finding once per call path and a parameter finding once per
+  parameter (5 `javabugs:S6416` on one `throw`, 6 `java:S1172` on one test fixture class). Full
+  mechanics and the verified FP shapes: [rules/fp-suppressions.md](rules/fp-suppressions.md). Note
+  this is the *opposite* reflex to the skill's "do not suppress an issue merely to clear it" — the
+  gate is that you must be able to ARGUE it in the comment, and refusing the ones you cannot
+  (`javasecurity:`, concurrency design, "it is caught downstream") is what makes the rest credible.
+- **Quantify how much of the pool YOUR OWN open PRs are holding — on a bad day it is the whole
+  answer, and it is self-inflicted.** The recorded advice is to list open `llm-agent` PRs and
+  skip claimed files. Go one step further and *measure* it: union the file lists
+  (`gh api "repos/…/pulls/N/files?per_page=100" --jq '.[].filename'`) and count the open issues whose
+  component path is in that set. Here 13 open agent PRs claimed 140 platform files holding **1001**
+  open issues — every WAR JavaScript file with a workable pool, and the 31 `S6355` `@Override` sites
+  a previous run had explicitly deferred *until #6327 merges*. That number turns the run's report
+  from "the pool is dry" into "the pool is claimed by our own backlog", which is a different problem
+  with a different owner. It also settles whether a deferred entry is cashable without re-triaging
+  it: same rule, same declarations ⇒ the claiming PR's hunks are one line away ⇒ guaranteed conflict.
 - **Finding the NEXT unswept rule** when the known families are all drained or dropped: pull the broad
   rule-distribution facet, then batch one `ps=2` query per candidate rule and read just the `message` —
   one turn classifies ten rules. Safe mechanical candidates read like S7158 / S1155 / S1602 (one-line,
@@ -1210,6 +1239,19 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   read your own added lines for the shape the newly-active rule is about (here: any `var` on an
   added line). See [rules/javascript-S4138.md](rules/javascript-S4138.md); the fix was one commit
   and the PR went green, but it cost a CI round.
+  **Parse the hunk header's OLD range, not its new one — the obvious reading makes every INSERTION
+  look like a collision.** `@@ -a,b +c,d @@` gives `a,b` = the old-file lines the hunk *replaces or
+  deletes* and `c,d` = the new-file lines it writes. SonarCloud's `line` numbers are master's, so the
+  set to intersect them with is `range(a, a+b)`. Using `range(c, c+d)` compares master line numbers
+  against post-edit ones and fires on anything a few lines below an insertion: it reported 6
+  "collisions" here, all phantom (`java:S2160` and `java:S112` sitting below a three-line
+  `@SuppressWarnings` insert). Re-run with the old range and the same check found the **one real**
+  hit — and it was worth the whole exercise: the two `java:S2157` sites' fix rewrites the class
+  declaration line, which already carried an open `java:S2160` ("override `equals`", a design change
+  and therefore not foldable in), so both sites were dropped before the first push. Corollary worth
+  knowing when the pool is thin: a fix that is a pure INSERT above the declaration — every
+  `@SuppressWarnings`, every Javadoc tag — cannot inherit a pre-existing finding at all, which makes
+  those rules structurally safe against this gate.
   **The pre-check is ~10 lines and needs no source reads**: parse `git diff -U0 <base> <branch>` hunk
   headers into the set of *written* line numbers per file, then one
   `issues/search?componentKeys=<projectKey>:<path>&issueStatuses=OPEN` per changed file, and print any

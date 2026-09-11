@@ -200,6 +200,16 @@ miss this) before treating anything about deprecation as a judgement call.**
 so their `@Override` escapes resolve the same files: sweep them together or one after the other, never
 in parallel (above).
 
+## The `@Override` lever is now DRAINED — classify by WHOSE type declares the parent
+
+Re-derived 2026-09-11: of the 177 remaining unclaimed sites, **1** states a version in its own tag
+and **22** are `@Override`s, and nearly all of those override an API XWiki does not own
+(`QueryImplementorDelegate` → Hibernate ×18, `HttpServletRequestStub` → the Servlet API ×2). A
+third-party parent has no XWiki deprecating version to inherit, so the lever yields nothing there.
+One-line classifier, no snippet read beyond the declaration: **is the overridden member declared
+under `org.xwiki` / `com.xpn.xwiki`?** If not, drop. Keys and the sibling `java:S1123` residue are in
+`dropped-issues.md`.
+
 ## Where the pool sits
 
 Thin-spread with one very dense file per repo. Platform: `oldcore` 199 of 349 mechanical sites (then

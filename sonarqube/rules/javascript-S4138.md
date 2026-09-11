@@ -54,6 +54,20 @@ switch on a whole rule family for that file.** Before converting, ask what the f
 `issues/search?componentKeys=<projectKey>:<path>&resolved=false` on master, compared with the same
 query on `&pullRequest=N` after the first analysis, is the only way to see it.
 
+## The ES6 flip is not just a gate risk — do the ARITHMETIC, it is usually a NET LOSS
+
+The recorded hazard ("adding a `const` loop binding flips SonarJS into ES6 mode and it then reports
+`javascript:S3504` on every `var` in the file, three of them on lines the conversion rewrote, so
+`Quality / Analyze` failed") is the *symptom*. The decision rule is bigger: those new `S3504` issues
+exist whether or not any lands on a written line, so the trade is **2 issues fixed against ~30
+created** in a several-hundred-line Prototype-era script. The one-call pre-check is to read the
+file's current `javascript:S3504` count — **zero means the file is not yet parsed as ES6**, i.e. you
+are the one flipping it. Two such sites were dropped on that basis (`create.js:148`,
+`locationPicker.js:436`), and the right fix for those files is to move them off `var` wholesale,
+which is its own change. Note `for (var x of …)` does not save you: `for…of` is ES6 syntax
+regardless of the binding keyword. Where the file **already** contains `let`/`const`/`?.` the flip
+has happened and the conversion is free again.
+
 ## Where the pool is
 
 Platform only (commons and rendering have no JavaScript), ~60 open, concentrated in

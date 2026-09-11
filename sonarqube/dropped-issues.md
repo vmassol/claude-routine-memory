@@ -1840,3 +1840,73 @@ the parameter exists for the overriders, so it is unused only in the default bod
 `public` **test** sites are `MethodArgumentUberspectorTest`'s `conflictingMethod` /
 `conflictingcasemethod` / `methodWithVararg` fixtures, whose parameters *are* the overload-resolution
 scenario under test. Visibility does not rescue this rule any further.
+
+## `java:S6355` / `java:S1123` — the `@Override` lever is DRAINED: the residue's parents are THIRD-PARTY
+
+The recorded escape ("an `@Override` inherits the deprecating version / the `@deprecated` prose from
+the member it overrides") has now consumed everything it can. Of platform's remaining **22**
+`java:S6355` `@Override` sites and **22** `java:S1123` tag-half sites, the overwhelming majority
+override an API XWiki does not own, so there is nothing to inherit and nothing it may recommend:
+
+* **18 `S6355` + 15 `S1123` in `QueryImplementorDelegate`** (`setEntity`, `setResultTransformer`,
+  `getFlushMode`, `getQueryOptions`, `isCacheable`, `getTimeout`, `isReadOnly`, `getReturnTypes`,
+  `iterate`, `getNamedParameters`, `setParameterList` ×4, `determineProperBooleanType` ×2,
+  `getReturnAliases`) — the parents are Hibernate's `org.hibernate.Query`/`QueryImplementor`.
+  Hibernate's deprecation version is not an XWiki version and its replacement is not ours to name.
+* **2 `S6355` in `HttpServletRequestStub`** (`isRequestedSessionIdFromUrl`, `getRealPath`) — parents
+  are the Servlet API's own long-deprecated methods, same argument.
+* **2 `S6355` on class declarations with no version anywhere**: `PDFAction`
+  (`@deprecated Use {@link ExportAction}`) and `AbstractSimpleClass` (a prose rationale, no version).
+* **7 `S1123` on the javax→jakarta 17.0.0RC1 bridge deprecations** —
+  `ServletContainerInitializer#initializeRequest` ×2 / `initializeResponse` / `initializeSession`,
+  `DefaultServletContainerInitializer` ×2, `XWikiAction#initializeXWikiContext`,
+  `XWikiForm#getRequest`. The *version* is already on the annotation; what the tag must state is the
+  replacement, and for `initializeResponse` / `initializeSession` / `getRequest` **no jakarta
+  counterpart exists in the type** — the interface only gained a combined
+  `initializeRequest(HttpServletRequest, HttpServletResponse)`. Writing "use X instead" here would be
+  inventing the migration path, which is the API author's call.
+
+So: do not re-derive the `@Override` lever for these two rules. The classifier that settles a site in
+one line is **whose type declares the overridden member** — outside `org.xwiki`/`com.xpn.xwiki`, drop.
+
+## `xml:S125` (platform + commons) — the commented-out code carries its own instructions
+
+* `AZKQNw2y1OezVNWThszV` commons root `pom.xml:3453` — `<!--<name>wdm.chromeDriverVersion</name>…-->`
+  under *"Uncomment if you want to force a slightly older version of the Chrome Driver"*.
+* `AYhXiWc_sr6--FeqALDK` platform `xwiki-platform-ckeditor-webjar/pom.xml:186` —
+  `<!--<argument>--leave-js-unminified</argument>-->` under *"Uncomment to leave the JavaScript code
+  as is"*, and a second one under *"Uncomment to see all the available configuration options"*.
+
+Both are the universal drop condition verbatim: a comment on the flagged code explains why it is
+there. They are switchable build options kept ready to hand, not leftovers.
+
+## The false-positive sweep of 2026-09-11 — what was REFUSED
+
+The FP-suppression pool ([rules/fp-suppressions.md](rules/fp-suppressions.md)) is only credible
+because these were left alone. Do not suppress them on a later run either:
+
+* `AZ_XQE_dkxIS6rT1tSh3` platform `FilesystemResourceReferenceCopier:71` (`javasecurity:S6096`) and
+  the single `javasecurity:S5145` — a security finding needs the sanitisation argument, not a
+  sweep's budget.
+* `AW5-S6Lk1Yj5qvzeRnB7` platform `XWikiRightServiceImpl:132` (`java:S2696`) — a lazy-init needing a
+  synchronisation decision (also OKF-denylisted).
+* `AZ-EuXHIMyIClaYw4z7C` commons `ComponentAnnotationLoader:567` (`javabugs:S6466`) — `chunks[0]`
+  after `split(":")` really can throw on a colons-only line; it is *caught* by the enclosing
+  `catch (Exception)`, which makes it handled, not false.
+* `AWgZSTH7UMkE2J58eTTA` commons `DefaultExtensionJobHistory:90` (`java:S2885`) — a `static
+  SimpleDateFormat` is a genuine thread-safety bug; the fix is a `DateTimeFormatter` migration.
+* `AW5-S76z1Yj5qvzeRoB5`/`B6` platform `DocumentSolrMetadataExtractor:281/285` (`java:S4973`) — see
+  [rules/java-S4973.md](rules/java-S4973.md); `==` against a constant whose value may be `null`.
+* `AWgZSTiXUMkE2J58eTUw` / `AWgZSThIUMkE2J58eTUU` commons `ExpectTestConfiguration:30` /
+  `InputTestConfiguration:31` (`java:S2157`) — the fix (drop the redundant `implements Cloneable`,
+  which `HashMap` already provides) is sound, but it rewrites the class declaration line and that
+  line carries an open `java:S2160`, so the repo's `Quality / Analyze` check would count it against
+  the PR. Cashable only together with a decision about `S2160` on those two classes.
+* `AY1U1sOk0GHv9uFD3jWV` `create.js:148` / `AY1U1sP80GHv9uFD3jdJ` `locationPicker.js:436`
+  (`javascript:S4138`) — converting two loops flips both files into ES6 parsing and creates ~30
+  fresh `javascript:S3504`. See [rules/javascript-S4138.md](rules/javascript-S4138.md).
+* `java:S1172` commons `JakartaBridge`/`JakartaServletBridge` (4) and `AbstractXMLDiffMarker` /
+  `DefaultJobExecutor` / `EmbeddableComponentManager` `protected` sites (8), platform's 49
+  `public`/`protected` sites, rendering's 4 — the **private subset is empty in all three repos for
+  the second run running**. Only the `MethodArgumentUberspectorTest` fixtures were resolvable, and as
+  a false positive, not as a removal.
