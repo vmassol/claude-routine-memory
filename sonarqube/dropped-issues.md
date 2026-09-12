@@ -1432,6 +1432,12 @@ an `@Override` escape (the parent's `@Deprecated(since = …)` is copied); see
 
 ## java:S1452 / java:S1700 / java:S9149 / java:S2176 (all three repos) — whole-rule drops
 
+**Correction (S9149 and S2176 only): both are POOLS, not drops — 86 issues shipped.** The two
+reasons below are correct *and* they are objections to the **rename** the message asks for, not to
+the finding. The shadowing is deliberate, so the resolution is `@SuppressWarnings` + a stated reason
+in the code (platform #6376 19, commons #1974 63, rendering #436 4). See
+[rules/java-S2176.md](rules/java-S2176.md). `S1452` and `S1700` below still stand.
+
 Re-derived by the visibility split in 2026-09 and **none of them splits**, so these are rejected as
 whole rules rather than key-by-key:
 
@@ -1660,6 +1666,10 @@ extension repositories; platform `IndexerJob`, `PDFExportJobStatus`, `Distributi
 distribution steps. Removing `transient` changes what is written to disk. Do not re-derive this.
 
 ### java:S9149 "rename this method; it hides X in Y" — WHOLE RULE, commons
+**Correction: this is the ARGUMENT for suppressing it, not for dropping it** — see
+[rules/java-S2176.md](rules/java-S2176.md); the 45 commons keys shipped in #1974. The finding below
+is exactly right and exactly why `@SuppressWarnings("java:S9149")` + this sentence is the fix.
+
 **42 of the 45 commons sites are one file**: `xwiki-commons-velocity`'s `StringTool`, which extends
 `StringUtils` and re-declares its static methods for Velocity. `$stringtool.chomp(...)` is a
 scripting-facing API, so the rename the rule asks for breaks wiki content. Platform 8 / rendering 1
@@ -1910,3 +1920,31 @@ because these were left alone. Do not suppress them on a later run either:
   `public`/`protected` sites, rendering's 4 — the **private subset is empty in all three repos for
   the second run running**. Only the `MethodArgumentUberspectorTest` fixtures were resolvable, and as
   a false positive, not as a removal.
+
+## java:S1172 — the private subset is DRAINED; the 62 remaining keys are all non-`private`
+
+Re-bucketed on 2026-09-12 (walking back to the nearest `public|protected|private` line, per the
+multi-line-signature guard): **platform 42 public / 20 protected, commons and rendering the same
+shape, zero `private` sites in any repo**. The recorded lever ("the `private` subset is free, the
+compiler is the whole verification") therefore has nothing left to cash *today* — but the rule
+**regenerates from ordinary refactoring**, so re-run the two-call bucketing next time rather than
+trusting this line. These are the keys that were non-`private` at that date:
+
+* platform (44): `AZ5l2MVpRjuya2MpBMOw` `AZX7w8t1XPv4FulTaRTV` `AZUq_URgM_G5__fZa2M7`
+  `AYXL0qCDDFpHtDd3IizH`-`IizK` `AY974rAZKZk1650DhyVI` `AXnpAiYMDDFOvAKXAQ3b` and the
+  `AW5-S…1Yj5qvzeR…` oldcore block (`RoOO` `Rn6y` `RoRE` `RoRG` `Rn_1` `Rn_2` `Royq` `RnH_` `RnII`
+  `Rnoi` `Rnl5` `RnmC` `RmnW` `RmnX` `RoSv` `RnZO` `RnZS` `RniL`-`RniO` `Rnih` `RntK` `RnIq` `RnMM`
+  `RnvN` `Rosj` `RnFJ` `Rnu-` `Rosr` `Ross` `Rost` `Ros1` `Rork` `Rnup`)
+* commons (14): `AZRQnUkO6WWG1k8VL2G0` `…G1` `AZRQnUtE6WWG1k8VL2IF` `…IH` `…IJ` `…IL`
+  `AZRQnUGS6WWG1k8VL2Gh` `…Gj` `AXWZZLb_tOJ4nXCi5v0a` `AW7won0-0RXfCMpDoMtL` `…MtM`
+  `AW5eyzK0QkWLv139wWRR` `…WRS` `…WRU`
+* rendering (4): `AZ976cbpq4IVm24_e81q` `…81r` `AV2j0WFZpvRVEt3bvRgr` `AV2j0WpzpvRVEt3bvRqh`
+
+## java:S6355 — the "version is in the `@deprecated` tag" subset is drained (1 of 175)
+
+Classified the 175 fresh unclaimed sites on 2026-09-12 by walking up to the Javadoc block above the
+flagged `@Deprecated`: **123 carry an `@deprecated` tag with no version** (platform 109, commons 11,
+rendering 3), **33 have no tag at all** (25/7/1), **1** states a version, and **20 are `@Override`s**
+(platform only) whose version can still be inherited from the parent's own `@Deprecated(since = …)`
+— that is the one subset left, and it is the lever recorded under the `S1123`/`S6355` `@Override`
+work. Do not re-derive the tag-version subset; it is spent.

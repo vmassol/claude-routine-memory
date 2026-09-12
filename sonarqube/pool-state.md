@@ -53,6 +53,17 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   both; the `S6355` residue has **no** class-level `@Deprecated(since = …)` to inherit from (0 hits in
   304 sites), so only the override lever works; and `java:S1130`'s standing platform residue is still
   100% non-`private` — its only fresh sites were new code.
+  **Re-confirmed 2026-09-12, and the list above is where the yield came from.** The severity- and
+  language-split never-mentioned diff returned **zero** rules across all three repos (199/79/51
+  rules over 5 severities × 7 languages); the full open pull (platform 4255 / commons 857 /
+  rendering 317) left the same set of recorded whole-rule drops above 20; `S1172`'s private subset
+  was **0** in all three repos and `S6355`'s tag-version subset **1** of 175; and 15 open agent PRs
+  claimed 163 platform files. What paid was re-reading the drop list itself: **`S9149` and `S2176`,
+  both listed there as whole-rule drops, are an 86-issue three-repo FP-suppression pool** — see
+  [rules/java-S2176.md](rules/java-S2176.md) and the `learnings.md` bullet. Both are now spent as
+  pools, so the next run should apply the same question ("is this reason an objection to the
+  *rename*, and is the naming deliberate?") to the rest of that list — `S1700`, `S115`, `S1214`,
+  `S9149`'s siblings — rather than re-deriving `S1172`/`S6355`.
 - **Rendering: CLOSED, seventh confirmation, and it cost two queries.** Its whole fresh-and-unclaimed
   list (2026-09-08) is `javabugs:S2259` 93 + `S1135` 56 + `S3776` 25 + `S112`/`S127` 13 each +
   `S5961` 11, then singletons — every one a recorded whole-rule drop or a denylisted refactor. Its

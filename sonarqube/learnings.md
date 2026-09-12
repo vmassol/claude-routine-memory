@@ -68,6 +68,7 @@ rows for the rules you commit to fixing this run.
 | `javascript:S4138` `javascript:S1940` | [rules/javascript-S4138.md](rules/javascript-S4138.md) | not a trap: index-used-only-as-`collection[i]` plus a `Symbol.iterator` receiver check (jQuery ≥3 — read the pom). `S1940`'s `!(x >= 0)` → `x < 0` is an FP |
 | `java:S4973` | [rules/java-S4973.md](rules/java-S4973.md) | the flagged constant's VALUE can be `null` (`TypedValue.TEXT`), and then `x != CONST` is a null check the "fix" NPEs on |
 | `java:S2097` | [rules/java-S2097.md](rules/java-S2097.md) | `getClass().isAssignableFrom(…)` IS a type test — Sonar does not model it, so a third of the pool is a false positive |
+| `java:S2176` `java:S9149` | [rules/java-S2176.md](rules/java-S2176.md) | both recorded here as whole-rule drops and both are POOLS — the recorded reason objects to the *rename*, not to the finding, so the FP suppression is the fix (86 issues, all three repos) |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
@@ -537,6 +538,22 @@ rows for the rules you commit to fixing this run.
   this is the *opposite* reflex to the skill's "do not suppress an issue merely to clear it" — the
   gate is that you must be able to ARGUE it in the comment, and refusing the ones you cannot
   (`javasecurity:`, concurrency design, "it is caught downstream") is what makes the rest credible.
+  **And the cheapest way INTO that pool is the drop index, not a hunt: a WHOLE-RULE drop whose
+  reason is "the fix the message asks for is a break" is an FP-suppression pool, already triaged,
+  with the comment text already written.** Two of this corpus's own whole-rule entries turned out to
+  be that — `java:S2176`/`java:S9149`, rejected (twice, in two files) because *"a class rename is an
+  API break and loses the intent"* and *"`$stringtool.chomp(...)` is a scripting-facing API, so the
+  rename breaks wiki content"*. Both sentences are correct, both are objections to the **remediation
+  the message names**, and both are exactly what the suppression comment has to say — so the entry
+  that closed the rule was the finished argument for reopening it. **86 issues over 40 classes in
+  all three repos**, on a day when the never-mentioned-rule diff was empty across five severity and
+  seven language facets (199/79/51 rules), `S1172`'s private subset was drained to **zero**,
+  `S6355`'s "version in the tag" subset to **one**, and 15 open agent PRs held 163 platform files.
+  Same escape axis as `S2386` (does the entry reject the rule, or one way of satisfying it?), but
+  applied to *this repo's own drop index* rather than to the OKF denylist — so run it as a pass:
+  grep `dropped-issues.md` for entries whose reason contains "rename", "API break", "breaks
+  callers", "public API", and ask whether the shadowing/naming they describe is DELIBERATE. If it
+  is, the rule is a pool. See [rules/java-S2176.md](rules/java-S2176.md).
 - **Quantify how much of the pool YOUR OWN open PRs are holding — on a bad day it is the whole
   answer, and it is self-inflicted.** The recorded advice is to list open `llm-agent` PRs and
   skip claimed files. Go one step further and *measure* it: union the file lists
