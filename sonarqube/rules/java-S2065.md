@@ -55,6 +55,13 @@ support is worse than the open issue; that is the same truthfulness gate as `S11
   can sit in a nested static class (`PDFExportJobStatus.DocumentRenderingResult#xdom`, 8 spaces) and
   the misindent is a Checkstyle failure *after* the tests.
 
+## Outcome
+
+64 of 68 shipped 2026-09-13 as **commons #1975 (41), platform #6378 (20), rendering #437 (3)**, one
+reactor each: commons whole-repo **2394 tests / 16:56**, rendering `xwiki-rendering-api` **424 / 30 s**,
+platform 3 modules **108 / 4:04**, all green, `revapi:check` throughout. The OKF correction the lever
+justified is `xwiki/xwiki-dev-llm#136`.
+
 ## Where the pool sits
 
 Thin-spread over `xwiki-commons-extension-*` and `xwiki-commons-job-api`, platform's

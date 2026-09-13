@@ -563,7 +563,8 @@ rows for the rules you commit to fixing this run.
   serializes job statuses and requests with XStream, which honours `transient`"* — correct, complete,
   and the only thing missing was that it lived in the LLM knowledge base instead of in the code, so
   SonarCloud kept reporting **68 issues across all three repos** that nobody could resolve. 64 shipped
-  as three insert-only PRs on a day the never-mentioned-rule diff was **empty across five severity and
+  as three insert-only PRs (commons #1975 41, platform #6378 20, rendering #437 3) on a day the
+  never-mentioned-rule diff was **empty across five severity and
   eight language facets (196/79/51 rules)**, every rule with a pool ≥20 was a documented drop or
   denylist entry, and 16 open agent PRs held 166 platform files. Two properties make this class of
   entry the best pool on such a day: the argument is already made and merely has to be *verified*
@@ -2131,6 +2132,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   the OKF gets nothing. That is a sharper test than "is it durable" or "is it documented on the dev
   wiki", and it explains why the entries that DO merge are corrections and unconditional conventions
   (the multi-line Javadoc rule survived the same review untouched).
+- **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#136` OPEN** (the `S2065` denylist entry rewritten
+  in place to say the load-bearing reason IS the suppression comment, plus the one-level-up per-site
+  test and its drop condition). Twelfth "actively-wrong entry" correction, and the first where the
+  entry was wrong not in its *reason* but in the *conclusion it drew from a correct reason* — a new
+  failure shape to look for, and a cheaper one to spot than a wrong fact, because the entry argues
+  against itself: this file's own *Retiring an issue* section already prescribes suppression for a
+  rule whose remediation is a break. The entry also miscited `IndexerJob` as a job-status class.
+  Written to the shape that keeps merging: one bullet, no new family file, no rule-map row, no
+  version field, leading with the cost (68 issues nobody could resolve) and citing the three sweep
+  PRs opened the same turn.
 - **Owed to the OKF: nothing — `xwiki/xwiki-dev-llm#125` OPEN** (the `S2386` denylist entry rewritten
   in place to say the objection is to the *message's* remediation, not to the rule). Eleventh
   "actively-wrong entry" correction, and the first one this routine had *known about for several runs

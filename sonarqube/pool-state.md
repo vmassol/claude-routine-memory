@@ -15,7 +15,8 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   317**, never-mentioned-rule diff **zero** over five severity × eight language facets; **16** open
   `llm-agent` PRs held 166 platform files (commons 3 PRs / 28 files, rendering 2 / 6); every fresh
   bucket ≥20 was a documented drop (list in `dropped-issues.md`). What paid: **`java:S2065`, 64 of 68
-  issues over 27 files in all three repos** — the OKF denylisted it as *"load-bearing … XStream
+  issues over 27 files in all three repos** (commons #1975, platform #6378, rendering #437; OKF
+  correction `xwiki-dev-llm#136`) — the OKF denylisted it as *"load-bearing … XStream
   honours `transient`"*, which is the suppression comment, not a reason to skip. The four unshipped
   sites are the truthfulness drops (`IndexerJob`, `DefaultQuery`). Next candidates of the same shape,
   untouched: `S1948` (~59), `S2447`, `S1215`, `S2696`.
