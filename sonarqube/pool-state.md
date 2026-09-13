@@ -10,6 +10,15 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **2026-09-13: the catalogue diff was EMPTY again, and the pool was an OKF DENYLIST entry read as a
+  suppression argument.** Facets: **platform 196 rules / 4334 open, commons 79 / 857, rendering 51 /
+  317**, never-mentioned-rule diff **zero** over five severity × eight language facets; **16** open
+  `llm-agent` PRs held 166 platform files (commons 3 PRs / 28 files, rendering 2 / 6); every fresh
+  bucket ≥20 was a documented drop (list in `dropped-issues.md`). What paid: **`java:S2065`, 64 of 68
+  issues over 27 files in all three repos** — the OKF denylisted it as *"load-bearing … XStream
+  honours `transient`"*, which is the suppression comment, not a reason to skip. The four unshipped
+  sites are the truthfulness drops (`IndexerJob`, `DefaultQuery`). Next candidates of the same shape,
+  untouched: `S1948` (~59), `S2447`, `S1215`, `S2696`.
 - **2026-09-11: the catalogue diff was EMPTY and the deferrals were CLAIMED — the pool was false
   positives.** The strongest "nothing left" reading yet, and the map of where each lever now stands:
   five severity facets × four language facets per repo gave **199 / 79 / 51** rules and a
@@ -518,7 +527,11 @@ generation):**
   variant of S899 (unbounded queue, always `true`) is a design change too.
 - **`java:S1948`** "make this non-static field transient or serializable" (commons 14) — **rejected**:
   the inverse of the denylisted `S2065`, and equally load-bearing — adding `transient` changes what
-  gets persisted.
+  gets persisted. **Correction (2026-09-13): "load-bearing" is a reason to SUPPRESS, not to skip.**
+  `S2065` was re-derived on exactly that sentence and shipped 64 of 68 as
+  `@SuppressWarnings("java:S2065")` + the XStream reason
+  ([rules/java-S2065.md](rules/java-S2065.md)). `S1948` (~59, unclaimed, all three repos) is still
+  untriaged and its argument does **not** transfer unchanged — see the rule file's closing section.
 - **`java:S1163`** throw in `finally` (commons 1, `ExecutionContextRunnable`) — **rejected**: the
   `finally` deliberately rethrows a cleanup failure as a `RuntimeException`; fixing it means deciding
   to swallow it.
@@ -701,9 +714,9 @@ level with one grep before rejecting a modernization rule.
   `S2583`, `S4838`, `S2097` (real-bug rules needing a per-site decision), `S1165` (make a field
   final), `S2440`, `S3599`, `S1860`, `S5998`, `S1171`, `S3400` beyond the 3 above.
 
-Rules confirmed **not** worth attempting (S2065, S5993, S5411, S1168, S2143/S2160/
-S1141, …) are in the OKF denylist — but note **`S1172` and `S6355` were both on that list and both
-paid** (45 and 464 sites); a denylist entry is a claim to re-derive, not a fact — check `okf/sonarqube/index.md` before adding one here.
+Rules confirmed **not** worth attempting (S5993, S5411, S1168, S2143/S2160/
+S1141, …) are in the OKF denylist — but note **`S1172`, `S6355` and `S2065` were all on that list and
+all paid** (45, 464 and 64 sites); a denylist entry is a claim to re-derive, not a fact — check `okf/sonarqube/index.md` before adding one here.
 
 
 **After the S3415 + JS-long-tail sweep (platform 48 = 25 Java + 23 JS, commons 0, rendering 0) — all

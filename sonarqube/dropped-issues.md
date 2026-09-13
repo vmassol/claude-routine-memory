@@ -1948,3 +1948,32 @@ rendering 3), **33 have no tag at all** (25/7/1), **1** states a version, and **
 (platform only) whose version can still be inherited from the parent's own `@Deprecated(since = …)`
 — that is the one subset left, and it is the lever recorded under the `S1123`/`S6355` `@Override`
 work. Do not re-derive the tag-version subset; it is spent.
+
+## java:S2065 — the 4 sites with no statable reason (the rest SHIPPED as suppressions)
+
+`java:S2065` is not a drop — it is an FP-suppression pool whose argument is the OKF denylist entry
+itself (XStream honours `transient`); 64 of 68 shipped on 2026-09-13. See
+[rules/java-S2065.md](rules/java-S2065.md). These four stay OPEN because nothing one level up is
+serialized, so a comment would have to invent the intent:
+
+* `AW5-S77g1Yj5qvzeRnH_`  `AZkay08Q9UHu8epMR5Fz` `AZkay08Q9UHu8epMR5F0` — platform `IndexerJob`'s
+  three `@Inject`ed fields. `AbstractJob`'s *own* injected fields are **not** `transient`, i.e. the
+  codebase does not treat a `Job` (as opposed to its *status*) as something that gets serialized.
+* `AW5-S7nD1Yj5qvzeRn8V` — platform `DefaultQuery#executer`. Nothing serializes a `DefaultQuery`,
+  and the field carries no comment.
+
+## Catalogue state on 2026-09-13 — the never-mentioned-rule diff was EMPTY in all three repos
+
+Five severity facets × eight language facets per repo: **platform 196 rules / 4334 open, commons 79 /
+857, rendering 51 / 317**, and **every** rule key already appears in the corpus. Every rule with 20+
+fresh unclaimed issues was re-confirmed as a documented drop or denylist entry without a source read
+— recorded so the next run skips the re-triage: `S1135`/`S1134`/`xml:S1135` (TODO/FIXME markers,
+unfixable), `S1133` (remove deprecated code — a `-legacy` migration, not a cleanup), `S112`
+(dedicated exception = API/design change), `S3776`/`S107`/`S110`/`S135`/`S5961`/`S5976`/`S1452`
+(metric and test-design refactors), `S1168`/`S5411`/`S1181`/`S1141`/`S2160`/`S2143`/`S1214`/`S115`
+(recorded behaviour or API changes), `javabugs:S2259` (denylisted, and rendering holds 93 of them),
+`S6355`/`S1123`/`S1172` (levers drained, see their rule files), `S2176`/`S9149`/`S1150`/`S3011`
+(claimed by the open FP-suppression PRs). The small tail was equally dry on first read:
+`S1210`/`S3077`/`S1182`/`S2274`/`S2442`/`S4929` all change behaviour, `S1319` on
+`JakartaServletBridge` is a public return-type change, `S8688` (`.now()` + `ZoneId`) is a behaviour
+change, and `javascript:S1121` (22) sits 20/22 in the **vendored** `tablefilterNsort.js`/`ieemu.js`.

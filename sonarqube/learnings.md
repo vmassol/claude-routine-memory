@@ -69,6 +69,7 @@ rows for the rules you commit to fixing this run.
 | `java:S4973` | [rules/java-S4973.md](rules/java-S4973.md) | the flagged constant's VALUE can be `null` (`TypedValue.TEXT`), and then `x != CONST` is a null check the "fix" NPEs on |
 | `java:S2097` | [rules/java-S2097.md](rules/java-S2097.md) | `getClass().isAssignableFrom(…)` IS a type test — Sonar does not model it, so a third of the pool is a false positive |
 | `java:S2176` `java:S9149` | [rules/java-S2176.md](rules/java-S2176.md) | both recorded here as whole-rule drops and both are POOLS — the recorded reason objects to the *rename*, not to the finding, so the FP suppression is the fix (86 issues, all three repos) |
+| `java:S2065` | [rules/java-S2065.md](rules/java-S2065.md) | the OKF DENYLIST's own reason (XStream honours `transient`) is the finished suppression comment; the classifier is what is NOT transient one level up |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
@@ -554,6 +555,29 @@ rows for the rules you commit to fixing this run.
   grep `dropped-issues.md` for entries whose reason contains "rename", "API break", "breaks
   callers", "public API", and ask whether the shadowing/naming they describe is DELIBERATE. If it
   is, the rule is a pool. See [rules/java-S2176.md](rules/java-S2176.md).
+  **And the richest source for that lever is the OKF DENYLIST, not this repo's drop index — run the
+  same pass over it.** The recorded form of this reads `dropped-issues.md` for entries about a
+  *rename*; generalise the question to **"is this entry's reason a statement about a deliberate XWiki
+  IDIOM?"**, because such an entry is not a reason to skip the rule, it is the `//` comment already
+  written. `java:S2065` ("remove this `transient`") was listed as *"load-bearing in XWiki: XWiki
+  serializes job statuses and requests with XStream, which honours `transient`"* — correct, complete,
+  and the only thing missing was that it lived in the LLM knowledge base instead of in the code, so
+  SonarCloud kept reporting **68 issues across all three repos** that nobody could resolve. 64 shipped
+  as three insert-only PRs on a day the never-mentioned-rule diff was **empty across five severity and
+  eight language facets (196/79/51 rules)**, every rule with a pool ≥20 was a documented drop or
+  denylist entry, and 16 open agent PRs held 166 platform files. Two properties make this class of
+  entry the best pool on such a day: the argument is already made and merely has to be *verified*
+  (three greps, see [rules/java-S2065.md](rules/java-S2065.md)), and it is by construction present in
+  every repo the idiom spans. Candidates the same pass names and that are still untouched:
+  `java:S1948` (the inverse, ~59 — but see the rule file, the argument does NOT transfer unchanged),
+  `java:S2447`, `java:S1215`, `java:S2696`, `java:S1113`.
+  **The mirror-image drop condition is the same truthfulness gate as `S1186`, and it lives one level
+  UP.** An idiom-denylist entry is a claim about a *class of code*, not about every site the rule
+  flags, so the per-site test is whether the owner really is what the entry describes: `AbstractJob`'s
+  own `@Inject`ed fields are not `transient`, so a `Job` is not serialized and `IndexerJob`'s three
+  sites had no true sentence to write. Grep the OWNER's corresponding field before writing the
+  comment — it is one line per site and it is what stops a suppression sweep asserting intent the
+  code does not support.
 - **Quantify how much of the pool YOUR OWN open PRs are holding — on a bad day it is the whole
   answer, and it is self-inflicted.** The recorded advice is to list open `llm-agent` PRs and
   skip claimed files. Go one step further and *measure* it: union the file lists
@@ -1302,9 +1326,16 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   commons #1946), and so did the `SonarCloud` project gate — no moved-finding artifact, no comment
   to argue. Re-running the check after applying is what makes the zero meaningful; it costs one
   `issues/search` per changed file.
-- **`xwiki-rendering` master cannot run ANY test right now, and the fix is a LOCAL, REVERTED pom
-  edit — not a dropped verification and not a repair commit.** `xwiki-rendering/pom.xml` (lines
-  124-129) pins a surefire `listener` property to `org.xwiki.test.CaptureConsoleRunListener`, a
+- **FIXED UPSTREAM (re-checked 2026-09-13): `xwiki-rendering/pom.xml` no longer pins the surefire
+  `listener` property** — it now passes `xwiki.surefire.captureconsole.skip` and registers the JUnit 5
+  `CaptureConsoleExtension` through the service loader, and a rendering `-pl` build runs its tests
+  normally. Keep the entry below only for the *shape* of the diagnosis (a ClassNotFound in the
+  surefire **booter** is a POM/classpath fact, so no `src/main` diff can cause it) and as a datapoint
+  for the recorded rule that a "module is red on master" note goes stale — re-probe before applying
+  the workaround. Historical text follows.
+  ~~`xwiki-rendering` master cannot run ANY test right now, and the fix is a LOCAL, REVERTED pom
+  edit — not a dropped verification and not a repair commit.~~ `xwiki-rendering/pom.xml` (lines
+  124-129) pinned a surefire `listener` property to `org.xwiki.test.CaptureConsoleRunListener`, a
   JUnit 4 class that no longer exists in `xwiki-commons-tool-test-simple` (the current SNAPSHOT
   ships only `org.xwiki.test.junit5.CaptureConsoleExtension`, and the old name appears nowhere in
   the `xwiki-commons` sources). Every rendering module whose surefire forks dies in the *booter*:
