@@ -1148,6 +1148,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   whose line the PR actually wrote), rebased both branches onto it himself, and `Analyze` went green
   with the batches untouched — ~4.5 h from the comment. So a precise, arithmetic-backed artifact
   report is worth far more than a defensive edit.
+  **And the PROPOSED PATCH in that comment is not a formality — write it to be applied.** Two and a
+  half weeks later Vincent opened `xwiki-platform#6382` *"[Misc] Add null guards in
+  XWiki#checkDeletingDocument and XWiki#getDocumentReference"*, i.e. the exact guard the comment had
+  offered (plus a second site he found the same way), with *"created to fix the quality gate before
+  applying this PR"*. So the standing-down comment's patch block is the thing that gets adopted, and
+  offering it beats both fixing the defect inside the cleanup PR and merely naming it. Budget for the
+  latency: the two sweep PRs sat open ~2.5 weeks behind that fix, conflict-free the whole time — a
+  blocked-but-mergeable Sonar PR does not rot, so do not rebase or re-push it while it waits.
   **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
   *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
   `Analyze` is. Don't act on the app check alone.
