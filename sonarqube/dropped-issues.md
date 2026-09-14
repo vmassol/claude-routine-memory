@@ -242,6 +242,17 @@ the two branches of each outer ternary are exact negations — but it stays a re
 it was split off from the mechanical batch rather than dropped).
 
 ### java:S2629 (invoke conditionally) — WHOLE RULE: never remove the eager String
+**Correction (2026-09-14): the rule is a whole-rule drop for the TRANSFORM and an FP-SUPPRESSION
+POOL for the `warn`/`error` subset.** The verdict below ("the remaining sites all need an
+`isXxxEnabled()` guard, which is a judgement call") is false wherever the call logs at `warn` or
+`error`: those levels are always enabled in XWiki's default configuration, so a level guard could
+never skip the evaluation and the rule's premise is wrong. **17 of the 37 unclaimed sites shipped
+that way on 2026-09-14** (platform #6379 10, commons #1976 7) — including the six
+`FailingTestDebuggingTestExecutionListener` keys listed below, whose recorded drop reason *was* the
+suppression comment. See [rules/java-S2629.md](rules/java-S2629.md). Only the `debug`/`info` sites
+stay open; they are listed under *java:S2629 — the `debug`/`info` residue* at the end of this file.
+Historical text follows.
+
 **Corrected — there is no clean shape.** "The explicit `x.toString()` is redundant because SLF4J calls
 it itself" is WRONG in XWiki and cost a withdrawn PR (`xwiki/xwiki-commons#1888`): a job captures the
 `LogEvent` with its **raw `Object[]`** and `SafeMessageConverter` XStream-serializes it into the job
@@ -1977,3 +1988,44 @@ unfixable), `S1133` (remove deprecated code — a `-legacy` migration, not a cle
 `S1210`/`S3077`/`S1182`/`S2274`/`S2442`/`S4929` all change behaviour, `S1319` on
 `JakartaServletBridge` is a public return-type change, `S8688` (`.now()` + `ZoneId`) is a behaviour
 change, and `javascript:S1121` (22) sits 20/22 in the **vendored** `tablefilterNsort.js`/`ieemu.js`.
+
+## java:S2629 — the `debug`/`info` residue (analyzed 2026-09-14, deliberately left open)
+
+The `warn`/`error` subset shipped as suppressions (see the Correction on the `java:S2629` entry
+above and [rules/java-S2629.md](rules/java-S2629.md)). These sites log at `debug` or `info`, where
+an `isDebugEnabled()`/`isInfoEnabled()` guard really would skip work — so the rule is NOT a false
+positive there, and adding the guard is a judgement about the surrounding method (and, in
+`SchedulerPlugin`, a Checkstyle `CyclomaticComplexity` risk inside an already-long `switch`).
+Not a permanent drop: a run that wants to add real guards can take them, one method at a time.
+
+* platform (19): `AZ_xrjHVsad-bVnyFbBQ` LogCaptureValidator:315 (its `:252` sibling
+  `AW5-S-Vp1Yj5qvzeRo1P` was a `warn` and SHIPPED); `AZ_XQE6TkxIS6rT1tSh2`
+  DebuggingDependencyVisitor:60; `AZ88ZtCLz3QokIKVVaYd` `…Ye` `…Yf` `…Yg` SchedulerPlugin:505/510/512/521;
+  `AZ88ZtC2z3QokIKVVaYh` `…Yi` `…Yj` `…Yk` SchedulerPluginApi:211/241/271/306;
+  `AZVJ1T64lMTXGP3SPeQ3` MySQLHibernateAdapter:83; `AY0Oc153Zicph63NZ0W5`
+  AbstractDataMigrationManager:396; `AYibCfVpZJbeVt-4htY7` R40001XWIKI7540DataMigration:196;
+  `AW5-S6j61Yj5qvzeRnfE` R40000XWIKI6990DataMigration:392; `AXnpAhayDDFOvAKXAQwr`
+  XWikiPropertiesConfigurationSource:102; `AYjdPWBti6pHewH43Abn` `…Abo` `…Abp` `…Abq`
+  NotifyListener:53/63/75/81.
+* commons (2): `AYjgzRgXPYtryzrppJ6u` XMLUtils:111, `AYjgzRgXPYtryzrppJ6v` XMLUtils:124 — the
+  `fatalError` sibling `AYjgzRgXPYtryzrppJ6t` is a `warn` and SHIPPED.
+
+## Catalogue state on 2026-09-14 — swept again, and the pool is held by our OWN backlog
+
+Five severity facets × eight language facets per repo: **platform 196 rules / 4334 open, commons
+79 / 857, rendering 51 / 317** — identical to 2026-09-13, and the never-mentioned-rule diff was
+again **0 in all three repos**. What is different, and is the number worth reporting: **24 open
+`llm-agent` PRs (platform 17, commons 4, rendering 3) claim 227 files holding 1388 open issues**
+(platform 1199, commons 169, rendering 20). Every rule with a workable pool in a claimed file is
+therefore unavailable, not absent. Re-confirmed without a source read (they are all listed above):
+`S1135`/`S1134`/`xml:S1135`, `S1133`, `S112` (all 307 sites are `src/main` — checked, zero in
+`src/test`, so the "tests are a free subset" split does not exist for it), `S2143` (198 sites,
+thin-spread, `java.time` migration), `S3776`/`S107`/`S110`/`S135`/`S5961`/`S5976`/`S1452`,
+`S1168`/`S5411`/`S1181`/`S1141`/`S2160`, `javabugs:S2259` (rendering holds 93, clustered in the
+chaining renderers), `S6355`/`S1123`/`S1172` (levers drained), `S1210`/`S3077`/`S1182`/`S2274`/
+`S2442`/`S4929`/`S1319`/`S8688`/`S115`, `javascript:S1121` (vendored), `javascript:S1848`
+(Prototype FP, and JS has no `@SuppressWarnings`).
+
+What paid instead: two denylist entries re-derived into FP-suppression pools —
+**`java:S1214` (14, all three repos)** and **`java:S2629`'s `warn`/`error` half (17)** — 31 issues
+in three PRs (platform #6379, commons #1976, rendering #438). Both levers are recorded in `learnings.md` under *Picking a target rule*.

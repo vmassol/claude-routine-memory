@@ -10,6 +10,20 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **2026-09-14: the catalogue diff was EMPTY for the second run running, and the pool was ANOTHER
+  LINTER'S SUPPRESSION.** Facets unchanged from the day before (**platform 196 rules / 4334 open,
+  commons 79 / 857, rendering 51 / 317**), never-mentioned-rule diff **zero** over five severity ×
+  eight language facets. **24 open `llm-agent` PRs (platform 17, commons 4, rendering 3) claimed 227
+  files holding 1388 open issues** (platform 1199, commons 169, rendering 20) — our own backlog is
+  now the binding constraint by a wide margin, and it is worth reporting as a number. Every rule with
+  a workable pool outside those files was a recorded drop. What paid: two denylist re-derivations,
+  **`java:S1214` 14 issues in all three repos** (platform 8 / commons 3 / rendering 3 — Checkstyle
+  `InterfaceIsType` was already suppressed *with the reason* in 10 of them) and **`java:S2629`'s
+  `warn`/`error` half, 17 of 37 unclaimed sites** (platform 10, commons 7) — 31 issues, three PRs,
+  one per repo (platform #6379, commons #1976, rendering #438). Both rules have a pool in more
+  than one repo, which is what a multi-repo run needs on a swept day. Residue: `S1214` regenerates only from new constant interfaces; `S2629`'s 21
+  `debug`/`info` sites are keyed in `dropped-issues.md` and are a real judgement call, not an FP.
+
 - **2026-09-13: the catalogue diff was EMPTY again, and the pool was an OKF DENYLIST entry read as a
   suppression argument.** Facets: **platform 196 rules / 4334 open, commons 79 / 857, rendering 51 /
   317**, never-mentioned-rule diff **zero** over five severity × eight language facets; **16** open

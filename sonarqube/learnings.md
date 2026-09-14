@@ -70,6 +70,8 @@ rows for the rules you commit to fixing this run.
 | `java:S2097` | [rules/java-S2097.md](rules/java-S2097.md) | `getClass().isAssignableFrom(…)` IS a type test — Sonar does not model it, so a third of the pool is a false positive |
 | `java:S2176` `java:S9149` | [rules/java-S2176.md](rules/java-S2176.md) | both recorded here as whole-rule drops and both are POOLS — the recorded reason objects to the *rename*, not to the finding, so the FP suppression is the fix (86 issues, all three repos) |
 | `java:S2065` | [rules/java-S2065.md](rules/java-S2065.md) | the OKF DENYLIST's own reason (XStream honours `transient`) is the finished suppression comment; the classifier is what is NOT transient one level up |
+| `java:S1214` | [rules/java-S1214.md](rules/java-S1214.md) | Checkstyle's `InterfaceIsType` is the SAME finding and XWiki already suppresses it *with the reason* — the Sonar key is the only thing missing |
+| `java:S2629` | [rules/java-S2629.md](rules/java-S2629.md) | the denylist is right about the transform and wrong about the residue: the LOG LEVEL splits it — `warn`/`error` are always enabled, so the guard is provably pointless |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
@@ -572,6 +574,30 @@ rows for the rules you commit to fixing this run.
   every repo the idiom spans. Candidates the same pass names and that are still untouched:
   `java:S1948` (the inverse, ~59 — but see the rule file, the argument does NOT transfer unchanged),
   `java:S2447`, `java:S1215`, `java:S2696`, `java:S1113`.
+  **And the cheapest confirmation an idiom is deliberate is ANOTHER LINTER'S SUPPRESSION already in
+  the file.** Strongest form of the FP lever found so far, because it removes the judgement entirely:
+  XWiki runs Checkstyle as well as Sonar, and several Sonar rules are a Checkstyle rule under a
+  different key. `java:S1214` ("move these constants out of the interface") is Checkstyle's
+  `InterfaceIsType`, and **10 of its 14 open sites already carried**
+  `@SuppressWarnings("checkstyle:InterfaceIsType")` *with the rationale comment above it* — so the
+  team had decided, written the sentence, and the issue stayed open only because the annotation
+  lacked the Sonar key. The fix is one array element per file. So when a denylist entry says "the
+  remediation is an API break", grep the flagged declarations for an existing
+  `@SuppressWarnings("checkstyle:…")` / `// CHECKSTYLE:OFF` / `@SuppressFBWarnings` before treating
+  it as a judgement call — a hit turns the PR body into *"the only thing missing was the Sonar
+  key"*, which is the least arguable sentence this routine can write. See
+  [rules/java-S1214.md](rules/java-S1214.md).
+  **The sibling axis, for a rule the denylist rejects wholesale: ask which ONE TOKEN on the flagged
+  line splits it.** `java:S2629` is correctly denylisted (a withdrawn PR proves deleting the eager
+  String is wrong), and this repo's own entry concluded "the remaining sites all need an
+  `isXxxEnabled()` guard, which is a judgement call". The **log level** decides it for free:
+  `okf/conventions/logging.md` states that `warn` and `error` are always enabled, so on those calls
+  a level guard can never skip anything and the rule's premise is simply false — 17 of 37 unclaimed
+  sites shipped on that one sentence, with `@SuppressWarnings("java:S2629")` already established on
+  six methods across platform and commons. Generalise: a whole-rule rejection is usually a statement
+  about the *typical* site; look for the cheapest token (level, visibility, annotation, message
+  shape) that partitions the pool, exactly as the visibility split does for signature rules.
+  See [rules/java-S2629.md](rules/java-S2629.md).
   **The mirror-image drop condition is the same truthfulness gate as `S1186`, and it lives one level
   UP.** An idiom-denylist entry is a claim about a *class of code*, not about every site the rule
   flags, so the per-site test is whether the owner really is what the entry describes: `AbstractJob`'s
@@ -1451,6 +1477,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   incl. oldcore **5:19** (1288, oldcore 1209 of them) = **~10 min** for 2229 tests, all green,
   `revapi:check` in all nine. A 30-site batch costs the same shape of reactor as a 300-site one —
   which is the argument for never trimming a repo out of a multi-repo sweep to save build time.
+- **Datapoint for a three-repo ANNOTATION-AND-COMMENT sweep** (warm `~/.m2`, 31 sites, 24 files,
+  22 modules): commons 4 modules **3:28** (356 tests) + rendering 2 modules **1:22** (381) +
+  platform **16** modules incl. `oldcore` (1221) and `legacy-oldcore` (48/48) **11:35** (2042) =
+  **~16 min for 2779 tests**, all green, `revapi:check` and `checkstyle:check` in all 22. A
+  suppression-only batch costs the same reactor as a real one, and `legacy-oldcore` passed 48/48
+  inside a 16-module reactor — consistent with the recorded "the reactor's WIDTH is what saves
+  it", so keep oldcore in the `-pl` list rather than running the legacy module narrow.
 - **Datapoint for a three-repo comment-and-constant sweep** (warm `~/.m2`, 119 sites): commons 1
   module **223 tests** + rendering 2 modules **352** + platform **11** modules incl. oldcore and
   `legacy-oldcore` **1501** (oldcore 1149) = **2076 tests**, all green, in a single chained
