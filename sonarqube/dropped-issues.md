@@ -2029,3 +2029,21 @@ chaining renderers), `S6355`/`S1123`/`S1172` (levers drained), `S1210`/`S3077`/`
 What paid instead: two denylist entries re-derived into FP-suppression pools —
 **`java:S1214` (14, all three repos)** and **`java:S2629`'s `warn`/`error` half (17)** — 31 issues
 in three PRs (platform #6379, commons #1976, rendering #438). Both levers are recorded in `learnings.md` under *Picking a target rule*.
+
+## java:S1214 — the two rendering sites whose suppression review REJECTED (2026-09-14)
+
+Dropped from rendering #438 after @vmassol asked *"it is in the internal package, why would it be a
+problem to move the constants?"*. Both are **genuine findings**, not false positives — the fix is a
+refactor rather than a Sonar cleanup, so they stay open:
+
+* `AV2j0WAhpvRVEt3bvRfx` `XWikiWikiModelHandler:30` — `…parser.xhtml.wikimodel`, an **internal**
+  (Revapi-excluded) package; unreferenced in xwiki-platform; never used as a type. Its 11
+  `implements` clauses (9 `syntax-xhtml`, 2 `syntax-xhtml5`) exist only to inherit the constants.
+  Fixable by making it a constants class and qualifying the uses in those 11 handlers.
+* `AV2j0WmspvRVEt3bvRnk` `InternalWikiScannerContext:41` — `protected interface IBlockTypes`, every
+  reference inside its own enclosing class, no subclass in either repo. Note `impl` is **not**
+  `internal`, so unlike the first one Revapi does watch it and removing a `protected` nested type of
+  a public class is a visible removal — check before assuming it is free.
+
+The surviving site (`AV2j0WkIpvRVEt3bvRlg` `IWemConstants:29`) is the counter-example: published
+package, `IWemConstants.X` referenced from 15 files. See [rules/java-S1214.md](rules/java-S1214.md).

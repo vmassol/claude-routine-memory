@@ -587,6 +587,18 @@ rows for the rules you commit to fixing this run.
   it as a judgement call — a hit turns the PR body into *"the only thing missing was the Sonar
   key"*, which is the least arguable sentence this routine can write. See
   [rules/java-S1214.md](rules/java-S1214.md).
+  **Its failure mode, found by review the same day: the borrowed sentence justifies the FILE IT WAS
+  WRITTEN IN, and nothing else.** Of the 14 `S1214` sites, 10 carried the Checkstyle suppression and
+  its rationale; the 4 that did not got the same sentence copied onto them, and Vincent rejected two
+  — *"it is in the internal package, why would it be a problem to move the constants?"*. He was
+  right: one sits in an **internal** (Revapi-excluded) package and is never used as a type, the
+  other is a `protected` nested interface referenced only inside its own enclosing class. Both were
+  dropped and the PR went 3 → 1. So the lever splits into two halves with different costs: reusing
+  an existing annotation is free and unarguable, while *extending* its reason to a file that lacks
+  it is inventing intent — the same truthfulness gate that governs `S1186`/`S108` comments. Re-derive
+  per site (for this rule: is the package `internal`, and is the interface ever used as a type or
+  only in `implements` clauses?), and write the surviving comment **specific rather than generic** —
+  the generic wording is what invited the review question.
   **The sibling axis, for a rule the denylist rejects wholesale: ask which ONE TOKEN on the flagged
   line splits it.** `java:S2629` is correctly denylisted (a withdrawn PR proves deleting the eager
   String is wrong), and this repo's own entry concluded "the remaining sites all need an

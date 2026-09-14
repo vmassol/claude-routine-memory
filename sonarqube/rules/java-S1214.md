@@ -33,6 +33,28 @@ The 4 without one (`WikiMacroConstants` + its `@Deprecated` legacy twin `LegacyW
 get a fresh `@SuppressWarnings("java:S1214")` carrying the same sentence, which keeps the codebase
 speaking one language about the idiom.
 
+**The lever has a FAILURE MODE, and review found it the same day: the existing suppression justifies
+the FILE IT IS IN, and nothing else.** The 10 files carrying `checkstyle:InterfaceIsType` come with
+the sentence already written; the temptation is to reuse that sentence on the 4 flagged files that
+do NOT carry it. Vincent's review of rendering #438 rejected exactly that on two of them, and he was
+right:
+
+| Site | Why the borrowed sentence was false |
+|---|---|
+| `XWikiWikiModelHandler` | `org.xwiki.rendering.internal.parser.xhtml.wikimodel` — **internal**, so Revapi-excluded and carrying no compat contract; referenced nowhere in xwiki-platform; and *never used as a type* — its 11 `implements` clauses exist purely to inherit the constants, i.e. the textbook anti-pattern the rule is about |
+| `InternalWikiScannerContext.IBlockTypes` | `protected` nested interface whose every reference is inside its own enclosing class, with no subclass in either repo |
+
+Both were dropped from the PR. The classifier that would have caught it before pushing is two greps
+per *unannotated* site, and it is the same one the reviewer used:
+**(a) is the package `internal` (Revapi-excluded ⇒ no compat argument exists at all), and
+(b) is the interface ever used as a TYPE, or only in `implements` clauses?** An interface that no
+declaration ever names is a constant interface and the finding is true; `IWemConstants` survives
+because 15 files reference `IWemConstants.X` from a *published* package. Generalise beyond this
+rule: **a justification borrowed from a sibling file is a hypothesis about THIS file, so re-derive
+it per site — the suppression comment's gate is truthfulness, and a borrowed sentence is the
+easiest way to fail it.** Make the surviving comment *specific* too: the generic wording is what
+invited the review question in the first place.
+
 **Generic form of the lever — ask it of every denylisted rule**: *does a linter XWiki already runs
 report the same finding under its own name, and has the team already suppressed it?* An existing
 `@SuppressWarnings("checkstyle:…")` / `// CHECKSTYLE:OFF` / `@SuppressFBWarnings` on the flagged
@@ -62,7 +84,7 @@ suppression says otherwise. Do not suppress a site whose name gives you nothing 
 
 ## Outcome
 
-Shipped 2026-09-14 as platform #6379 (8), commons #1976 (3), rendering #438 (3) — the only rule of
+Shipped 2026-09-14 as platform #6379 (8), commons #1976 (3), rendering #438 (3 → **1 after review**) — the only rule of
 that day with a pool in all three repos, on a run where the never-mentioned-rule diff was empty for
 the second day running and 24 open agent PRs held 1388 issues.
 
