@@ -65,3 +65,7 @@ suppression says otherwise. Do not suppress a site whose name gives you nothing 
 Shipped 2026-09-14 as platform #6379 (8), commons #1976 (3), rendering #438 (3) — the only rule of
 that day with a pool in all three repos, on a run where the never-mentioned-rule diff was empty for
 the second day running and 24 open agent PRs held 1388 issues.
+
+All three went green **first try on BOTH gates** — the repo's `Quality / Analyze` *and* the
+SonarCloud project gate — with no moved-finding artifact to argue, which is what the recorded
+"a pure INSERT (or one-line annotation rewrite) cannot inherit a pre-existing finding" predicts.

@@ -67,4 +67,5 @@ Do not suppress them with a hand-waved reason; the gate on this pool is that the
 
 Shipped 2026-09-14 as platform #6379 (10 keys over 8 methods) and commons #1976 (7 keys over 2
 methods), alongside the `java:S1214` half of the same sweep. 21 `debug`/`info` keys stay open and
-are listed in `dropped-issues.md`.
+are listed in `dropped-issues.md`. Both PRs green first try on `Quality / Analyze` and the
+SonarCloud project gate.
