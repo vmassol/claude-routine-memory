@@ -72,6 +72,7 @@ rows for the rules you commit to fixing this run.
 | `java:S2065` | [rules/java-S2065.md](rules/java-S2065.md) | the OKF DENYLIST's own reason (XStream honours `transient`) is the finished suppression comment; the classifier is what is NOT transient one level up |
 | `java:S1214` | [rules/java-S1214.md](rules/java-S1214.md) | Checkstyle's `InterfaceIsType` is the SAME finding and XWiki already suppresses it *with the reason* — the Sonar key is the only thing missing |
 | `java:S2629` | [rules/java-S2629.md](rules/java-S2629.md) | the denylist is right about the transform and wrong about the residue: the LOG LEVEL splits it — `warn`/`error` are always enabled, so the guard is provably pointless |
+| `java:S1452` | [rules/java-S1452.md](rules/java-S1452.md) | a FAILED visibility split ("zero `private` sites") IS the FP argument — 35 of 36 shipped as suppressions |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
@@ -617,6 +618,21 @@ rows for the rules you commit to fixing this run.
   sites had no true sentence to write. Grep the OWNER's corresponding field before writing the
   comment — it is one line per site and it is what stops a suppression sweep asserting intent the
   code does not support.
+  **And the cheapest place to FIND such an entry is a recorded visibility split that came back
+  EMPTY.** A drop written as *"re-derived by the visibility split and it does not split — zero
+  `private` sites, every one is `public`, `protected` or an interface method, i.e. a published
+  signature change"* reads like the end of the road, and it is in fact the FP argument fully made:
+  if every site is published API then the message's remediation is a break at *every* site, which is
+  exactly what the suppression comment has to say. `java:S1452` was one of four entries closed that
+  way and shipped **35 of 36 sites across all three repos** (platform #6388, commons #1977,
+  rendering #439) on a day the never-mentioned-rule diff was **0** over five severity and twelve
+  language facets (196/79/51 rules) and 27 open agent PRs held 242 files. So after running the "does
+  this entry object to the rule, or to one way of satisfying it?" pass over the OKF denylist, run it
+  again over this repo's drop index — specifically over the entries that record a *failed*
+  re-derivation, which are self-contained arguments nobody has cashed. The per-site gate stays
+  truthfulness: ask what **forces** the flagged construct (an upstream API's own type, a field's
+  declared type, an assignability rule) and drop the site where nothing does — 1 of the 36 was
+  dropped that way. See [rules/java-S1452.md](rules/java-S1452.md).
 - **Quantify how much of the pool YOUR OWN open PRs are holding — on a bad day it is the whole
   answer, and it is self-inflicted.** The recorded advice is to list open `llm-agent` PRs and
   skip claimed files. Go one step further and *measure* it: union the file lists

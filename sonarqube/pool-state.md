@@ -409,7 +409,9 @@ later reopened — see the gate bullet below):**
   repo, zero source reads): commons 993 open / 847 not-in-drop-index and rendering 345 / 298, but
   every one of those sits in a denylisted or recorded-rejected rule. Newly rejected as *whole rules*
   by a visibility bucketing pass that found no `private` subset at all: `S1452`, `S9149`, `S2176`,
-  `S1700` — recorded in `dropped-issues.md`. The **CSS facet was opened for the first time**:
+  `S1700` — recorded in `dropped-issues.md`. **Three of those four have since been re-opened as
+  FP-suppression pools** (`S9149`/`S2176` 86 issues, `S1452` 35): an empty visibility split is the
+  suppression argument, not a drop — only `S1700` still stands. The **CSS facet was opened for the first time**:
   platform 19 issues over 7 rules (`S4666` 9, `S4656` 3, `S4670`/`S4651` 2, singletons), commons and
   rendering 0 — still untriaged, and the only never-opened language facet left.
 - **`javabugs:S2259` rendering (87) was looked at and stays a drop**: it is one false-positive

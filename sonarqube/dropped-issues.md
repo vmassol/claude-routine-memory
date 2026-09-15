@@ -1447,7 +1447,15 @@ an `@Override` escape (the parent's `@Deprecated(since = …)` is copied); see
 reasons below are correct *and* they are objections to the **rename** the message asks for, not to
 the finding. The shadowing is deliberate, so the resolution is `@SuppressWarnings` + a stated reason
 in the code (platform #6376 19, commons #1974 63, rendering #436 4). See
-[rules/java-S2176.md](rules/java-S2176.md). `S1452` and `S1700` below still stand.
+[rules/java-S2176.md](rules/java-S2176.md).
+
+**Correction (S1452): also a POOL, not a drop — 35 of 36 issues shipped** (platform #6388 28,
+commons #1977 4, rendering #439 3). Same escape one step further out: the reason below is not merely
+an objection to the remediation, it is a *failed visibility split*, and "every site is published API"
+means the message's fix is a break at every site — which is the suppression comment already written.
+Kept the 35 sites where something **forces** the wildcard (an upstream wildcard-typed API, a field's
+declared type, a `List<Subtype>` that is not assignable to the invariant form); dropped the 1 where
+nothing does. See [rules/java-S1452.md](rules/java-S1452.md). `S1700` below still stands.
 
 Re-derived by the visibility split in 2026-09 and **none of them splits**, so these are rejected as
 whole rules rather than key-by-key:
@@ -2047,3 +2055,34 @@ refactor rather than a Sonar cleanup, so they stay open:
 
 The surviving site (`AV2j0WkIpvRVEt3bvRlg` `IWemConstants:29`) is the counter-example: published
 package, `IWemConstants.X` referenced from 15 files. See [rules/java-S1214.md](rules/java-S1214.md).
+
+## java:S1452 — the one site with nothing forcing the wildcard (2026-09-15)
+
+35 of 36 shipped as suppressions (see the Correction above and
+[rules/java-S1452.md](rules/java-S1452.md)). This one stays OPEN because the wildcard is stylistic
+rather than forced, so the suppression comment would have to invent the intent:
+
+* `AW5-S85W1Yj5qvzeRoRl` platform `SpaceTreeNode:119`
+  (`org.xwiki.index.tree.internal.nestedspaces`) `protected List<? extends EntityReference>
+  getChildren(...)` — the body is `return getChildrenQuery(...).execute()`, and `Query#execute()` is
+  `<T> List<T>`, so it infers whatever the declared return type asks for and both forms compile. The
+  class sits in an **internal** (Revapi-excluded) package, so narrowing it really is free — the same
+  objection review raised on the `S1214` internal sites. Fixable, not suppressible.
+
+## Catalogue state on 2026-09-15 — swept for the third day running; what paid was a failed re-derivation
+
+Five severity facets x twelve language facets per repo: **platform 196 rules / 4336 open, commons
+79 / 857, rendering 51 / 315**, and the never-mentioned-rule diff was again **0 in all three repos**.
+**27 open `llm-agent` PRs (platform 18, commons 5, rendering 4) claimed 242 files.** New-code
+(`sinceLeakPeriod`) was 85 / 1 / 0 and held nothing mechanical (65 of platform's 85 are `S1135`
+TODOs). Every rule with a workable pool was re-confirmed as a documented drop *without a source read*
+from the 2026-09-13 and 2026-09-14 lists above — nothing to add to them.
+
+What paid: `java:S1452`, one of the four whole-rule drops recorded above, re-derived into an
+FP-suppression pool — 35 issues in three PRs. The generic lever (a *failed visibility split* is
+itself the suppression argument) is in `learnings.md` under *Picking a target rule*.
+
+Still standing and worth a run when it is unblocked: the **`java:S2629` `debug`/`info` residue**
+(21 sites, listed above) is not a drop — adding real `isDebugEnabled()`/`isInfoEnabled()` guards is a
+per-method judgement a run can take; and the **31 platform `java:S6355` `@Override` sites** stay
+blocked behind the still-open #6327.
