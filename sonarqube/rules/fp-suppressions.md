@@ -45,6 +45,32 @@ this file, and refusing them is what makes the rest credible:
   (`javabugs:S6466` `chunks[0]` after `split(":")`, inside a `catch (Exception)`) — that is a real
   edge case, merely handled.
 
+## `javabugs:S2259`: the fix belongs at the NULL SOURCE, not at the dereference
+
+The maintainer overruled the sweep on this **twice in one run**, the same way both times, so treat it
+as the rule's default rather than a preference:
+
+* `XWiki#checkDeletingDocument` — suppressed here as unreachable; answered by platform
+  [#6382](https://github.com/xwiki/xwiki-platform/pull/6382), which makes the method **throw**
+  `XWikiException` on a null document, plus a unit test.
+* `ScopeNotificationFilterExpressionGenerator:228` — deferred here as "not this cleanup's"; answered
+  by platform [#6401](https://github.com/xwiki/xwiki-platform/pull/6401), which makes
+  `LocationOperatorNodeGenerator#generateNode()`'s `default:` branch **throw** instead of returning
+  `null`.
+
+The argument that decides it, and the one to apply yourself before reaching for a suppression:
+**follow SonarCloud's own flow to the line that produces the `null`, and ask what a guard at the
+dereference would actually buy.** When every call site dereferences the returned value on the very
+next statement, a use-site `if (x == null) return …` only moves the NPE one line and adds a branch
+nobody can describe the semantics of; making the producer never return `null` fixes all call sites at
+once. A use-site guard is the right fix only when the caller has a *meaningful* null behaviour to
+fall back on — as in `DownloadAction#getAttachment`, where returning `null` re-enters an existing
+"re-parse the URL" path, which is why that one merged as written ([#6288](https://github.com/xwiki/xwiki-platform/pull/6288)).
+
+Corollary for the sweep: an `S2259` you cannot fix at the source **within this PR's scope** is not a
+suppression candidate — it is a prerequisite PR (see the prerequisite-PR route in `learnings.md`), and
+offering it beats arguing unreachability.
+
 ## Verified FP shapes found so far (all three repos)
 
 | Rule | Shape | Why it is wrong here |

@@ -74,7 +74,7 @@ rows for the rules you commit to fixing this run.
 | `java:S2629` | [rules/java-S2629.md](rules/java-S2629.md) | the denylist is right about the transform and wrong about the residue: the LOG LEVEL splits it — `warn`/`error` are always enabled, so the guard is provably pointless |
 | `java:S1452` | [rules/java-S1452.md](rules/java-S1452.md) | a FAILED visibility split ("zero `private` sites") IS the FP argument — 35 of 36 shipped as suppressions |
 | `java:S1181` | [rules/java-S1181.md](rules/java-S1181.md) | recorded twice as "narrowing is a behaviour change" — which is the suppression's argument; the drop is a `// TODO:` in the block objecting to the clause itself |
-| *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
+| *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` `javabugs:S2259` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys — but NOT for `S2259`, whose fix belongs at the null source |
 
 ## Picking a target rule (find phase)
 
@@ -1289,6 +1289,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   PR analysis — which is why it is now the first thing to run. (It also exposed that a `javabugs:`
   finding does not merely shift: master reported `S2259` at 787/834 of the same file while the PR
   reported 788/847, i.e. *different instances of the same `getDoc()`-may-be-null shape*, same count.)
+  **`resolved=false` in that recipe is LOAD-BEARING — drop it and you will over-report to the
+  maintainer.** A PR-scoped `issues/search` keeps returning findings the PR's own merged prerequisite
+  has already fixed, so an unfiltered query counts them as still outstanding. Measured on #6272 the
+  same minute: `componentKeys=<proj>&pullRequest=6272` → **total=2**, while both
+  `&resolved=false` and `&issueStatuses=OPEN,CONFIRMED` → **total=1**; the extra row was
+  `javabugs:S2259 XWiki.java` with `issueStatus=FIXED`, `resolution=FIXED`, cleared by the
+  prerequisite PR that had landed in between. The maintainer corrected the count publicly, which is
+  the expensive way to learn it. **The free tell if a raw dump is all you have: a resolved issue comes
+  back with `line: None`** — a finding with no line in a PR-scoped search is not a finding you owe
+  anyone a fix for. So filter at the query, and re-run the query (never re-quote an earlier run)
+  before stating a remaining-issue count on a PR whose prerequisites may have merged since.
   **A 403 on the re-run is not a dead end**: `POST actions/runs/<id>/rerun-failed-jobs` answers
   `Resource not accessible by integration`, so per the drive-to-green rules the move is one PR comment
   carrying the traceback, the `isNew` table, the sibling PRs' green `Analyze`, and a proposed patch —
@@ -1328,6 +1339,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   **disappeared from the next PR analysis** while four other `S2259` in the same file were still
   reported. So for a `javabugs:` finding you can prove unreachable, the OKF's normal false-positive
   route (suppress + `//` reason) works; you are not forced into a null guard.
+  **But "it works" is not "it is accepted", and for `S2259` specifically the maintainer overruled it
+  twice in this same run** — both times by making the null *source* throw, in his own PR (#6382, then
+  #6401). So suppression stays the verified escape hatch for dataflow false positives in general, and
+  is the wrong first move on `S2259`; see [rules/fp-suppressions.md](rules/fp-suppressions.md) for the
+  source-vs-dereference test that decides it.
   **A null guard is often the WRONG remediation anyway — check what the method IS.** On
   `checkDeletingDocument` (a permission check) an `if (x == null) return;` would report "delete
   allowed" without having checked anything: strictly worse than the NPE. Reserve a guard for a method
