@@ -73,6 +73,12 @@ modules **300 tests / 4:32**, rendering 2 modules **275 / 1:14**, platform 9 mod
 (oldcore 1221 of them), all green with `revapi:check` and `checkstyle:check`. The 6 drops are keyed in
 `dropped-issues.md`.
 
+**And the SonarCloud APP gate passed on all three too**, which is worth recording against the
+expectation in `learnings.md` that an insert-only diff still trips *"D/C Reliability Rating on New
+Code"* through the moved-finding artifact (seen on platform #6334 and #6349, both comment-only). So
+that artifact is a *risk* on an insert-only diff, not a property of one — do not write the standing-down
+comment pre-emptively, and do not soften the PR body for it.
+
 ## Where the pool sits
 
 Boundary code, so it follows the architecture rather than a module: request dispatch and plugins
