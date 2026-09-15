@@ -83,6 +83,12 @@ listed as such rather than omitted, so a future run knows the absence is real an
 
 ## xwiki-commons
 
+### java:S1181 (catch Throwable) — 12 of 14 shipped as suppressions; these 2 did not
+
+- `AV4uHTOD5jV1AdqTqB4r` L80 + `AV4uHTOD5jV1AdqTqB4s` L119 `BcStoreX509CertificateProvider` — both
+  blocks are `catch (Throwable t) { return null; }` with no logging and no stated reason, in crypto
+  code. A suppression would have to invent the intent. See [rules/java-S1181.md](rules/java-S1181.md).
+
 ### java:S1186 (empty method) — **Correction: both SHIPPED**, the rationale was already in the file
 
 Both were recorded as "needs a maintainer's answer" and neither did: `ResourceLoader.JarResourceHandle`
@@ -498,6 +504,20 @@ rejected or dropped, and all three are non-starters: `S1845` (rename a field —
 refactor). Budget a rendering allowlist PR at 0 until something regenerates.
 
 ## xwiki-platform
+
+### java:S1181 (catch Throwable) — the rest of the pool shipped as suppressions; these 4 did not
+
+The rule is a pool, not a drop — see [rules/java-S1181.md](rules/java-S1181.md). These fail the
+truthfulness gate, so the issues stay OPEN.
+- `AW5-S9_r1Yj5qvzeRosl` + `AW5-S9_r1Yj5qvzeRosk` `FeedPlugin#getSyndEntrySource` L862/L870 — the
+  block's own `// TODO:` says *"catching Throwable here also hides a failure of the constructor that
+  was found"*: the file objects to its own clause. Both keys are in one method, so the method-level
+  annotation would have covered the truthful one too — dropped together.
+- `AW5-S9_r1Yj5qvzeRosv` `FeedPlugin#getFeed` L912 — `// skip this entry` says what happens, not why
+  `Throwable`.
+- `AZoW-yQoq_K3LGNcpDrw` `DefaultURLConfiguration#getFrontendUrlCheckPolicy` L101 — the guarded call
+  is an enum `valueOf`; there is no boundary to protect and the honest fix is a narrower clause,
+  which is a behaviour change.
 
 ### java:S9357 (anonymous class → lambda) — no functional target type / the class identity is observed
 Two shapes, both decidable without a build — see [rules/java-S9357.md](rules/java-S9357.md).

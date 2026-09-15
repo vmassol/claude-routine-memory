@@ -73,6 +73,7 @@ rows for the rules you commit to fixing this run.
 | `java:S1214` | [rules/java-S1214.md](rules/java-S1214.md) | Checkstyle's `InterfaceIsType` is the SAME finding and XWiki already suppresses it *with the reason* — the Sonar key is the only thing missing |
 | `java:S2629` | [rules/java-S2629.md](rules/java-S2629.md) | the denylist is right about the transform and wrong about the residue: the LOG LEVEL splits it — `warn`/`error` are always enabled, so the guard is provably pointless |
 | `java:S1452` | [rules/java-S1452.md](rules/java-S1452.md) | a FAILED visibility split ("zero `private` sites") IS the FP argument — 35 of 36 shipped as suppressions |
+| `java:S1181` | [rules/java-S1181.md](rules/java-S1181.md) | recorded twice as "narrowing is a behaviour change" — which is the suppression's argument; the drop is a `// TODO:` in the block objecting to the clause itself |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys |
 
 ## Picking a target rule (find phase)
@@ -558,6 +559,23 @@ rows for the rules you commit to fixing this run.
   grep `dropped-issues.md` for entries whose reason contains "rename", "API break", "breaks
   callers", "public API", and ask whether the shadowing/naming they describe is DELIBERATE. If it
   is, the rule is a pool. See [rules/java-S2176.md](rules/java-S2176.md).
+  **The same pass answers a THIRD wording, and it is the commonest one in this corpus: "the fix is a
+  BEHAVIOUR change".** `java:S1181` ("catch `Exception` instead of `Throwable`") was written off twice
+  here as *"narrowing what is caught is a behaviour change"* — true, and it is precisely the
+  suppression's argument, because a rule whose only remediation changes behaviour has **no compliant
+  form of the code**, which is the definition of a false positive. 48 of 54 shipped in all three repos
+  on a day the never-mentioned-rule diff was empty over five severity × ten language facets and 30
+  open agent PRs held 261 files. So when grepping the drop index for suppression pools, search
+  "behaviour change" / "narrows" / "changes what is persisted" alongside "rename" and "API break" —
+  and note the axis generalises to any rule *about a boundary*: `S1181` (catch), `S2065`/`S1948`
+  (persisted state), `S2447` (returned value).
+  **Its refinement, and the cheapest keep/drop classifier this routine has found: read the comment
+  inside the flagged block for WHICH WAY IT POINTS.** The recorded lever is "a comment explaining the
+  code is the finished suppression argument"; the mirror case is a comment that *apologises* for the
+  flagged construct — `FeedPlugin`'s `// TODO: … catching Throwable here also hides a failure of the
+  constructor that was found`. The presence of a comment is not the test; its direction is. A
+  suppression on a site whose own file calls the construct a problem asserts the opposite of what the
+  code says, and that is the one thing that would make a whole batch of them untrustworthy.
   **And the richest source for that lever is the OKF DENYLIST, not this repo's drop index — run the
   same pass over it.** The recorded form of this reads `dropped-issues.md` for entries about a
   *rename*; generalise the question to **"is this entry's reason a statement about a deliberate XWiki
