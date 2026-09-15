@@ -1345,6 +1345,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   merges silently. Remove your half, say so in a comment, and keep only what is still needed. The
   general rule: a judgement you flagged for the maintainer may be answered by a COMMIT rather than a
   reply, and the answer can land in code you already touched.
+  **The PREREQUISITE-PR route works end to end, and it is what the maintainer asked for both times.**
+  When the project gate blocks a cleanup PR on findings it did not write, Vincent's instruction was
+  *"open a new [Misc] PR for those issues and indicate that it must be applied before this PR"* — on
+  both #6272 and #6273. Doing that (one prerequisite per blocked PR, each stating the dependency in
+  its own description and cross-linked from a comment on the blocked one) took **both** blocked PRs
+  from `unstable` to `mergeable_state: clean`, project gate included, once the prerequisite landed on
+  `master`. So do not treat an artifact-driven project-gate failure as purely cosmetic and walk away:
+  the arithmetic comment is the right *first* move, but offering to fix the underlying finding in a
+  separate PR is what actually clears it, and it is cheap because the finding is usually one guard
+  plus a test. Scope each prerequisite to the findings that block its PR, never to every finding in
+  the file.
   **And the set of `javabugs:` findings a PR analysis surfaces for one file is NOT STABLE between
   runs** — #6272 reported exactly one `S2259` in `XWiki.java`, its prerequisite PR reported four
   *different* ones, and master's snapshot listed neither set. So never promise that fixing the finding
