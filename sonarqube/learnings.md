@@ -1372,6 +1372,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   separate PR is what actually clears it, and it is cheap because the finding is usually one guard
   plus a test. Scope each prerequisite to the findings that block its PR, never to every finding in
   the file.
+  **A third prerequisite closed the loop with MEASURED numbers, and that one Vincent wrote himself.**
+  When he announces he is opening the prerequisite (#6401, for #6272's last `S2259`), the move is to
+  say you will not duplicate it and then stand down — do NOT port his fix into your branch to chase
+  green early, even though the generic drive-to-green rule would suggest it: it duplicates his commit
+  and collides when it merges. Once it lands and `master` is merged in, the project gate flips
+  outright — `new_reliability_rating` **ERROR (3) → OK (1)**, open issues on the PR **1 → 0**, all six
+  conditions OK, `mergeable_state: clean`. So the route is now 3-for-3, and the honest sentence for
+  the PR comment is that BOTH gates agree, not merely that `Analyze` does.
   **And the set of `javabugs:` findings a PR analysis surfaces for one file is NOT STABLE between
   runs** — #6272 reported exactly one `S2259` in `XWiki.java`, its prerequisite PR reported four
   *different* ones, and master's snapshot listed neither set. So never promise that fixing the finding
@@ -2239,6 +2247,14 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   trees, so **the build I had just run still verified what was actually on the PR**. Do that diff
   before discarding the work — it converts a wasted build into a valid verification. Then
   `git reset --hard origin/<branch>` and push nothing.
+  **It is not a days-later phenomenon and not only rebases — it happened THREE times in one sweep,
+  the last within MINUTES.** The moment the prerequisite PR merged, Vincent merged `master` into
+  #6272's branch himself while my verification build was still running, and again the trees were
+  byte-identical. So treat "the maintainer drives the branch too" as the normal case on a PR he is
+  actively shepherding: **`git fetch origin <branch>` immediately before pushing, not only at the
+  start of the work** — the whole merge can be redundant by the time a 6-minute build finishes. The
+  build is never wasted (prove it with the empty `git diff`), but the push may be, and reaching for
+  `--force` there would clobber his commit.
 - **Reset the designated feature branch to master FIRST — it persists across runs.** `git fetch origin
   master` then `git checkout -B <branch> origin/master` before editing, or the new PR bundles old
   already-merged commits. **The local `origin/master` ref can LAG even right after `git fetch origin
