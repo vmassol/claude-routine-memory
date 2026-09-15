@@ -1202,6 +1202,23 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   offering it beats both fixing the defect inside the cleanup PR and merely naming it. Budget for the
   latency: the two sweep PRs sat open ~2.5 weeks behind that fix, conflict-free the whole time — a
   blocked-but-mergeable Sonar PR does not rot, so do not rebase or re-push it while it waits.
+  **But once the fix lands on master, MERGING MASTER IN is the step that clears the gate, and only
+  that.** The SonarCloud PR analysis reads the **branch's** copy of the file, so a pre-existing
+  finding the PR inherited from its base stays in the report until the branch itself carries the fix.
+  Vincent burned three close-and-reopen CI kicks on #6247 (each a `closed`+`reopened` webhook pair
+  seconds apart — recognise them and never react to the `closed` half) and the gate failed again
+  every time on the same condition. What resolved it: `git fetch --deepen=250` (the clones are
+  shallow, so there is no real merge base without it), `git merge --no-commit --no-ff origin/master`,
+  then re-assert every edit against the **merged** tree — the apply script's own `new` text, asserted
+  to occur exactly once with the pre-fix text gone, is a free check and it caught nothing here
+  (19/19 and 21/21 intact) precisely because it was run. Rebuild before pushing even on a clean
+  auto-merge: `switch` dominance depends on type hierarchies, so a fortnight of master under an
+  untouched file of yours is exactly the silent-break case (11 modules, 1988 tests, green).
+  **Outcome: #6247 MERGED with the app gate still red**, on the strength of `Quality / Analyze` alone
+  — which confirms the app check is not the verdict. **And when one PR of a pair merges, its branch is
+  finished**: reset it to master and throw away any merge commit you had prepared for it (a merged PR
+  cannot be reused), then re-merge the *newer* master — now containing the sibling — into the PR that
+  is still open, rather than pushing the older merge you already built.
   **Residual state to expect**: the `SonarCloud Code Analysis` check (the SonarCloud app reporting the
   *project* gate) can still be red for the moved-finding reason; it is no longer the repo's verdict —
   `Analyze` is. Don't act on the app check alone.
