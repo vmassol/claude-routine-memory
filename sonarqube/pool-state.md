@@ -442,8 +442,14 @@ later reopened — see the gate bullet below):**
   commons [#1940](https://github.com/xwiki/xwiki-commons/pull/1940) (3, **MERGED uncommented ~7.5 h
   after opening**, second commit and all),
   rendering [#424](https://github.com/xwiki/xwiki-rendering/pull/424) (3, `S2386` judgement,
-  **MERGED uncommented**). Two of four merged within ~8 h, neither with a review comment; the two
-  platform PRs were still open, `Quality / Analyze` green, only the SonarCloud *app* gate red.
+  **MERGED uncommented**). **Final outcome: all six MERGED** — the two platform PRs were unblocked by
+  one prerequisite each (#6288 → #6273, #6289 → #6272, then Vincent's own #6401 for #6272's last
+  `javabugs:S2259`). #6272 landed at **21**, not the 25 first claimed: two `S1940` sites were absorbed
+  by #6289's extracted helper and two `S1128` imports were removed on `master` by `ce147b6d`
+  (XWIKI-24747) — re-derive a PR's count after every base merge, and re-run the SonarCloud query with
+  `&resolved=false` before quoting one. So the run's real shape is **six PRs, 36 issues, three
+  prerequisites**: the mechanical batch is cheap, and the whole cost of the run sat in the *project*
+  gate's habit of charging a cleanup PR for findings that merely share a file.
 
 **Current standing state — after the `S93xx` sweep (platform 19 + 1, commons 9, rendering 5 = 34;
 the seventh run to ship in all three repos, and the first ever to do it off a brand-new rule
