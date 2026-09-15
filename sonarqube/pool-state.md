@@ -33,8 +33,9 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
   After the drop-index grep and the claimed-file filter, every remaining bucket ≥20 was a recorded
   drop: `S1135` 610 / `S112` 307 / `S1133` 262 / `S3776` 231 / `javabugs:S2259` 216 / `S2143` 194 /
   `S6355` 163 / `S1168` 135 / `S2160` 109 / `S1134` 95 / `xml:S1135` 72 / `S5961` 62.
-  What paid: **`java:S1181`, 48 of 54 issues over 27 files in all three repos** — recorded twice here
-  as *"narrowing what is caught is a behaviour change"*, which is the suppression's own argument. See
+  What paid: **`java:S1181`, 48 of 54 issues over 27 files in all three repos** (platform #6400 33,
+  commons #1981 12, rendering #440 3) — recorded twice here as *"narrowing what is caught is a
+  behaviour change"*, which is the suppression's own argument. See
   [rules/java-S1181.md](rules/java-S1181.md). Still untouched and of the same shape: `S1948` (~55,
   platform 41 / commons 14 — but its argument does NOT transfer from `S2065`, see that rule file),
   `S2447`, `S1215`, `S2696`, and `javascript:S1848` (37, recorded as a Prototype false positive but

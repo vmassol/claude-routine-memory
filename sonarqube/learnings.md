@@ -564,8 +564,8 @@ rows for the rules you commit to fixing this run.
   here as *"narrowing what is caught is a behaviour change"* — true, and it is precisely the
   suppression's argument, because a rule whose only remediation changes behaviour has **no compliant
   form of the code**, which is the definition of a false positive. 48 of 54 shipped in all three repos
-  on a day the never-mentioned-rule diff was empty over five severity × ten language facets and 30
-  open agent PRs held 261 files. So when grepping the drop index for suppression pools, search
+  (platform #6400, commons #1981, rendering #440) on a day the never-mentioned-rule diff was empty
+  over five severity × ten language facets and 30 open agent PRs held 261 files. So when grepping the drop index for suppression pools, search
   "behaviour change" / "narrows" / "changes what is persisted" alongside "rename" and "API break" —
   and note the axis generalises to any rule *about a boundary*: `S1181` (catch), `S2065`/`S1948`
   (persisted state), `S2447` (returned value).

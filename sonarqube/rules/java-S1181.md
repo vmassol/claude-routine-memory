@@ -64,3 +64,20 @@ together for that reason).
   prefix you expect and hand-fix the misses — one of 43 here.
 * Insert-only, `SOURCE` retention, bytecode byte-for-byte identical: say it in the PR body, it answers
   the whole safety question and rules out Revapi and JaCoCo.
+
+## Outcome
+
+48 of 54 shipped 2026-09-15 as **platform #6400 (33 issues / 29 annotations / 16 files), commons
+#1981 (12 / 12 / 9), rendering #440 (3 / 2 / 2)**, one reactor each in dependency order: commons 6
+modules **300 tests / 4:32**, rendering 2 modules **275 / 1:14**, platform 9 modules **1610 / 11:38**
+(oldcore 1221 of them), all green with `revapi:check` and `checkstyle:check`. The 6 drops are keyed in
+`dropped-issues.md`.
+
+## Where the pool sits
+
+Boundary code, so it follows the architecture rather than a module: request dispatch and plugins
+(`oldcore` `XWikiAction`, `MonitorPlugin`, `Package`, `User`, `BaseClass`, `PropertyClass`), the
+template and macro pipelines (`InternalTemplateManager`, `MacroTransformation`,
+`AbstractXHTMLImageTypeRenderer`), the job and extension machinery (`AbstractJob`,
+`DefaultExtensionInitializer`, `JarExtensionHandler`), XStream's `Safe*` classes, and the legacy
+notification rules. Present in **all three repos**, which is what a multi-repo run needs.
