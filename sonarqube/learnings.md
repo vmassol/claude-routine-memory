@@ -1214,6 +1214,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   (19/19 and 21/21 intact) precisely because it was run. Rebuild before pushing even on a clean
   auto-merge: `switch` dominance depends on type hierarchies, so a fortnight of master under an
   untouched file of yours is exactly the silent-break case (11 modules, 1988 tests, green).
+  **And the duplication condition is resolved by DROPPING the twin sites — the author did it himself,
+  so offer it explicitly.** Once the reliability half cleared, #6248's gate still failed on the 2
+  duplicated lines; Vincent rebased the branch and deleted exactly the two sites the comment had
+  named (`DocumentsDeletingListener`, `XClassDeletingListener`), taking the PR from 21 fixes to 19.
+  Two consequences for the routine, both owed the same turn you notice it: **reopen the SonarCloud
+  issues whose "Fixed by <PR>" comment is now false** (`do_transition transition=reopen` plus a
+  correction comment, then verify they read OPEN) and **edit the PR body to the new count** — the
+  body is yours and it otherwise claims fixes that are no longer in the diff. Also expect the
+  author's push to CANCEL your in-flight check run (`completed/cancelled` is a superseded run, not a
+  failure: compare the head SHA before reacting), and reset your local branch to the remote rather
+  than pushing over the rebase.
   **Outcome: #6247 MERGED with the app gate still red**, on the strength of `Quality / Analyze` alone
   — which confirms the app check is not the verdict. **And when one PR of a pair merges, its branch is
   finished**: reset it to master and throw away any merge commit you had prepared for it (a merged PR
