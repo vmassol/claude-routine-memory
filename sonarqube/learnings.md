@@ -1334,6 +1334,17 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   whose null return already means "nothing found" (`DownloadAction#getAttachment`, where returning
   `null` feeds an existing not-found path — and verify the value is dead afterwards, or the guard just
   relocates the NPE). State the choice in the PR and offer the alternative.
+  **Outcome, and it partly walks the suppression back: the maintainer took the THIRD option and fixed
+  it at the source.** Offering "suppress / guard / throwing precondition" in the PR body was right —
+  but the answer came as a separate merged PR (platform #6382) adding an explicit
+  `throw new XWikiException(... "Cannot check the deletion of a null document")` plus a unit test, not
+  as a review comment. So when a long-running PR carries a judgement call, **re-read `master` before
+  every push**: mine had auto-merged cleanly into a method that now guards, leaving my
+  `@SuppressWarnings` redundant and its comment ("the document is never null here") flatly
+  contradicted by the guard three lines below. Git will not flag that — a semantic contradiction
+  merges silently. Remove your half, say so in a comment, and keep only what is still needed. The
+  general rule: a judgement you flagged for the maintainer may be answered by a COMMIT rather than a
+  reply, and the answer can land in code you already touched.
   **And the set of `javabugs:` findings a PR analysis surfaces for one file is NOT STABLE between
   runs** — #6272 reported exactly one `S2259` in `XWiki.java`, its prerequisite PR reported four
   *different* ones, and master's snapshot listed neither set. So never promise that fixing the finding
@@ -2192,6 +2203,15 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   `--amend --reset-author`: that overwrites the author and breaks the override. And do not rewrite an
   already-pushed commit that carries an anchored review comment just for the badge — squash-merge
   replaces the committer anyway.
+- **On a wake-up days later, the maintainer may have REBASED your branch — check the remote head
+  before pushing anything.** Platform #6273 sat 13 days; I merged `master` into my local copy, built
+  it, and the push was rejected non-fast-forward because Vincent had already rebased the branch onto
+  the same master himself. The recorded rule ("reset the local branch to the remote rather than
+  pushing your stale commit over someone's rebase") is right, and there is a free consolation:
+  `git diff <remote-branch> HEAD` came back EMPTY, i.e. his rebase and my merge produced byte-identical
+  trees, so **the build I had just run still verified what was actually on the PR**. Do that diff
+  before discarding the work — it converts a wasted build into a valid verification. Then
+  `git reset --hard origin/<branch>` and push nothing.
 - **Reset the designated feature branch to master FIRST — it persists across runs.** `git fetch origin
   master` then `git checkout -B <branch> origin/master` before editing, or the new PR bundles old
   already-merged commits. **The local `origin/master` ref can LAG even right after `git fetch origin
