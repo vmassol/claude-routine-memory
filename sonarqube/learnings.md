@@ -1322,6 +1322,11 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   PR analysis — which is why it is now the first thing to run. (It also exposed that a `javabugs:`
   finding does not merely shift: master reported `S2259` at 787/834 of the same file while the PR
   reported 788/847, i.e. *different instances of the same `getDoc()`-may-be-null shape*, same count.)
+  **One `isNew` line is NEVER yours: the `@version $Id: <hash> $` line.** XWiki expands `$Id$` through
+  git's ident filter, so the class Javadoc's version line changes whenever the file's blob hash does —
+  i.e. on *every* edit to that file. Replicating the job on a commons PR whose only hunk was one string
+  added to an annotation returned `isNew: [73, 242]`, and 73 was that `$Id$` line. Say so when you quote
+  the set, or the reviewer reads it as a second, unexplained hunk.
   **`resolved=false` in that recipe is LOAD-BEARING — drop it and you will over-report to the
   maintainer.** A PR-scoped `issues/search` keeps returning findings the PR's own merged prerequisite
   has already fixed, so an unfiltered query counts them as still outstanding. Measured on #6272 the
