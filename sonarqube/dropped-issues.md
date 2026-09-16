@@ -2106,3 +2106,161 @@ Still standing and worth a run when it is unblocked: the **`java:S2629` `debug`/
 (21 sites, listed above) is not a drop — adding real `isDebugEnabled()`/`isInfoEnabled()` guards is a
 per-method judgement a run can take; and the **31 platform `java:S6355` `@Override` sites** stay
 blocked behind the still-open #6327.
+
+## Analyzed and NOT fixed on 2026-09-16 (the cross-linter-twin sweep)
+
+Every key below was read at site level this run and rejected for the stated reason — skip them in the
+find phase rather than re-triaging. The lever that *did* pay is in
+[rules/checkstyle-twins.md](rules/checkstyle-twins.md).
+
+### java:S1172 — the `private` subset is EMPTY for the fourth consecutive run
+
+58 fresh unclaimed keys, bucketed by walking back to the nearest `public|protected|private` on or
+above the flagged declaration: **36 `public`, 22 `protected`, 0 `private`.** The OKF denylist
+("a signature change on anything non-`private`") therefore applies to every one of them, and the
+failed-visibility-split-is-the-FP-argument route was already cashed by platform #6371 / the
+`fp-suppressions` generation. Re-running the bucketing is wasted; re-check only after those PRs
+merge and the pool regenerates.
+
+`AYXL0qCDDFpHtDd3IizI` `AYXL0qCDDFpHtDd3IizJ` `AYXL0qCDDFpHtDd3IizK` `AW5-S8s01Yj5qvzeRoOO`
+`AW5-S7Ti1Yj5qvzeRn63` `AW5-S7Sx1Yj5qvzeRn6y` `AW5-S83E1Yj5qvzeRoRE` `AW5-S83E1Yj5qvzeRoRG`
+`AW5-S7wU1Yj5qvzeRn_1` `AW5-S7wU1Yj5qvzeRn_2` `AW5-S-MT1Yj5qvzeRoyq` `AW5-S-MH1Yj5qvzeRoyT`
+`AW5-S-MH1Yj5qvzeRoyV` `AW5-S4Vs1Yj5qvzeRmnW` `AW5-S4V31Yj5qvzeRmnX` `AW5-S89x1Yj5qvzeRoSv`
+`AW5-S6d91Yj5qvzeRnZO` `AW5-S6d91Yj5qvzeRnZS` `AW5-S6pj1Yj5qvzeRniL` `AW5-S6pj1Yj5qvzeRniM`
+`AW5-S6pj1Yj5qvzeRniN` `AW5-S6pj1Yj5qvzeRniO` `AW5-S6pj1Yj5qvzeRnih` `AW5-S6xo1Yj5qvzeRntK`
+`AW5-S6QN1Yj5qvzeRnIq` `AW5-S6Vq1Yj5qvzeRnMM` `AW5-S61k1Yj5qvzeRnvN` `AW5-S-AD1Yj5qvzeRotA`
+`AW5-S9_r1Yj5qvzeRosj` `AW5-S-AD1Yj5qvzeRotC` `AW5-S-AD1Yj5qvzeRotD` `AW5-S-AD1Yj5qvzeRotG`
+`AW5-S-AD1Yj5qvzeRotI` `AW5-S-AD1Yj5qvzeRotJ` `AW5-S-AD1Yj5qvzeRotK` `AW5-S-AD1Yj5qvzeRotL`
+`AaAv1L1pObA3UIzK3uTE` `AW5-S6OA1Yj5qvzeRnGL` `AW5-S6Mv1Yj5qvzeRnFJ` `AW5-S60e1Yj5qvzeRnu-`
+`AW5-S9_r1Yj5qvzeRosr` `AW5-S9_r1Yj5qvzeRoss` `AW5-S9_r1Yj5qvzeRost` `AW5-S9_r1Yj5qvzeRos1`
+`AW5-S-AD1Yj5qvzeRotO` `AW5-S9_q1Yj5qvzeRork` `AW5-S60Q1Yj5qvzeRnup` `AW5-S60Q1Yj5qvzeRnu0`
+`AW5-S60Q1Yj5qvzeRnu1` `AW5-S6pj1Yj5qvzeRnif` `AZRQnUkO6WWG1k8VL2G1` `AZRQnUtE6WWG1k8VL2IH`
+`AZRQnUtE6WWG1k8VL2IJ` `AZRQnUtE6WWG1k8VL2IL` `AW7won0-0RXfCMpDoMtM` `AW5eyzK0QkWLv139wWRS`
+`AW5eyzK0QkWLv139wWRU` `AZ976cbpq4IVm24_e81r`
+
+### java:S6355 — the `@Override` lever is exhausted: all remaining parents are THIRD-PARTY
+
+0 of the 161 fresh unclaimed sites state a version in their own `@deprecated` tag. 22 are
+`@Override`s, and every one overrides a **library** member, not an XWiki one — Hibernate
+`QueryImplementorDelegate` (18: `setEntity` ×2, `setResultTransformer`, `getFlushMode`,
+`getQueryOptions`, `isCacheable`, `getTimeout`, `isReadOnly`, `getReturnTypes`, `iterate`,
+`getNamedParameters`, `setParameterList` ×4, `determineProperBooleanType` ×2, `getReturnAliases`),
+servlet `HttpServletRequestStub` (`isRequestedSessionIdFromUrl`, `getRealPath`), plus `PDFAction` and
+`AbstractSimpleClass`. That is the recorded mirror-image drop — a replacement named by a third-party
+deprecation is not ours to recommend — so the lever is closed until a parent inside XWiki appears.
+The separately recorded **31 deferred platform sites are still blocked by the open #6327**.
+
+`AZRfe12r80sOVmdacTjA` `AZRfe12r80sOVmdacTjC` `AX54Z3sBBugC4qd49vTh` `AX54Z3G6BugC4qd49vPT`
+`AX54Z3G6BugC4qd49vPU` `AX54Z3G6BugC4qd49vPV` `AX54Z3G6BugC4qd49vPW` `AX54Z3G6BugC4qd49vPX`
+`AX54Z3G6BugC4qd49vPY` `AX54Z3G6BugC4qd49vPZ` `AX54Z3G6BugC4qd49vPa` `AX54Z3G6BugC4qd49vPb`
+`AX54Z3G6BugC4qd49vPc` `AX54Z3G6BugC4qd49vPd` `AX54Z3G6BugC4qd49vPe` `AX54Z3G6BugC4qd49vPf`
+`AX54Z3G6BugC4qd49vPg` `AX54Z3G6BugC4qd49vPh` `AX54Z3G6BugC4qd49vPi` `AX54Z3G6BugC4qd49vPj`
+`AX54Z3G6BugC4qd49vPk` `AX54Z4IpBugC4qd49vVT`
+
+### java:S1948 — read every flagged declaration; it is heterogeneous, not a sweep
+
+54 fresh unclaimed keys. The OKF reason ("adding `transient` changes what XStream persists") is
+exactly right for the job-request/status half (`AbstractRequest#properties`,
+`FilterStreamConverterJobRequest` ×4, `AbstractExtensionRequest#extension`,
+`ExtensionIndexRequest#namespaces`) — a real drop. The rest splits into shapes that each need their
+own argument and cannot share one sentence: lazily-fetched component fields in oldcore value objects
+(`XWikiContext` ×9, `BaseElement` ×3, `BaseObject`, `DateClass`, `XWikiStats`,
+`AnnotationGeneratorChainingListener` ×7), caches (`DBListClass#cachedDBList`,
+`DBTreeListClass#cachedDBTreeList`), and exception fields (`XWikiException#args`,
+`QueryException#query`, `BlobAlreadyExistsException`/`BlobNotFoundException#blobPath`). Adding
+`transient` to a lazily-initialised field is safe only where the getter really re-fetches, which is a
+per-field read. Deferred on cost, **not** rejected — and note one site in the repos already carries
+`@SuppressWarnings("java:S1948")`, so both resolutions have precedent.
+
+`AaAPhbd3yezmGMmr0i4I` `AaAPhbd3yezmGMmr0i4J` `AX0oFz4WqBwn_ySCeTki` `AXzLX31QMzZ3f6e10yJI`
+`AXnpAf6xDDFOvAKXAQhL` `AZRfe0MI80sOVmdacTXs` `AZRfe0MI80sOVmdacTXt` `AZRfe0MI80sOVmdacTXu`
+`AW8aNoknah6ko95KGYtt` `AW5-S5Ch1Yj5qvzeRmwz` `AW5-S5Ch1Yj5qvzeRmw0` `AW5-S5Ch1Yj5qvzeRmw1`
+`AW5-S5Ch1Yj5qvzeRmw2` `AW5-S5Ch1Yj5qvzeRmw3` `AW5-S5Ch1Yj5qvzeRmw4` `AW5-S8h21Yj5qvzeRoNA`
+`AW5-S5hA1Yj5qvzeRm2V` `AW5-S5hA1Yj5qvzeRm2W` `AW5-S65d1Yj5qvzeRn2y` `AW5-S65d1Yj5qvzeRn2z`
+`AW5-S65d1Yj5qvzeRn20` `AW5-S65d1Yj5qvzeRn21` `AW5-S65d1Yj5qvzeRn22` `AW5-S65d1Yj5qvzeRn24`
+`AW5-S65d1Yj5qvzeRn25` `AXnpAfTDDDFOvAKXAQYR` `AW5-S6WC1Yj5qvzeRnMd` `AW5-S6HV1Yj5qvzeRnAG`
+`AW5-S6Fv1Yj5qvzeRm_t` `AW5-S6UG1Yj5qvzeRnKs` `AW5-S6UG1Yj5qvzeRnKt` `AW5-S6UG1Yj5qvzeRnKu`
+`AW5-S6Oc1Yj5qvzeRnGg` `AW5-S6Pb1Yj5qvzeRnHe` `AW5-S6w21Yj5qvzeRnsR` `AW5-S7nm1Yj5qvzeRn8e`
+`AW5-S6Ue1Yj5qvzeRnLK` `AW5-S6Qg1Yj5qvzeRnI5` `AW5-S62B1Yj5qvzeRnvg` `AW5-S6n71Yj5qvzeRnhZ`
+`AZpzqARr_W9UTNvTGQYB` `AZpzqATZ_W9UTNvTGQYC` `AYskduAqYhrc2H0H6VcV` `AYah0EZnDRZ0rGudwTzh`
+`AWzcJEC58pMOHxUYtIPK` `AWx2jmdDYNfAvfE7oinm` `AWgZSTqCUMkE2J58eTVw` `AWgZSTZmUMkE2J58eTT5`
+`AWgZSTZmUMkE2J58eTT6` `AWgZSTZmUMkE2J58eTT7` `AWgZSTZmUMkE2J58eTT8` `AWgZST5OUMkE2J58eTXh`
+`AWgZSTlZUMkE2J58eTVG` `AWgZSSrqUMkE2J58eTQk`
+
+### java:S5411 — deferred, NOT dropped: there is an `internal`-package subset nobody has spent
+
+39 fresh unclaimed keys, all with the message "Use a primitive boolean expression here.". The OKF
+denylists the rule as "a real behaviour change", which is true of the `Boolean.TRUE.equals(x)`
+remediation (it turns an NPE into `false`). It is **not** obviously true of the other compliant
+form: declaring the variable `boolean` instead of `Boolean`. **17 of the 39 sit in
+`org.xwiki.rest.internal`** (`ModelFactory` ×10, `DomainObjectFactory` ×2, `DatabaseKeywordSearchSource`
+×3, `AbstractDatabaseSearchSource`, `ClassPropertyValuesResourceImpl`) as `Boolean withPrettyNames` /
+`withObjects` / `withXClass` / `withAttachments` parameters fed from JAX-RS `@QueryParam`s; the
+package is Revapi-excluded and every existing caller keeps compiling by auto-unboxing. What has to be
+checked before believing it: whether any caller can pass `null` (the JAX-RS `@DefaultValue` on each
+resource decides it). The other shapes are a public API (`Utils.isAjaxRequest` ×6,
+`XWikiDocument#isHidden` ×3) or a `getProperty(key, default)` result that is provably non-null.
+
+`AZ9q2cHUHKfHY7dxJX2M` `AZoW-yQoq_K3LGNcpDrv` `AZeKdlNsdMqt9rTWYu_m` `AZeKdlNsdMqt9rTWYu_n`
+`AZeKdlNsdMqt9rTWYu_o` `AYVR6u6ZMcTx3rsGLmtT` `AX7aUPoxbKIaYKr3NWW6` `AX4R95gbsf8ryGDWblWd`
+`AXnpAhaQDDFOvAKXAQwq` `AXnpAgSJDDFOvAKXAQlX` `AXnpAf7oDDFOvAKXAQha` `AXnpAePxDDFOvAKXAQLo`
+`AW5-S8ZG1Yj5qvzeRoIi` `AW5-S5PC1Yj5qvzeRmz-` `AW5-S6Y71Yj5qvzeRnVX` `AW5-S5961Yj5qvzeRm9K`
+`AW5-S5-d1Yj5qvzeRm9R` `AW5-S6j61Yj5qvzeRnfL` `AW5-S6gM1Yj5qvzeRnbx` `AW5-S6eM1Yj5qvzeRnZe`
+`AW5-S4eN1Yj5qvzeRmqh` `AW5-S4eN1Yj5qvzeRmqi` `AW5-S4e-1Yj5qvzeRmrG` `AW5-S4e-1Yj5qvzeRmrH`
+`AW5-S4e-1Yj5qvzeRmrI` `AW5-S4e-1Yj5qvzeRmrJ` `AW5-S4e-1Yj5qvzeRmrK` `AW5-S4e-1Yj5qvzeRmrL`
+`AW5-S4e-1Yj5qvzeRmrM` `AW5-S4e-1Yj5qvzeRmrN` `AW5-S4e-1Yj5qvzeRmrO` `AW5-S4Vk1Yj5qvzeRmnS`
+`AW5-S4Um1Yj5qvzeRmnH` `AW5-S6b01Yj5qvzeRnYA` `AW5-S6fT1Yj5qvzeRnaM` `AW5-S6c_1Yj5qvzeRnY4`
+`AW5-S6ey1Yj5qvzeRnZ-` `AW5-S6ey1Yj5qvzeRnZ_` `AWy9lbjOKTwBvn8qD2uj`
+
+### javascript:S1121 — all 22 are inside a VENDORED file
+
+Every fresh unclaimed `S1121` ("Extract the assignment of X from this expression") is in
+`xwiki-platform-web-war/.../table/tablefilterNsort.js`, the third-party table filter script XWiki
+redistributes rather than maintains (Guglielmi/de Valk/Eldenmalm header). Recorded whole-file drop.
+
+`AY1U1sNB0GHv9uFD3jRw` `AY1U1sPk0GHv9uFD3jbI` `AY1U1sNB0GHv9uFD3jP_` `AY1U1sNB0GHv9uFD3jQA`
+`AY1U1sNB0GHv9uFD3jQB` `AY1U1sNB0GHv9uFD3jQC` `AY1U1sNB0GHv9uFD3jQD` `AY1U1sNB0GHv9uFD3jQE`
+`AY1U1sNB0GHv9uFD3jQF` `AY1U1sNB0GHv9uFD3jQG` `AY1U1sNB0GHv9uFD3jQr` `AY1U1sNB0GHv9uFD3jQs`
+`AY1U1sNB0GHv9uFD3jQu` `AY1U1sNB0GHv9uFD3jQv` `AY1U1sNB0GHv9uFD3jQx` `AY1U1sNB0GHv9uFD3jQy`
+`AY1U1sNB0GHv9uFD3jQ0` `AY1U1sNB0GHv9uFD3jQ1` `AY1U1sNB0GHv9uFD3jQ6` `AY1U1sNB0GHv9uFD3jQ7`
+`AY1U1sNB0GHv9uFD3jRD` `AY1U1sNB0GHv9uFD3jRE`
+
+### java:S112 on `XARMojo#performTransformations` — the neighbouring suppression is the WRONG twin
+
+`AWgZSVLwUMkE2J58eTcw` commons `XARMojo:189`. The declaration carries
+`@SuppressWarnings({"checkstyle:CyclomaticComplexity", …})`, so the cross-linter scan matches it — but
+Checkstyle's `IllegalThrows` does not flag `throws Exception` at all, so there is no recorded decision
+about the thrown type to point at. Left open deliberately; it is the worked example of the twin gate.
+
+## CLAIMED by an open PR on 2026-09-16 — could NOT be Accepted in SonarCloud (permission)
+
+`api/issues/do_transition` now answers **`404 {"msg":"Project doesn't exist"}`** for
+`xwikiorg-llm-bot` on *all three* projects, which is SonarCloud's way of refusing an issue
+transition to a user without *Administer Issues* on the project (`users/current` shows
+`groups: ["Members"]`, `permissions.global: []`). `api/issues/add_comment` still returns **200**, so
+the "Fixed by <PR>" comments did land — only the status change did not. **Until the permission is
+restored, this list IS the claim**: the keys below are fixed by an open PR, so skip them in the find
+phase exactly as if they read ACCEPTED, and drop this section once the PRs merge and SonarCloud
+closes them as FIXED.
+
+* https://github.com/xwiki/xwiki-platform/pull/6407 (7):
+`AZzGqNmSXFD7Ud6sqSQV` `AXnpAeG8DDFOvAKXAQKB` `AXnpAdcSDDFOvAKXAQEr` `AXDGHgGN2DhN-pZeDYg5`
+`AW5-S4bl1Yj5qvzeRmpL` `AW5-S6Te1Yj5qvzeRnKA` `AW5-S6Te1Yj5qvzeRnJ_`
+
+* https://github.com/xwiki/xwiki-commons/pull/1983 (22):
+`AZAwK-esUnllzxyYJ8mN` `AY-F49LFUnN6kAHHxlXL` `AWzY6RXo8pMOHxUYvkyE` `AWxii0J-2Hur5iaKlTQF`
+`AWhXc3gM1ahp--GZBsfR` `AWgZSVJ6UMkE2J58eTck` `AWgZSTsXUMkE2J58eTWC` `AWgZSS6iUMkE2J58eTRU`
+`AWgZSS7MUMkE2J58eTRb` `AWgZSTDqUMkE2J58eTSo` `AWgZSTOWUMkE2J58eTTP` `AWgZSSvAUMkE2J58eTQt`
+`AWgZSTPgUMkE2J58eTTR` `AWgZSTe_UMkE2J58eTUM` `AWgZSTe_UMkE2J58eTUN` `AWgZSUsAUMkE2J58eTZ1`
+`AWgZSVLwUMkE2J58eTc3` `AWgZSVQ1UMkE2J58eTd6` `AWgZSVQ1UMkE2J58eTd7` `AZRQnUtE6WWG1k8VL2H4`
+`AZRQnUtE6WWG1k8VL2H5` `AZRQnUtE6WWG1k8VL2H6`
+
+* https://github.com/xwiki/xwiki-rendering/pull/441 (2):
+`AWgjJiip1_eUtAp8ETOa` `AZNziSnUEcK0YeraNzE0`
+
+* https://github.com/xwiki/xwiki-platform/pull/6408 (16):
+`AZw2UHwWOyO_hcZvGE92` `AW5-S4e-1Yj5qvzeRmrF` `AW5-S-Mk1Yj5qvzeRoyu` `AW5-S-MH1Yj5qvzeRoyB`
+`AW5-S-MH1Yj5qvzeRoyC` `AW5-S6Xw1Yj5qvzeRnOg` `AW5-S4eN1Yj5qvzeRmqe` `AW5-S4eN1Yj5qvzeRmqf`
+`AW5-S4eN1Yj5qvzeRmqg` `AW5-S4Ux1Yj5qvzeRmnK` `AW5-S6d91Yj5qvzeRnZL` `AW5-S9_q1Yj5qvzeRorK`
+`AW5-S9_q1Yj5qvzeRorL` `AW5-S9_q1Yj5qvzeRorM` `AW5-S6pK1Yj5qvzeRnh7` `AW5-S60Q1Yj5qvzeRnuW`
+

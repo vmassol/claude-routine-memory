@@ -75,6 +75,7 @@ rows for the rules you commit to fixing this run.
 | `java:S1452` | [rules/java-S1452.md](rules/java-S1452.md) | a FAILED visibility split ("zero `private` sites") IS the FP argument — 35 of 36 shipped as suppressions |
 | `java:S1181` | [rules/java-S1181.md](rules/java-S1181.md) | recorded twice as "narrowing is a behaviour change" — which is the suppression's argument; the drop is a `// TODO:` in the block objecting to the clause itself |
 | *(cross-rule)* `java:S1150` `java:S1172` `java:S3011` `java:S1113` `java:S5738` `javabugs:S6416` `javabugs:S6322` `javabugs:S2259` | [rules/fp-suppressions.md](rules/fp-suppressions.md) | the FALSE-POSITIVE pool: `@SuppressWarnings("<key>")` + reason IS the fix, it is established in-repo, and one annotation clears many keys — but NOT for `S2259`, whose fix belongs at the null source |
+| *(cross-rule)* `java:S107` `java:S3776` `java:S112` `java:S1319` | [rules/checkstyle-twins.md](rules/checkstyle-twins.md) | the CROSS-LINTER scan: an existing `@SuppressWarnings("checkstyle:X")` on the flagged declaration is the decision already taken, and the twin map says which Sonar rule is the same finding |
 
 ## Picking a target rule (find phase)
 
@@ -618,6 +619,22 @@ rows for the rules you commit to fixing this run.
   per site (for this rule: is the package `internal`, and is the interface ever used as a type or
   only in `implements` clauses?), and write the surviving comment **specific rather than generic** —
   the generic wording is what invited the review question.
+  **UPGRADE IT FROM A PER-RULE HUNCH TO A PROJECT-WIDE SCAN — that is what makes it the best pool on
+  a swept day, and it costs one pass with no API calls.** Instead of asking "does *this* rule have a
+  Checkstyle twin", walk **every** open unclaimed issue, read the `@SuppressWarnings` attached to its
+  flagged declaration, and histogram `(repo, rule, checkstyle:<check>)`. 30 rows in all three repos
+  on a day the never-mentioned-rule diff was 0 over five severity × twelve language facets and 28
+  open agent PRs held 248 files; **27 of them were exact twins and shipped, plus 20 more from the
+  split the scan hands you for free** (47 issues, four PRs). The twin map, the gate (the twin must be
+  the *same* finding — a `java:S112` sitting next to a *complexity* suppression is not a hit) and the
+  parenthesis-balancing needed to see multi-line `@SuppressWarnings({…})` arrays are in
+  [rules/checkstyle-twins.md](rules/checkstyle-twins.md). Two things generalise beyond the scan:
+  a Sonar rule and a Checkstyle check **with the same threshold** (`java:S107` / `ParameterNumber`,
+  both max 7) split the rule for free — everything in a Checkstyle-enforced file must already carry
+  the suppression, everything else is in a Checkstyle-*excluded* file and is the judgement half; and
+  a *whole-rule* denylist entry ("`S3776` is a genuine refactor") can be true of the rule and false
+  of the subset the project already exempts from its own gate, which is the `S2386` escape axis
+  applied to a metric rule.
   **The sibling axis, for a rule the denylist rejects wholesale: ask which ONE TOKEN on the flagged
   line splits it.** `java:S2629` is correctly denylisted (a withdrawn PR proves deleting the eager
   String is wrong), and this repo's own entry concluded "the remaining sites all need an
@@ -1112,7 +1129,23 @@ rows for the rules you commit to fixing this run.
   `'\n'.join(keys)` produces exactly that, so a 106-key loop processes 105 and the miss looks like a
   transient API failure. End the file with a newline or iterate in Python; either way re-verify the
   count afterwards.
-- **STOP RUNNING THE ACCEPT LOOP FOR ISSUES THE PR FIXES — the skill now forbids it, and that
+- **THE ACCEPT LOOP IS CURRENTLY IMPOSSIBLE, AND IT FAILS SILENTLY — check the HTTP status, do not
+  trust the loop's own "DONE".** Since 2026-09-16 `api/issues/do_transition` answers
+  **`404 {"msg":"Project doesn't exist"}`** for `xwikiorg-llm-bot` on all three projects, which is
+  how SonarCloud refuses a transition to a user without *Administer Issues* (`users/current` →
+  `groups: ["Members"]`, `permissions.global: []`; the same 404 comes back from
+  `permissions/users`). `api/issues/add_comment` still returns **200** on the same key, so a loop
+  that ignores response codes posts 47 comments, prints `DONE`, and changes **nothing** — the confirm
+  pass (`issues/search?issues=<keys>` → `issueStatus`) is what caught it, and it is now mandatory
+  rather than a formality. Two consequences: put the fixed keys in `dropped-issues.md` under an
+  explicit *claimed by an open PR* heading (that list is the claim while the permission is missing,
+  since discovery filters on `issueStatuses=OPEN`), and raise the permission with Vincent rather than
+  hunting for another endpoint — `issues/set_status` and `issues/anticipated_transitions` do not
+  exist on SonarCloud (`Unknown url`), and adding `organization=xwiki` changes nothing.
+  Also note the skill (plugin 1.10.0) now says to **accept** the issues a PR fixes, as a claim; the
+  older note below that it "forbids it" was about plugin 1.5.x and is obsolete — read the skill from
+  the source repo, not from this file.
+- **[OBSOLETE, see above] STOP RUNNING THE ACCEPT LOOP FOR ISSUES THE PR FIXES — the skill now forbids it, and that
   supersedes every bullet below.** `xwiki-fix-sonarqube-issue` (1.5.x) says it outright: *"Never
   transition an issue the PR fixes. SonarCloud closes it as FIXED on its own at the next branch
   analysis after the merge. Accepted means 'won't fix': on a fixed issue it buys nothing, and hides a
@@ -1605,6 +1638,13 @@ lowers a JaCoCo ratio, how to tell your reactor failure from a pre-existing one 
   incl. oldcore **5:19** (1288, oldcore 1209 of them) = **~10 min** for 2229 tests, all green,
   `revapi:check` in all nine. A 30-site batch costs the same shape of reactor as a 300-site one —
   which is the argument for never trimming a repo out of a multi-repo sweep to save build time.
+- **Datapoint for a three-repo ANNOTATION-ONLY sweep WITH `clean`** (47 sites, 32 files, 18 modules):
+  commons 9 modules **5:50** (621 tests) + rendering 3 modules **1:30** (1003) + platform 7 modules
+  incl. `oldcore` (1225) and `legacy-oldcore` (48/48) **10:23** (1601) = **~18 min for 3225 tests**,
+  all green, `revapi:check` and `checkstyle:check` throughout. `clean` in the `mvn` line cost
+  nothing measurable and removes the recorded stale-`target/` misdiagnosis outright — put it in by
+  default. `xwiki-rendering-integration-tests` is what actually exercises `xwiki-rendering-test`
+  (767 of those 1003), so add it whenever the test-framework module is touched.
 - **Datapoint for a three-repo ANNOTATION-AND-COMMENT sweep** (warm `~/.m2`, 31 sites, 24 files,
   22 modules): commons 4 modules **3:28** (356 tests) + rendering 2 modules **1:22** (381) +
   platform **16** modules incl. `oldcore` (1221) and `legacy-oldcore` (48/48) **11:35** (2042) =

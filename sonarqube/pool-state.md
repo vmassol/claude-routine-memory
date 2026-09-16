@@ -10,6 +10,30 @@ Every count below is a *last-seen* observation, not a fact. Confirm with
 
 ## The standing shape of the pools
 
+- **2026-09-16: the catalogue diff was EMPTY for the fifth run running, and the pool was ANOTHER
+  LINTER'S SUPPRESSION — run as a SCAN this time, not as a per-rule hunch.** Facets: **platform 196
+  rules / 4336 open, commons 79 / 857, rendering 51 / 315**; never-mentioned-rule diff **zero** over
+  five severity × twelve language facets in all three repos; **28** open `llm-agent` PRs (platform
+  15, commons 7, rendering 6) claimed **248 files** (175/58/15). After the drop-index grep and the
+  claimed-file filter every bucket ≥20 was a recorded drop (`S1135` 477/89/53, `S112` 239/44/13,
+  `S1133` 228/25/2, `S2143` 174/21, `S3776` 153/48/22, `S6355` 140/17/4, `javabugs:S2259`
+  110/15/**93**, `S1168` 99/42/1, `S1134` 82/10/1, `S2160` 76/33, `xml:S1135` 52/14/6, `S1172`
+  50/7/1, `S1948` 40/14, `S5411` 38/0/1, `S110` 38/5, `javascript:S1848` 37, `S5961` 34/17/11,
+  `S1141` 39/4, `S135` 14/10/6, `S107` 22/0/1). What paid: the **cross-linter scan** — for every open
+  unclaimed issue, read the `@SuppressWarnings` attached to its flagged declaration and match its
+  `checkstyle:` key against the Sonar rule's twin. **47 issues, four PRs** (commons #1983 22 =
+  `S3776` 17 + `S112` 2 + `S1319` 3; rendering #441 2; platform #6407 7 mechanical + #6408 16
+  judgement). See [rules/checkstyle-twins.md](rules/checkstyle-twins.md).
+  Three re-derivations re-confirmed **negative** the same day and are not worth re-running soon:
+  `java:S1172`'s `private` subset is **zero for the fourth consecutive run** (58 fresh unclaimed =
+  36 public / 22 protected); `java:S6355`'s version-in-the-tag subset is **zero** and all 22 fresh
+  `@Override` sites have **third-party** parents (Hibernate `QueryImplementorDelegate` ×18, servlet
+  `HttpServletRequestStub` ×2); the 31 deferred platform `@Override` sites are **still** blocked
+  behind #6327. `javascript:S1121` (22) is entirely inside the vendored `tablefilterNsort.js`.
+  Untouched and still of the FP shape: `S1948` (54 — heterogeneous, see `dropped-issues.md`),
+  `S5411` (39 — the `internal`-package parameter-retyping subset in `rest-server` is the one
+  re-derivation nobody has spent yet), `S110` (43), `S107`'s Checkstyle-excluded half (now shipped).
+
 - **2026-09-14: the catalogue diff was EMPTY for the second run running, and the pool was ANOTHER
   LINTER'S SUPPRESSION.** Facets unchanged from the day before (**platform 196 rules / 4334 open,
   commons 79 / 857, rendering 51 / 317**), never-mentioned-rule diff **zero** over five severity ×
